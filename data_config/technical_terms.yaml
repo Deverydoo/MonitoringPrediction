@@ -1,0 +1,1283 @@
+java:
+- OutOfMemoryError
+- StackOverflowError
+- NullPointerException
+- ClassNotFoundException
+- NoSuchMethodError
+- LinkageError
+- HeapDumpOnOutOfMemoryError
+- GC
+- garbage collection
+- JVM
+- heap
+- stack
+- metaspace
+- permgen
+- young generation
+- old generation
+- eden space
+- survivor space
+- thread dump
+- deadlock
+- race condition
+- synchronized
+- volatile
+- concurrent
+- parallel
+- G1GC
+- CMS
+- ParallelGC
+- Spring Boot
+- Maven
+- Gradle
+- JMX
+- reflection
+- bytecode
+- classloader
+- connection pool
+- thread pool
+python:
+- virtual environment
+- pip
+- conda
+- requirements.txt
+- __init__.py
+- __main__.py
+- Python Path
+- PYTHONPATH
+- GIL
+- Global Interpreter Lock
+- pickle
+- serialization
+- list comprehension
+- generator
+- iterator
+- decorator
+- context manager
+- exception handling
+- try except finally
+- lambda function
+- map filter reduce
+- async await
+- asyncio
+- threading
+- multiprocessing
+- numpy array
+- pandas DataFrame
+- matplotlib
+- seaborn
+- jupyter notebook
+- IPython
+- virtual environment
+- poetry
+- pipenv
+- pyenv
+- pytest
+- unittest
+- mock
+- Flask
+- Django
+- FastAPI
+- Celery
+- Redis
+- SQLAlchemy
+- Alembic
+- requests
+- urllib
+- json
+- yaml
+- csv
+- logging
+- argparse
+- pathlib
+- os
+- sys
+- subprocess
+- regular expressions
+- regex
+- f-string
+- string formatting
+- type hints
+- mypy
+- black
+- flake8
+- pylint
+- pep8
+- docstring
+- sphinx
+- wheel
+- setuptools
+- distutils
+data_science:
+- machine learning
+- ML
+- artificial intelligence
+- AI
+- deep learning
+- neural network
+- CNN
+- RNN
+- LSTM
+- transformer
+- attention mechanism
+- supervised learning
+- unsupervised learning
+- reinforcement learning
+- feature engineering
+- feature selection
+- data preprocessing
+- data cleaning
+- data wrangling
+- exploratory data analysis
+- EDA
+- statistical analysis
+- hypothesis testing
+- p-value
+- confidence interval
+- correlation
+- regression
+- classification
+- clustering
+- dimensionality reduction
+- PCA
+- t-SNE
+- cross-validation
+- train test split
+- validation set
+- overfitting
+- underfitting
+- bias variance tradeoff
+- hyperparameter tuning
+- grid search
+- random search
+- ensemble methods
+- bagging
+- boosting
+- random forest
+- gradient boosting
+- XGBoost
+- LightGBM
+- support vector machine
+- SVM
+- decision tree
+- naive bayes
+- k-means
+- hierarchical clustering
+- DBSCAN
+- anomaly detection
+- outlier detection
+- time series analysis
+- forecasting
+- ARIMA
+- seasonality
+- trend analysis
+- data pipeline
+- ETL
+- data lake
+- data warehouse
+- big data
+- batch processing
+- stream processing
+- real-time analytics
+- A/B testing
+- model deployment
+- model monitoring
+- model drift
+- data drift
+- MLOps
+- feature store
+- model registry
+- experiment tracking
+- data lineage
+- data governance
+- data quality
+- ROC curve
+- AUC
+- precision recall
+- F1 score
+- confusion matrix
+- loss function
+- optimization
+- gradient descent
+- backpropagation
+- learning rate
+- epoch
+- batch size
+- dropout
+- regularization
+- L1 L2 regularization
+- normalization
+- standardization
+- encoding
+- one-hot encoding
+- label encoding
+- missing values
+- imputation
+- outlier removal
+- feature scaling
+- data visualization
+- histogram
+- scatter plot
+- box plot
+- heat map
+- distribution
+- skewness
+- kurtosis
+- statistical significance
+- sampling
+- stratified sampling
+- population
+- sample size
+- central limit theorem
+- normal distribution
+- probability
+- Bayesian statistics
+- frequentist statistics
+linux:
+- systemd
+- cron
+- iptables
+- journalctl
+- systemctl
+- ps
+- top
+- htop
+- df
+- du
+- lsof
+- netstat
+- ss
+- sar
+- iostat
+- vmstat
+- dmesg
+- proc
+- sys
+- var
+- tmp
+- kernel
+- module
+- driver
+- filesystem
+- mount
+- umount
+- fstab
+- swap
+- memory
+- cpu
+- load average
+- inode
+- buffer
+- cache
+- page fault
+- context switch
+- interrupt
+- ulimit
+- cgroup
+- namespace
+- selinux
+- apparmor
+- sudo
+- passwd
+- bash
+- shell scripting
+- environment variables
+- PATH
+- chmod
+- chown
+- grep
+- awk
+- sed
+- find
+- xargs
+- tar
+- gzip
+- ssh
+- scp
+- rsync
+- crontab
+- systemctl
+- service
+- daemon
+- init.d
+- runlevel
+- upstart
+- firewall
+- ufw
+- fail2ban
+- logrotate
+- syslog
+- rsyslog
+- audit
+- auditd
+- package manager
+- apt
+- yum
+- dnf
+- zypper
+- rpm
+- dpkg
+- repository
+- PPA
+- kernel parameters
+- sysctl
+- /proc/sys
+- /etc/hosts
+- /etc/resolv.conf
+- network interface
+- ifconfig
+- ip command
+- route
+- ping
+- traceroute
+- nslookup
+- dig
+- curl
+- wget
+- nmap
+- tcpdump
+- wireshark
+- strace
+- ltrace
+- gdb
+- core dump
+- memory leak
+- file descriptor
+- symbolic link
+- hard link
+- sticky bit
+- setuid
+- setgid
+monitoring:
+- threshold
+- alert
+- metric
+- KPI
+- SLA
+- anomaly
+- baseline
+- trend
+- correlation
+- causation
+- root cause
+- symptom
+- incident
+- outage
+- degradation
+- performance
+- latency
+- throughput
+- utilization
+- saturation
+- error rate
+- availability
+- reliability
+- scalability
+- bottleneck
+- observability
+- telemetry
+- distributed tracing
+- OpenTelemetry
+- Jaeger
+- Zipkin
+- Prometheus
+- Grafana
+- InfluxDB
+- time series database
+- TSDB
+- metrics collection
+- log aggregation
+- log parsing
+- log analysis
+- APM
+- application performance monitoring
+- infrastructure monitoring
+- synthetic monitoring
+- uptime monitoring
+- health check
+- heartbeat
+- ping test
+- load testing
+- stress testing
+- performance testing
+- capacity planning
+- resource monitoring
+- system monitoring
+- network monitoring
+- database monitoring
+- application monitoring
+- security monitoring
+- compliance monitoring
+- audit logging
+- event correlation
+- alert fatigue
+- false positive
+- false negative
+- noise reduction
+- signal to noise ratio
+- dashboard
+- visualization
+- reporting
+- analytics
+- business intelligence
+- real-time monitoring
+- batch monitoring
+- scheduled monitoring
+- proactive monitoring
+- reactive monitoring
+- predictive analytics
+- machine learning monitoring
+- model monitoring
+- data quality monitoring
+- SLI
+- SLO
+- error budget
+- MTTR
+- MTBF
+- RTO
+- RPO
+spark:
+- executor
+- driver
+- cluster manager
+- RDD
+- DataFrame
+- Dataset
+- partition
+- shuffle
+- spill
+- broadcast
+- accumulator
+- catalyst
+- tungsten
+- lineage
+- checkpoint
+- cache
+- persist
+- lazy evaluation
+- transformation
+- action
+- stage
+- task
+- job
+- DAG
+- serialization
+- kryo
+- yarn
+- mesos
+- kubernetes
+- Spark SQL
+- Spark Streaming
+- Structured Streaming
+- MLlib
+- GraphX
+- PySpark
+- Scala
+- Spark Context
+- Spark Session
+- Spark UI
+- dynamic allocation
+- resource allocation
+- memory management
+- garbage collection
+- serialization overhead
+- data skew
+- small files problem
+- bucketing
+- partitioning strategy
+- coalesce
+- repartition
+- window functions
+- user defined functions
+- UDF
+- join optimization
+- broadcast join
+- sort merge join
+- hash join
+- predicate pushdown
+- columnar storage
+- Parquet
+- Delta Lake
+- Iceberg
+- Hudi
+- data lake
+- medallion architecture
+- bronze silver gold
+- data lineage
+- schema evolution
+- ACID transactions
+- time travel
+- version control
+spectrum:
+- Spectrum Conductor
+- workload
+- resource group
+- consumer
+- consumer group
+- application
+- instance group
+- host
+- resource plan
+- allocation
+- priority
+- preemption
+- slot
+- demand
+- supply
+- elastic
+- auto scaling
+- policy
+- SLA
+- entitlement
+- fairshare
+- queue
+- submission
+- execution
+- completion
+- batch job
+- interactive job
+- job scheduling
+- resource sharing
+- multi-tenancy
+- cluster management
+- load balancing
+- fault tolerance
+- high availability
+- disaster recovery
+ansible:
+- playbook
+- task
+- role
+- inventory
+- host
+- group
+- variable
+- fact
+- template
+- handler
+- module
+- idempotent
+- YAML
+- Jinja2
+- ad-hoc command
+- ansible-playbook
+- ansible-vault
+- vault
+- encryption
+- SSH
+- agentless
+- push model
+- configuration management
+- infrastructure as code
+- IaC
+- provisioning
+- deployment
+- orchestration
+- automation
+- DevOps
+- CI/CD
+- continuous integration
+- continuous deployment
+- configuration drift
+- desired state
+- declarative
+- imperative
+- Galaxy
+- Ansible Galaxy
+- collection
+- callback plugin
+- lookup plugin
+- filter plugin
+- dynamic inventory
+- static inventory
+- group_vars
+- host_vars
+- when condition
+- loop
+- with_items
+- register
+- delegate_to
+- run_once
+- serial
+- strategy
+- free
+- linear
+- debug
+- assert
+- fail
+- meta
+- include
+- import
+- block
+- rescue
+- always
+- tags
+- skip_tags
+- limit
+- check mode
+- diff mode
+- dry run
+jira:
+- issue
+- ticket
+- project
+- epic
+- story
+- task
+- bug
+- subtask
+- component
+- version
+- fix version
+- affected version
+- priority
+- severity
+- status
+- workflow
+- transition
+- resolution
+- assignee
+- reporter
+- watcher
+- comment
+- attachment
+- link
+- label
+- custom field
+- screen
+- scheme
+- permission
+- notification
+- dashboard
+- filter
+- gadget
+- board
+- scrum
+- kanban
+- sprint
+- backlog
+- burndown chart
+- velocity
+- story points
+- time tracking
+- worklog
+- estimation
+- remaining estimate
+- time spent
+- due date
+- SLA
+- automation
+- post function
+- validator
+- condition
+- webhook
+- REST API
+- JQL
+- Jira Query Language
+- advanced search
+- quick search
+- bulk operation
+- import
+- export
+- backup
+- restore
+- indexing
+- reindexing
+- add-on
+- plugin
+- app
+- marketplace
+- Atlassian
+- Confluence integration
+- Bitbucket integration
+- agile
+- waterfall
+- project management
+- issue tracking
+- bug tracking
+servicenow:
+- incident
+- problem
+- change request
+- service request
+- knowledge article
+- CMDB
+- configuration item
+- CI
+- service catalog
+- workflow
+- business rule
+- script include
+- client script
+- UI policy
+- UI action
+- ACL
+- access control list
+- role
+- group
+- user
+- assignment group
+- approval
+- state
+- priority
+- urgency
+- impact
+- category
+- subcategory
+- closure code
+- resolution
+- workaround
+- root cause
+- ITIL
+- service management
+- ITSM
+- service desk
+- help desk
+- SLA
+- OLA
+- operational level agreement
+- KPI
+- dashboard
+- report
+- scheduled job
+- import set
+- transform map
+- data source
+- web service
+- REST API
+- SOAP
+- integration
+- MID server
+- discovery
+- service mapping
+- event management
+- monitoring
+- alerting
+- notification
+- email
+- SMS
+- mobile app
+- self-service
+- portal
+- knowledge base
+- FAQ
+- chatbot
+- virtual agent
+- performance analytics
+- predictive intelligence
+- machine learning
+- AI
+- automation
+- orchestration
+- flow designer
+- integration hub
+- spoke
+- action
+- subflow
+- activity
+- approval workflow
+- fulfillment
+- catalog item
+- record producer
+- order guide
+- variable
+- reference qualifier
+- dictionary
+- choice list
+- form
+- list
+- related list
+- view
+- table
+- field
+- column
+- database
+- instance
+- environment
+- development
+- test
+- production
+- clone
+- update set
+- application
+- scope
+- global
+- custom application
+confluence:
+- page
+- blog post
+- space
+- template
+- macro
+- label
+- attachment
+- comment
+- like
+- watch
+- notification
+- permission
+- restriction
+- anonymous access
+- user
+- group
+- global permission
+- space permission
+- page permission
+- content permission
+- editor
+- view
+- storage format
+- XHTML
+- wiki markup
+- rich text editor
+- collaborative editing
+- page history
+- version
+- compare versions
+- restore
+- copy
+- move
+- archive
+- delete
+- trash
+- blueprint
+- page tree
+- child page
+- parent page
+- breadcrumb
+- navigation
+- sidebar
+- header
+- footer
+- theme
+- look and feel
+- space tools
+- space settings
+- general configuration
+- color scheme
+- stylesheet
+- app
+- add-on
+- plugin
+- marketplace
+- Atlassian
+- integration
+- Jira integration
+- link
+- smart link
+- embed
+- include
+- excerpt
+- table of contents
+- TOC
+- anchor
+- bookmark
+- search
+- advanced search
+- CQL
+- Confluence Query Language
+- export
+- PDF
+- Word
+- backup
+- restore
+- import
+- migration
+- administration
+- user management
+- group management
+- license
+- support
+- documentation
+- knowledge management
+- collaboration
+- team space
+- personal space
+- global template
+- space template
+- page template
+- meeting notes
+- decision
+- how-to article
+- troubleshooting
+- FAQ
+- API
+- REST API
+- webhook
+- automation
+- workflow
+- approval
+- review
+- feedback
+- analytics
+- usage statistics
+- popular content
+- recent activity
+- activity stream
+tech_slang_and_jargon:
+- yak shaving
+- bikeshedding
+- cargo culting
+- spaghetti code
+- tech debt
+- technical debt
+- refactoring
+- code smell
+- antipattern
+- design pattern
+- SOLID principles
+- DRY
+- KISS
+- YAGNI
+- premature optimization
+- over-engineering
+- under-engineering
+- MVP
+- minimum viable product
+- proof of concept
+- POC
+- prototype
+- spike
+- time boxing
+- scope creep
+- feature creep
+- gold plating
+- analysis paralysis
+- thrashing
+- context switching
+- rubber duck debugging
+- heisenbug
+- mandelbug
+- bohrbug
+- race condition
+- deadlock
+- livelock
+- starvation
+- priority inversion
+- cache miss
+- cache hit
+- cache invalidation
+- cache coherence
+- eventual consistency
+- CAP theorem
+- ACID properties
+- BASE properties
+- sharding
+- partitioning
+- replication
+- master-slave
+- master-master
+- leader-follower
+- split-brain
+- network partition
+- Byzantine fault
+- fail-fast
+- fail-safe
+- graceful degradation
+- circuit breaker
+- bulkhead pattern
+- timeout
+- retry
+- exponential backoff
+- jitter
+- throttling
+- rate limiting
+- load shedding
+- back pressure
+- flow control
+- congestion control
+- quality of service
+- QoS
+- best effort
+- guaranteed delivery
+- at-least-once
+- at-most-once
+- exactly-once
+- idempotent
+- stateless
+- stateful
+- session affinity
+- sticky session
+- horizontal scaling
+- vertical scaling
+- scale up
+- scale out
+- scale down
+- auto-scaling
+- elastic
+- on-demand
+- reserved
+- spot instance
+- preemptible
+- burst capacity
+- baseline performance
+- noisy neighbor
+- multi-tenancy
+- single-tenancy
+- vendor lock-in
+- cloud native
+- containerization
+- microservices
+- monolith
+- service mesh
+- API gateway
+- reverse proxy
+- load balancer
+- CDN
+- edge computing
+- fog computing
+- serverless
+- function as a service
+- FaaS
+- platform as a service
+- PaaS
+- infrastructure as a service
+- IaaS
+- software as a service
+- SaaS
+- hybrid cloud
+- multi-cloud
+- public cloud
+- private cloud
+- on-premises
+- on-prem
+- lift and shift
+- cloud migration
+- digital transformation
+- DevOps
+- DevSecOps
+- GitOps
+- infrastructure as code
+- IaC
+- configuration as code
+- policy as code
+- everything as code
+- shift left
+- shift right
+- continuous everything
+- pipeline
+- build
+- test
+- deploy
+- release
+- rollback
+- canary deployment
+- blue-green deployment
+- A/B testing
+- feature flag
+- feature toggle
+- dark launch
+- chaos engineering
+- fault injection
+- game day
+- runbook
+- playbook
+- incident response
+- post-mortem
+- blameless culture
+- learning organization
+- feedback loop
+- metrics driven
+- data driven
+- evidence based
+- hypothesis driven
+- experiment
+- measure twice cut once
+- Conway's law
+- Brooks' law
+- Parkinson's law
+- Peter principle
+- Dunning-Kruger effect
+- impostor syndrome
+- not invented here
+- NIH syndrome
+- golden hammer
+- silver bullet
+- magic number
+- hard-coded
+- configuration drift
+- snowflake server
+- cattle not pets
+- immutable infrastructure
+- phoenix server
+- blue screen of death
+- BSOD
+- kernel panic
+- segfault
+- core dump
+- stack trace
+- stack overflow
+- buffer overflow
+- memory leak
+- resource leak
+- zombie process
+- orphan process
+- daemon
+- service
+- background job
+- cron job
+- batch job
+- real-time
+- near real-time
+- eventual consistency
+- strong consistency
+- weak consistency
+- linearizability
+- serializability
+- snapshot isolation
+- read committed
+- repeatable read
+- phantom read
+- dirty read
+- lost update
+- write skew
+- double spending
+- consensus
+- leader election
+- quorum
+- majority
+- split vote
+- tie breaker
+- witness
+- arbiter
+- coordinator
+- two-phase commit
+- three-phase commit
+- saga pattern
+- compensation
+- rollback
+- commit
+- abort
+- prepare
+- vote
+- decision
+- outcome
+- log
+- journal
+- write-ahead log
+- WAL
+- checkpoint
+- snapshot
+- backup
+- restore
+- recovery
+- point-in-time recovery
+- PITR
+- disaster recovery
+- DR
+- business continuity
+- RTO
+- RPO
+- high availability
+- HA
+- fault tolerance
+- resilience
+- robustness
+- redundancy
+- failover
+- failback
+- active-active
+- active-passive
+- hot standby
+- warm standby
+- cold standby
+- clustering
+- federation
+- proxy
+- gateway
+- broker
+- message queue
+- publish-subscribe
+- pub-sub
+- request-response
+- fire-and-forget
+- acknowledgment
+- ack
+- nack
+- dead letter queue
+- DLQ
+- poison message
+- duplicate detection
+- deduplication
+- ordering
+- FIFO
+- LIFO
+- priority queue
+- backlog
+- lag
+- offset
+- partition
+- topic
+- consumer group
+- producer
+- consumer
+- subscriber
+- publisher
+- event sourcing
+- CQRS
+- command query responsibility segregation
+- domain driven design
+- DDD
+- bounded context
+- aggregate
+- entity
+- value object
+- repository
+- factory
+- service
+- specification
+- policy
+- strategy pattern
+- observer pattern
+- decorator pattern
+- adapter pattern
+- facade pattern
+- proxy pattern
+- singleton pattern
+- factory pattern
+- builder pattern
+- prototype pattern
+- bridge pattern
+- composite pattern
+- flyweight pattern
+- chain of responsibility
+- command pattern
+- interpreter pattern
+- iterator pattern
+- mediator pattern
+- memento pattern
+- state pattern
+- template method
+- visitor pattern
+- model-view-controller
+- MVC
+- model-view-presenter
+- MVP
+- model-view-viewmodel
+- MVVM
+- separation of concerns
+- single responsibility
+- open-closed principle
+- Liskov substitution
+- interface segregation
+- dependency inversion
+- inversion of control
+- IoC
+- dependency injection
+- DI
+- service locator
+- factory
+- abstract factory
+- polymorphism
+- inheritance
+- composition
+- aggregation
+- association
+- encapsulation
+- abstraction
+- coupling
+- cohesion
+- loose coupling
+- tight coupling
+- high cohesion
+- low cohesion

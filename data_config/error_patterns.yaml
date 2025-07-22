@@ -1,0 +1,46 @@
+java_errors:
+  concurrency_errors:
+  - java.util.ConcurrentModificationException
+  - java.util.concurrent.RejectedExecutionException
+  - java.util.concurrent.TimeoutException
+  heap_errors:
+  - 'java.lang.OutOfMemoryError: Java heap space'
+  - 'java.lang.OutOfMemoryError: GC overhead limit exceeded'
+  - 'java.lang.OutOfMemoryError: Requested array size exceeds VM limit'
+  runtime_errors:
+  - java.lang.StackOverflowError
+  - java.lang.ClassNotFoundException
+  - java.lang.NoSuchMethodError
+  - java.lang.IllegalStateException
+linux_errors:
+  network_errors:
+  - connection refused
+  - network unreachable
+  - no route to host
+  - connection timed out
+  system_errors:
+  - segmentation fault
+  - kernel panic
+  - out of memory
+  - disk full
+  - permission denied
+  - no such file or directory
+spark_errors:
+  executor_errors:
+  - 'org.apache.spark.SparkException: Task not serializable'
+  - org.apache.spark.shuffle.FetchFailedException
+  - Container killed by YARN for exceeding memory limits
+  sql_errors:
+  - org.apache.spark.sql.AnalysisException
+  - 'AnalysisException: cannot resolve column'
+  - 'AnalysisException: Path does not exist'
+troubleshooting_scenarios:
+  availability:
+  - Service becoming unresponsive
+  - Intermittent connection failures
+  - Load balancer health check failures
+  performance:
+  - High CPU usage on Linux server
+  - Memory leak in Java application
+  - Spark job running slowly
+  - Database queries taking too long

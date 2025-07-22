@@ -1,0 +1,66 @@
+anomaly_patterns:
+  cpu_spike:
+    correlated_effects:
+      java_gc_time:
+      - 10
+      - 25
+      response_time:
+      - 2000
+      - 10000
+    description: High CPU utilization with increased load
+    metrics:
+      cpu_usage:
+      - 80
+      - 100
+      load_average:
+      - 8
+      - 16
+  memory_leak:
+    correlated_effects:
+      java_gc_frequency:
+      - 20
+      - 50
+      java_heap_usage:
+      - 90
+      - 99
+    description: Gradual memory consumption leading to exhaustion
+    metrics:
+      memory_usage:
+      - 85
+      - 99
+      swap_usage:
+      - 50
+      - 100
+normal_ranges:
+  java_metrics:
+    class_count:
+    - 5000
+    - 20000
+    gc_time:
+    - 1
+    - 5
+    heap_usage:
+    - 30
+    - 70
+    thread_count:
+    - 20
+    - 100
+  system_metrics:
+    cpu_usage:
+    - 5
+    - 30
+    disk_io:
+    - 100
+    - 10000
+    disk_usage:
+    - 10
+    - 70
+    load_average:
+    - 0.5
+    - 2.0
+    memory_usage:
+    - 20
+    - 60
+    network_io:
+    - 1000
+    - 50000

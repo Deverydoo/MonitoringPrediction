@@ -1,0 +1,658 @@
+methodologies:
+  agile:
+  - Scrum
+  - Kanban
+  - Extreme Programming
+  - XP
+  - Lean Software Development
+  - Crystal
+  - Feature Driven Development
+  - FDD
+  - Dynamic Systems Development Method
+  - DSDM
+  - Adaptive Software Development
+  - ASD
+  - Disciplined Agile
+  - DA
+  - Scaled Agile Framework
+  - SAFe
+  - Large Scale Scrum
+  - LeSS
+  - Nexus
+  - Spotify Model
+  traditional:
+  - Waterfall
+  - PRINCE2
+  - Project Management Body of Knowledge
+  - PMBOK
+  - Critical Path Method
+  - CPM
+  - Critical Chain Project Management
+  - CCPM
+  - Program Evaluation and Review Technique
+  - PERT
+  - Work Breakdown Structure
+  - WBS
+  - Gantt Chart
+  - Stage Gate
+  - Phase Gate
+  - V-Model
+  - Spiral Model
+  - Iterative Model
+  hybrid:
+  - Scrumban
+  - Water-Scrum-Fall
+  - Agile-Waterfall Hybrid
+  - Bimodal
+  - Dual Operating Model
+  - Disciplined Agile Delivery
+  - DAD
+  - Scaled Professional Scrum
+  - SPS
+banking_pm:
+  regulatory_frameworks:
+  - Basel III
+  - Basel IV
+  - Solvency II
+  - MiFID II
+  - GDPR
+  - PCI DSS
+  - SOX
+  - Sarbanes-Oxley
+  - COSO
+  - COBIT
+  - ITIL
+  - ISO 27001
+  - NIST Framework
+  - FFIEC
+  - OCC Guidelines
+  - Fed Guidelines
+  - BCBS Guidelines
+  - FATCA
+  - CRS
+  - AML
+  - KYC
+  - CTF
+  governance:
+  - Risk Appetite Framework
+  - RAF
+  - Three Lines of Defense
+  - 3LOD
+  - Operational Risk Management
+  - ORM
+  - Credit Risk Management
+  - Market Risk Management
+  - Liquidity Risk Management
+  - Model Risk Management
+  - MRM
+  - Vendor Risk Management
+  - VRM
+  - Third Party Risk Management
+  - TPRM
+  - Business Continuity Planning
+  - BCP
+  - Disaster Recovery
+  - DR
+  - Crisis Management
+  - Incident Response
+  - Change Advisory Board
+  - CAB
+  - Architecture Review Board
+  - ARB
+  - Data Governance
+  - Information Security Governance
+  delivery_models:
+  - Center of Excellence
+  - COE
+  - Program Management Office
+  - PMO
+  - Enterprise PMO
+  - EPMO
+  - Shared Services
+  - Business Process Outsourcing
+  - BPO
+  - Strategic Sourcing
+  - Vendor Management
+  - Managed Services
+  - Cloud First
+  - Digital Transformation
+  - Core Banking Transformation
+  - Legacy Modernization
+  - API First
+  - Microservices Architecture
+  - Event Driven Architecture
+  - EDA
+sdlc:
+  phases:
+  - Requirements Gathering
+  - Requirements Analysis
+  - System Design
+  - High Level Design
+  - HLD
+  - Low Level Design
+  - LLD
+  - Architecture Design
+  - Technical Design
+  - Implementation
+  - Development
+  - Coding
+  - Unit Testing
+  - Integration Testing
+  - System Testing
+  - User Acceptance Testing
+  - UAT
+  - Performance Testing
+  - Security Testing
+  - Deployment
+  - Release
+  - Go-Live
+  - Production Support
+  - Maintenance
+  - Enhancement
+  - End of Life
+  - EOL
+  - Decommissioning
+  artifacts:
+  - Business Requirements Document
+  - BRD
+  - Functional Requirements Document
+  - FRD
+  - Technical Requirements Document
+  - TRD
+  - Software Requirements Specification
+  - SRS
+  - System Architecture Document
+  - SAD
+  - Technical Design Document
+  - TDD
+  - Interface Control Document
+  - ICD
+  - Test Plan
+  - Test Cases
+  - Test Scripts
+  - Deployment Guide
+  - User Manual
+  - Operations Manual
+  - Runbook
+  - Configuration Management Plan
+  - CMP
+  - Risk Register
+  - Issue Log
+  - Change Log
+  - Release Notes
+  roles:
+  - Product Owner
+  - PO
+  - Product Manager
+  - PM
+  - Business Analyst
+  - BA
+  - System Analyst
+  - SA
+  - Technical Analyst
+  - TA
+  - Solution Architect
+  - Technical Architect
+  - Enterprise Architect
+  - EA
+  - Software Engineer
+  - Developer
+  - Senior Developer
+  - Lead Developer
+  - Tech Lead
+  - Engineering Manager
+  - Scrum Master
+  - SM
+  - Agile Coach
+  - Project Manager
+  - Program Manager
+  - Portfolio Manager
+  - Quality Assurance
+  - QA
+  - Quality Engineer
+  - QE
+  - Test Engineer
+  - DevOps Engineer
+  - Site Reliability Engineer
+  - SRE
+  - Data Engineer
+  - Data Scientist
+  - UX Designer
+  - UI Designer
+agile_scrum:
+  ceremonies:
+  - Sprint Planning
+  - Daily Standup
+  - Daily Scrum
+  - Sprint Review
+  - Sprint Demo
+  - Sprint Retrospective
+  - Retro
+  - Backlog Refinement
+  - Backlog Grooming
+  - Story Pointing
+  - Planning Poker
+  - Estimation Session
+  - Release Planning
+  - PI Planning
+  - Program Increment Planning
+  - Scrum of Scrums
+  - Agile Release Train
+  - ART
+  - Iteration Planning
+  - Iteration Review
+  - Iteration Retrospective
+  artifacts:
+  - Product Backlog
+  - Sprint Backlog
+  - User Story
+  - Epic
+  - Feature
+  - Theme
+  - Initiative
+  - Acceptance Criteria
+  - Definition of Ready
+  - DoR
+  - Definition of Done
+  - DoD
+  - Burndown Chart
+  - Burnup Chart
+  - Velocity Chart
+  - Cumulative Flow Diagram
+  - CFD
+  - Story Points
+  - T-Shirt Sizing
+  - Fibonacci Sequence
+  - Planning Poker Cards
+  - Task Board
+  - Kanban Board
+  - Information Radiator
+  - Big Visible Chart
+  - BVC
+  concepts:
+  - Sprint
+  - Iteration
+  - Timebox
+  - Velocity
+  - Capacity
+  - Scope Creep
+  - Technical Debt
+  - Refactoring
+  - Pair Programming
+  - Code Review
+  - Continuous Integration
+  - CI
+  - Continuous Deployment
+  - CD
+  - Continuous Delivery
+  - DevOps
+  - Shift Left
+  - Fail Fast
+  - MVP
+  - Minimum Viable Product
+  - MMP
+  - Minimum Marketable Product
+  - MMF
+  - Minimum Marketable Feature
+  - Spike
+  - Proof of Concept
+  - POC
+  - Prototype
+  - Pilot
+  - Cross Functional Team
+  - Self Organizing Team
+  - Servant Leadership
+devops:
+  practices:
+  - Infrastructure as Code
+  - IaC
+  - Configuration Management
+  - Version Control
+  - Git Flow
+  - GitHub Flow
+  - GitLab Flow
+  - Trunk Based Development
+  - Feature Branching
+  - Pull Request
+  - PR
+  - Merge Request
+  - MR
+  - Code Pipeline
+  - Build Pipeline
+  - Deployment Pipeline
+  - Blue Green Deployment
+  - Canary Deployment
+  - Rolling Deployment
+  - Zero Downtime Deployment
+  - Feature Flags
+  - Feature Toggles
+  - A/B Testing
+  - Chaos Engineering
+  - Observability
+  - Monitoring
+  - Logging
+  - Tracing
+  - Metrics
+  - Alerting
+  - Incident Management
+  - Post Mortem
+  - Blameless Culture
+  tools_concepts:
+  - Container
+  - Docker
+  - Kubernetes
+  - K8s
+  - Microservices
+  - Service Mesh
+  - API Gateway
+  - Load Balancer
+  - Auto Scaling
+  - Circuit Breaker
+  - Bulkhead Pattern
+  - Saga Pattern
+  - Event Sourcing
+  - CQRS
+  - Command Query Responsibility Segregation
+  - Database per Service
+  - Distributed Transaction
+  - Eventually Consistent
+  - CAP Theorem
+  - BASE
+  - ACID
+  - Eventual Consistency
+  - Strong Consistency
+  - Idempotency
+  - Stateless
+  - Stateful
+  - Immutable Infrastructure
+banking_technology:
+  core_systems:
+  - Core Banking System
+  - CBS
+  - Customer Information File
+  - CIF
+  - General Ledger
+  - GL
+  - Loan Origination System
+  - LOS
+  - Customer Relationship Management
+  - CRM
+  - Enterprise Resource Planning
+  - ERP
+  - Data Warehouse
+  - DWH
+  - Business Intelligence
+  - BI
+  - Analytics Platform
+  - Real Time Gross Settlement
+  - RTGS
+  - Automated Clearing House
+  - ACH
+  - SWIFT
+  - ISO 20022
+  - FIX Protocol
+  - Market Data Feed
+  - Trading Platform
+  - Risk Management System
+  - RMS
+  - Collateral Management
+  - Trade Lifecycle Management
+  - TLM
+  - Regulatory Reporting
+  - RegTech
+  - FinTech
+  - WealthTech
+  - InsurTech
+  - PayTech
+  integration:
+  - Enterprise Service Bus
+  - ESB
+  - Message Queue
+  - MQ
+  - API Management
+  - APIM
+  - Service Oriented Architecture
+  - SOA
+  - Extract Transform Load
+  - ETL
+  - Extract Load Transform
+  - ELT
+  - Change Data Capture
+  - CDC
+  - Master Data Management
+  - MDM
+  - Data Integration
+  - Data Migration
+  - Data Synchronization
+  - Batch Processing
+  - Real Time Processing
+  - Stream Processing
+  - Event Driven Architecture
+  - EDA
+  - Message Broker
+  - Pub Sub
+  - Request Response
+  - Fire and Forget
+risk_compliance:
+  risk_types:
+  - Operational Risk
+  - Credit Risk
+  - Market Risk
+  - Liquidity Risk
+  - Model Risk
+  - Cyber Risk
+  - Technology Risk
+  - Vendor Risk
+  - Third Party Risk
+  - Concentration Risk
+  - Interest Rate Risk
+  - Foreign Exchange Risk
+  - FX Risk
+  - Reputation Risk
+  - Strategic Risk
+  - Compliance Risk
+  - Legal Risk
+  - Environmental Risk
+  - Social Risk
+  - Governance Risk
+  - ESG Risk
+  management:
+  - Risk Assessment
+  - Risk Identification
+  - Risk Analysis
+  - Risk Evaluation
+  - Risk Treatment
+  - Risk Monitoring
+  - Risk Reporting
+  - Risk Mitigation
+  - Risk Transfer
+  - Risk Acceptance
+  - Risk Avoidance
+  - Key Risk Indicator
+  - KRI
+  - Risk Appetite Statement
+  - RAS
+  - Risk Tolerance
+  - Risk Threshold
+  - Risk Limit
+  - Early Warning Indicator
+  - EWI
+  - Loss Data Collection
+  - LDC
+  - Scenario Analysis
+  - Stress Testing
+  - Monte Carlo Simulation
+  - Value at Risk
+  - VaR
+  - Expected Shortfall
+  - ES
+  - Conditional Value at Risk
+  - CVaR
+quality:
+  frameworks:
+  - Six Sigma
+  - Lean Six Sigma
+  - Total Quality Management
+  - TQM
+  - ISO 9001
+  - Capability Maturity Model Integration
+  - CMMI
+  - Software Engineering Institute
+  - SEI
+  - Test Maturity Model Integration
+  - TMMi
+  - IT Infrastructure Library
+  - ITIL
+  - Control Objectives for Information Technologies
+  - COBIT
+  - Information Technology Infrastructure Library
+  - ITIL
+  - ISO 27001
+  - ISO 31000
+  - NIST Cybersecurity Framework
+  processes:
+  - Quality Assurance
+  - QA
+  - Quality Control
+  - QC
+  - Quality Planning
+  - Quality Improvement
+  - Continuous Improvement
+  - Kaizen
+  - Root Cause Analysis
+  - RCA
+  - Five Whys
+  - Fishbone Diagram
+  - Ishikawa Diagram
+  - Pareto Analysis
+  - Statistical Process Control
+  - SPC
+  - Control Chart
+  - Process Capability
+  - Defect Density
+  - Defect Removal Efficiency
+  - DRE
+  - First Pass Yield
+  - FPY
+  - Cost of Quality
+  - COQ
+  - Cost of Poor Quality
+  - COPQ
+performance_metrics:
+  project_metrics:
+  - Schedule Performance Index
+  - SPI
+  - Cost Performance Index
+  - CPI
+  - Earned Value Management
+  - EVM
+  - Planned Value
+  - PV
+  - Earned Value
+  - EV
+  - Actual Cost
+  - AC
+  - Budget at Completion
+  - BAC
+  - Estimate at Completion
+  - EAC
+  - Estimate to Complete
+  - ETC
+  - Variance at Completion
+  - VAC
+  - To Complete Performance Index
+  - TCPI
+  - Return on Investment
+  - ROI
+  - Net Present Value
+  - NPV
+  - Internal Rate of Return
+  - IRR
+  - Payback Period
+  - Total Cost of Ownership
+  - TCO
+  software_metrics:
+  - Lines of Code
+  - LOC
+  - Cyclomatic Complexity
+  - Code Coverage
+  - Technical Debt Ratio
+  - Maintainability Index
+  - Coupling
+  - Cohesion
+  - Bug Density
+  - Defect Escape Rate
+  - Mean Time to Repair
+  - MTTR
+  - Mean Time Between Failures
+  - MTBF
+  - Availability
+  - Reliability
+  - Performance
+  - Scalability
+  - Throughput
+  - Response Time
+  - Latency
+  - Error Rate
+  - Success Rate
+  - Service Level Agreement
+  - SLA
+  - Service Level Objective
+  - SLO
+  - Service Level Indicator
+  - SLI
+  - Key Performance Indicator
+  - KPI
+  - Objective and Key Results
+  - OKR
+banking_initiatives:
+  digital_transformation:
+  - Open Banking
+  - API Economy
+  - Platform Banking
+  - Banking as a Service
+  - BaaS
+  - Digital First
+  - Mobile First
+  - Cloud First
+  - Customer Journey
+  - Customer Experience
+  - CX
+  - User Experience
+  - UX
+  - Design Thinking
+  - Human Centered Design
+  - Agile Transformation
+  - Digital Disruption
+  - Innovation Lab
+  - FinTech Partnership
+  - Embedded Finance
+  - Composable Banking
+  - Headless Banking
+  - Real Time Banking
+  - Instant Payments
+  - Central Bank Digital Currency
+  - CBDC
+  - Blockchain
+  - Distributed Ledger Technology
+  - DLT
+  - Smart Contracts
+  - Cryptocurrency
+  - Digital Assets
+  - Tokenization
+  - Artificial Intelligence
+  - AI
+  - Machine Learning
+  - ML
+  - Natural Language Processing
+  - NLP
+  - Robotic Process Automation
+  - RPA
+  - Intelligent Process Automation
+  - IPA
+  - Cognitive Computing
+  - Quantum Computing
+  - Edge Computing
+  - 5G
+  - Internet of Things
+  - IoT

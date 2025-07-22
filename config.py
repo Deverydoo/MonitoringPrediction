@@ -1,0 +1,1353 @@
+# config.py - Enhanced configuration with dynamic discovery and continual learning
+import os
+import json
+import torch
+import requests
+import logging
+import time
+import random
+import subprocess
+from pathlib import Path
+from typing import List, Optional, Dict, Any
+from datetime import datetime, timedelta
+
+# Force PyTorch-only transformers and disable TensorFlow
+os.environ['USE_TF'] = 'NO'
+os.environ['USE_TORCH'] = 'YES'
+os.environ['TRANSFORMERS_VERBOSITY'] = 'error'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Enhanced core configuration with environment variable support
+CONFIG = {
+    # Model and training settings
+    "model_name": "bert-base-uncased",
+    "max_length": 6000,
+    "batch_size": 12,
+    "learning_rate": 2e-5,
+    "epochs": 3,
+    "warmup_steps": 100,
+    "weight_decay": 0.01,
+    
+    # PyTorch settings
+    "torch_dtype": torch.float32,
+    "use_cuda": torch.cuda.is_available(),
+    "force_cpu": False,
+    "torch_compile": True,  # Enable PyTorch 2.0+ compilation
+    
+    # Dynamic discovery settings
+    "auto_discover_models": True,
+    "auto_discover_yaml": True,
+    "yaml_config_dir": os.environ.get('DISTILLED_YAML_DIR', "./data_config/"),
+    "model_discovery_timeout": 15,
+    "yaml_discovery_interval": 300,  # Re-scan every 5 minutes
+    
+    # Flexible cache directories - easily configurable for shared environments
+    "hf_cache_dir": os.environ.get('DISTILLED_HF_CACHE', "./hf_cache/"),
+    "models_dir": os.environ.get('DISTILLED_MODELS', "./models/"),
+    "local_model_path": os.environ.get('DISTILLED_LOCAL_MODELS', "./local_models/"),
+    "pretrained_dir": os.environ.get('DISTILLED_PRETRAINED', "./pretrained/"),
+    "shared_cache_enabled": os.environ.get('DISTILLED_SHARED_CACHE', 'false').lower() == 'true',
+
+    # Dataset generation with dynamic calculation
+    "calculate_samples_dynamically": True,
+    "language_samples": 9000,
+    "metrics_samples": 100000,
+    "base_samples_per_yaml": 50,
+    "variety_multiplier": 1.5,
+    "quality_over_quantity": True,
+    "anomaly_ratio": 0.2,
+    
+    # Remote LLM (primary)
+    "llm_url": os.environ.get('REMOTE_LLM_URL', ""),
+    "llm_key": os.environ.get('REMOTE_LLM_KEY', ""),
+    "llm_timeout": 30,
+    "llm_max_tokens": 2000,
+    
+    # Ollama configuration with enhanced discovery
+    "ollama_enabled": True,
+    "ollama_url": os.environ.get('OLLAMA_URL', "http://localhost:11434"),
+    "ollama_timeout": 90,
+    "ollama_max_tokens": 20000,
+    "ollama_temperature": 0.7,
+    "ollama_auto_discover": True,
+    "ollama_discovery_interval": 240,  # Re-discover models every minute
+    
+    # Ollama performance optimizations
+    "ollama_parallel_requests": 6,
+    "ollama_max_loaded_models": 3,
+    "ollama_max_queue": 1024,
+    "ollama_gpu_layers": -1,
+    "ollama_context_size": 4096,
+    "ollama_batch_size": 512,
+    "ollama_flash_attention": True,
+    "ollama_keep_alive": "10m",
+    
+    # Model rotation and variety settings
+    "model_rotation_enabled": True,
+    "model_swap_interval": 25,
+    "models_per_question": 3,
+    "max_concurrent_models": 4,
+    "model_pool_size": 20,  # Increased pool size
+    "preload_next_model": True,
+    "generation_batch_size": 4,
+    "model_priority_weights": {
+        "remote": 1.0,
+        "ollama": 0.9,
+        "local": 0.5,
+        "static": 0.1
+    },
+    
+    # Local model fallback with enhanced discovery
+    "local_model_enabled": True,
+    "local_model_max_tokens": 4000,
+    "local_model_temperature": 0.7,
+    "local_model_auto_scan": True,
+    "local_model_scan_dirs": [
+        "./local_models/",
+        "./hf_cache/",
+        "./pretrained/",
+        os.environ.get('HF_HOME', ''),
+        os.path.expanduser("~/.cache/huggingface/")
+    ],
+    
+    # Static fallback
+    "enable_static_fallback": True,
+    "static_fallback_path": "./static_responses/",
+    "static_response_categories": ["technical", "errors", "troubleshooting", "best_practices"],
+    
+    # Performance settings
+    "response_quality_threshold": 15,
+    "api_rate_limit": 0.1,
+    "max_retries": 3,
+    "retry_backoff": 2.0,
+    
+    # Project directories
+    "training_dir": "./training/",
+    "checkpoints_dir": "./checkpoints/",
+    "logs_dir": "./logs/",
+    "data_config_dir": "./data_config/",
+    
+    # Dataset generation with dynamic calculation
+    "calculate_samples_dynamically": True,
+    "base_samples_per_yaml": 50,
+    "variety_multiplier": 1.5,
+    "quality_over_quantity": True,
+    
+    # Continual learning framework
+    "continual_learning_enabled": True,
+    "learning_batch_size": 50,
+    "threshold_adjustment_rate": 0.05,
+    "feedback_retention_days": 30,
+    "auto_threshold_adjustment": True,
+    "learning_rate_decay": 0.95,
+    "performance_tracking_window": 100,
+
+    # Data source integration
+    "integrate_real_data": True,
+    "real_data_samples_per_round": 50,
+    "real_data_quality_threshold": 0.8,
+    
+    # Enhanced discovery
+    "discovery_optimization": True,
+    "cache_discovery_results": True,
+    "discovery_cache_ttl": 300,
+    
+    # Performance optimizations
+    "parallel_model_discovery": True,
+    "batch_ollama_discovery": True,
+    "efficient_yaml_scanning": True,
+    
+    # Frequent saves
+    "save_frequency": "rotation_round",  # or "time_based" 
+    "rotation_round_size": 50,
+    "time_based_save_interval": 300,  # 5 minutes
+    
+    # Alert thresholds (will be dynamically adjusted)
+    "alert_thresholds": {
+        "cpu_usage": 80.0,
+        "memory_usage": 85.0,
+        "disk_usage": 90.0,
+        "load_average": 5.0,
+        "java_heap_usage": 85.0,
+        "java_gc_time": 15.0,
+        "network_io_rate": 80.0,
+        "disk_io_rate": 75.0,
+        "anomaly_score": 0.7
+    },
+    
+    # Multi-source data integration
+    "splunk_integration": {
+        "enabled": os.environ.get('SPLUNK_ENABLED', 'false').lower() == 'true',
+        "url": os.environ.get('SPLUNK_URL', ''),
+        "token": os.environ.get('SPLUNK_TOKEN', ''),
+        "timeout": 30,
+        "max_results": 1000,
+        "default_queries": {
+            "vemkd_logs": 'index=linux sourcetype="vemkd" | head 1000',
+            "error_logs": 'index=linux ("error" OR "exception" OR "critical") | head 500',
+            "performance": 'index=system | stats avg(cpu_usage), avg(memory_usage) by host',
+            "spectrum_logs": 'index=spectrum sourcetype="conductor" | head 1000',
+            "security_events": 'index=security | head 100'
+        }
+    },
+    
+    "jira_integration": {
+        "enabled": os.environ.get('JIRA_ENABLED', 'false').lower() == 'true',
+        "url": os.environ.get('JIRA_URL', ''),
+        "username": os.environ.get('JIRA_USER', ''),
+        "token": os.environ.get('JIRA_TOKEN', ''),
+        "timeout": 20,
+        "project_keys": os.environ.get('JIRA_PROJECTS', 'IT,OPS,INFRA').split(','),
+        "issue_types": ["Bug", "Incident", "Task", "Story"],
+        "max_issues_per_query": 100
+    },
+    
+    "confluence_integration": {
+        "enabled": os.environ.get('CONFLUENCE_ENABLED', 'false').lower() == 'true',
+        "url": os.environ.get('CONFLUENCE_URL', ''),
+        "username": os.environ.get('CONFLUENCE_USER', ''),
+        "token": os.environ.get('CONFLUENCE_TOKEN', ''),
+        "spaces": os.environ.get('CONFLUENCE_SPACES', 'IT,OPS').split(','),
+        "content_types": ["page", "blogpost"]
+    },
+    
+    "spectrum_integration": {
+        "enabled": os.environ.get('SPECTRUM_ENABLED', 'false').lower() == 'true',
+        "url": os.environ.get('SPECTRUM_URL', ''),
+        "username": os.environ.get('SPECTRUM_USER', ''),
+        "password": os.environ.get('SPECTRUM_PASS', ''),
+        "endpoints": [
+            "/platform/rest/conductor/v1/clusters",
+            "/platform/rest/conductor/v1/consumers",
+            "/platform/rest/conductor/v1/resourcegroups",
+            "/platform/rest/conductor/v1/workloads"
+        ],
+        "polling_interval": 60
+    },
+    
+    # Enhanced model configurations
+    "local_pretrained_models": {
+        "bert-base-uncased": "./pretrained/bert-base-uncased/",
+        "distilbert-base-uncased": "./pretrained/distilbert-base-uncased/",
+        "microsoft/DialoGPT-medium": "./local_models/microsoft_DialoGPT-medium/",
+        "microsoft/DialoGPT-small": "./local_models/microsoft_DialoGPT-small/",
+    },
+    
+    # Model performance tracking
+    "track_model_performance": True,
+    "model_performance_metrics": ["response_time", "quality_score", "success_rate"],
+    "model_rotation_based_on_performance": True,
+
+    # Dynamic cache configuration
+    "dynamic_cache_setup": True,
+    
+    # Discovery optimization
+    "discovery_cache_ttl": 300,  # 5 minutes
+    "rediscovery_interval": 1800,  # 30 minutes
+    "max_ollama_models": 20,
+    "max_local_models": 10,
+    
+    # Generation optimization
+    "rotation_round_size": 50,  # Save JSON every 50 samples
+    "yaml_discovery_interval": 300,  # Refresh YAML every 5 minutes
+    
+    # Performance tracking
+    "track_generation_performance": True,
+    "log_performance_every": 100,
+    
+    # Advanced caching
+    "cache_responses": True,
+    "cache_ttl": 3600,  # 1 hour
+    "cache_max_size": 10000,
+    "cache_compression": True,
+
+    # Environment detection
+    "auto_detect_shared_storage": True,
+    "shared_storage_indicators": ["/shared/", "/nfs/", "/mnt/shared/", "//"],
+    
+    # Primary cache directories (can be overridden by environment variables)
+    "hf_cache_dir": os.environ.get('DISTILLED_HF_CACHE', "./hf_cache/"),
+    "models_dir": os.environ.get('DISTILLED_MODELS', "./models/"),
+    "local_model_path": os.environ.get('DISTILLED_LOCAL_MODELS', "./local_models/"),
+    "pretrained_dir": os.environ.get('DISTILLED_PRETRAINED', "./pretrained/"),
+    
+    # Shared storage alternatives (if detected)
+    "shared_hf_cache": os.environ.get('SHARED_HF_CACHE', "/shared/ml_models/huggingface/"),
+    "shared_models": os.environ.get('SHARED_MODELS', "/shared/ml_models/distilled/"),
+    "shared_pretrained": os.environ.get('SHARED_PRETRAINED', "/shared/ml_models/pretrained/"),
+    
+    # Cache optimization settings
+    "enable_cache_compression": True,
+    "cache_cleanup_threshold_gb": 50,  # Clean cache if over 50GB
+    "cache_retention_days": 30,
+    "verify_cache_integrity": True,
+    
+    # Performance settings
+    "parallel_downloads": 3,
+    "chunk_size_mb": 10,
+    "enable_symlinks": True,  # For shared storage
+    "cache_lock_timeout": 300,  # 5 minutes
+}
+
+def setup_dynamic_cache_environment():
+    """Setup cache directories with automatic shared storage detection."""
+    cache_config = CACHE_CONFIG.copy()
+    
+    # Detect shared storage environment
+    shared_detected = False
+    if cache_config["auto_detect_shared_storage"]:
+        current_dir = os.getcwd()
+        for indicator in cache_config["shared_storage_indicators"]:
+            if indicator in current_dir:
+                shared_detected = True
+                logger.info(f"🔍 Shared storage detected: {indicator} in {current_dir}")
+                break
+    
+    # Configure cache paths based on environment
+    if shared_detected:
+        CONFIG.update({
+            "hf_cache_dir": cache_config["shared_hf_cache"],
+            "models_dir": cache_config["shared_models"],
+            "local_model_path": cache_config["shared_pretrained"],
+            "pretrained_dir": cache_config["shared_pretrained"],
+            "shared_cache_enabled": True
+        })
+        logger.info("📁 Using shared storage cache configuration")
+    else:
+        CONFIG.update({
+            "hf_cache_dir": cache_config["hf_cache_dir"],
+            "models_dir": cache_config["models_dir"],
+            "local_model_path": cache_config["local_model_path"],
+            "pretrained_dir": cache_config["pretrained_dir"],
+            "shared_cache_enabled": False
+        })
+        logger.info("📁 Using local cache configuration")
+    
+    # Create and verify cache directories
+    cache_dirs = [
+        CONFIG["hf_cache_dir"],
+        CONFIG["models_dir"],
+        CONFIG["local_model_path"],
+        CONFIG["pretrained_dir"]
+    ]
+    
+    for cache_dir in cache_dirs:
+        try:
+            Path(cache_dir).mkdir(parents=True, exist_ok=True)
+            
+            # Test write access
+            test_file = Path(cache_dir) / ".cache_test"
+            test_file.write_text("test")
+            test_file.unlink()
+            
+            logger.info(f"✅ Cache ready: {cache_dir}")
+            
+        except Exception as e:
+            logger.error(f"❌ Cache setup failed for {cache_dir}: {e}")
+            # Fallback to local
+            fallback_dir = f"./{Path(cache_dir).name}/"
+            CONFIG[cache_dir] = fallback_dir
+            Path(fallback_dir).mkdir(parents=True, exist_ok=True)
+            logger.info(f"🔄 Fallback to: {fallback_dir}")
+    
+    return True
+
+def get_cache_status():
+    """Get comprehensive cache status."""
+    status = {
+        "cache_type": "shared" if CONFIG.get("shared_cache_enabled") else "local",
+        "directories": {},
+        "total_size_gb": 0,
+        "model_counts": {}
+    }
+    
+    cache_dirs = {
+        "hf_cache": CONFIG["hf_cache_dir"],
+        "models": CONFIG["models_dir"],
+        "local_models": CONFIG["local_model_path"],
+        "pretrained": CONFIG["pretrained_dir"]
+    }
+    
+    for name, directory in cache_dirs.items():
+        dir_path = Path(directory)
+        if dir_path.exists():
+            # Calculate size
+            total_size = sum(f.stat().st_size for f in dir_path.rglob('*') if f.is_file())
+            size_gb = total_size / (1024**3)
+            
+            # Count items
+            item_count = len([d for d in dir_path.iterdir() if d.is_dir()])
+            
+            status["directories"][name] = {
+                "path": str(directory),
+                "exists": True,
+                "size_gb": round(size_gb, 2),
+                "item_count": item_count
+            }
+            status["total_size_gb"] += size_gb
+            status["model_counts"][name] = item_count
+        else:
+            status["directories"][name] = {
+                "path": str(directory),
+                "exists": False,
+                "size_gb": 0,
+                "item_count": 0
+            }
+    
+    status["total_size_gb"] = round(status["total_size_gb"], 2)
+    return status
+
+class EnhancedModelChain:
+    """Optimized model chain with efficient discovery and intelligent rotation."""
+    
+    def __init__(self):
+        self.available_models = {}
+        self.model_rotation_pool = []
+        self.current_model_index = 0
+        self.models_per_question = CONFIG.get('models_per_question', 2)
+        self.rotation_counter = 0
+        self.rotation_interval = CONFIG.get('model_swap_interval', 25)
+        self.performance_tracker = {}
+        self.last_discovery = 0
+        self.discovery_cache = {}  # Cache discovery results
+        
+        # Initialize discovery
+        self._discover_all_models()
+        self._build_intelligent_rotation_pool()
+        
+        logger.info(f"✅ Enhanced model chain initialized")
+        logger.info(f"   Total models: {len(self.available_models)}")
+        logger.info(f"   Rotation pool: {len(self.model_rotation_pool)}")
+    
+    def _discover_all_models(self):
+        """Efficient model discovery with caching."""
+        current_time = time.time()
+        
+        # Use cached results if recent
+        if (current_time - self.last_discovery) < CONFIG.get('discovery_cache_ttl', 300):
+            if self.discovery_cache:
+                self.available_models = self.discovery_cache.copy()
+                return
+        
+        self.available_models = {}
+        
+        # 1. Remote API models (cached check)
+        if CONFIG.get('llm_url') and CONFIG.get('llm_key'):
+            if self._test_remote_api():
+                self.available_models['remote_primary'] = {
+                    'type': 'remote',
+                    'available': True,
+                    'priority': 1,
+                    'performance_score': 1.0,
+                    'last_used': 0
+                }
+        
+        # 2. Ollama models - batch discovery
+        if CONFIG.get('ollama_enabled'):
+            ollama_models = self._discover_ollama_models_batch()
+            for i, model_name in enumerate(ollama_models):
+                key = f'ollama_{model_name.replace(":", "_").replace("/", "_")}'
+                self.available_models[key] = {
+                    'type': 'ollama',
+                    'model_name': model_name,
+                    'available': True,
+                    'priority': 2,
+                    'performance_score': 0.9 - (i * 0.01),  # Slight preference for first models
+                    'last_used': 0
+                }
+        
+        # 3. Local models - efficient scanning
+        if CONFIG.get('local_model_enabled'):
+            local_models = self._discover_local_models_efficient()
+            for i, (model_name, model_path) in enumerate(local_models):
+                key = f'local_{model_name.replace("/", "_")}'
+                self.available_models[key] = {
+                    'type': 'local',
+                    'model_name': model_name,
+                    'model_path': model_path,
+                    'available': True,
+                    'priority': 3,
+                    'performance_score': 0.7 - (i * 0.05),
+                    'last_used': 0
+                }
+        
+        # 4. Static fallback
+        self.available_models['static'] = {
+            'type': 'static',
+            'available': True,
+            'priority': 4,
+            'performance_score': 0.1,
+            'last_used': 0
+        }
+        
+        # Cache results
+        self.discovery_cache = self.available_models.copy()
+        self.last_discovery = current_time
+        
+        logger.info(f"📋 Discovered {len(self.available_models)} total models")
+    
+    def _discover_ollama_models_batch(self) -> List[str]:
+        """Batch Ollama discovery with single API call."""
+        models = []
+        
+        try:
+            # Single API call for all models
+            response = requests.get(
+                f"{CONFIG['ollama_url']}/api/tags", 
+                timeout=CONFIG['model_discovery_timeout']
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                models = [model['name'] for model in data.get('models', [])]
+                logger.info(f"📋 Batch discovered {len(models)} Ollama models")
+            else:
+                # Single CLI fallback
+                result = subprocess.run(
+                    ["ollama", "list"], 
+                    capture_output=True, 
+                    text=True, 
+                    timeout=CONFIG['model_discovery_timeout']
+                )
+                
+                if result.returncode == 0:
+                    lines = result.stdout.strip().split('\n')[1:]  # Skip header
+                    models = [
+                        line.split()[0] for line in lines 
+                        if line.strip() and not line.startswith('NAME')
+                    ]
+                    logger.info(f"📋 CLI batch discovered {len(models)} Ollama models")
+                    
+        except Exception as e:
+            logger.warning(f"Ollama batch discovery failed: {e}")
+            # Minimal fallback models
+            models = ["qwen2.5-coder:latest", "phi4:latest", "deepseek-r1:latest"]
+        
+        return models[:CONFIG.get('max_ollama_models', 20)]  # Limit for efficiency
+    
+    def _discover_local_models_efficient(self) -> List[tuple]:
+        """Efficient local model discovery with memoization."""
+        local_models = []
+        scan_dirs = [dir_path for dir_path in CONFIG['local_model_scan_dirs'] if dir_path]
+        
+        for scan_dir in scan_dirs:
+            try:
+                scan_path = Path(scan_dir).expanduser()
+                if not scan_path.exists():
+                    continue
+                
+                # Use glob for efficient directory scanning
+                for config_file in scan_path.glob("*/config.json"):
+                    model_dir = config_file.parent
+                    
+                    # Quick check for model files
+                    model_files = [
+                        "pytorch_model.bin", "model.safetensors", 
+                        "tf_model.h5", "model.onnx"
+                    ]
+                    
+                    if any((model_dir / model_file).exists() for model_file in model_files):
+                        model_name = model_dir.name.replace('_', '/')
+                        local_models.append((model_name, str(model_dir)))
+                        
+                        # Limit for efficiency
+                        if len(local_models) >= CONFIG.get('max_local_models', 10):
+                            break
+                            
+            except Exception as e:
+                logger.debug(f"Error scanning {scan_dir}: {e}")
+                continue
+        
+        # Add explicitly configured models
+        for model_name, model_path in CONFIG['local_pretrained_models'].items():
+            if Path(model_path).exists():
+                local_models.append((model_name, model_path))
+        
+        logger.info(f"📁 Efficiently discovered {len(local_models)} local models")
+        return local_models
+
+    def get_next_models_optimized(self, count: int = None) -> List[str]:
+        """Optimized model selection with performance weighting."""
+        if count is None:
+            count = self.models_per_question
+        
+        # Periodic rediscovery (less frequent)
+        if time.time() - self.last_discovery > CONFIG.get('rediscovery_interval', 1800):  # 30 minutes
+            self._discover_all_models()
+            self._build_intelligent_rotation_pool()
+        
+        if not self.model_rotation_pool:
+            return ['static']
+        
+        # Performance-weighted selection
+        selected = []
+        pool_size = len(self.model_rotation_pool)
+        
+        for i in range(min(count, pool_size)):
+            # Weight selection by performance scores
+            available_indices = list(range(pool_size))
+            weights = []
+            
+            for idx in available_indices:
+                model_key = self.model_rotation_pool[idx]
+                performance = self.available_models.get(model_key, {}).get('performance_score', 0.5)
+                weights.append(performance)
+            
+            # Weighted random selection
+            if weights:
+                selected_idx = random.choices(available_indices, weights=weights)[0]
+                model_key = self.model_rotation_pool[selected_idx]
+                selected.append(model_key)
+                
+                # Remove from available for this round to ensure variety
+                available_indices.remove(selected_idx)
+        
+        return selected
+    
+    def _build_intelligent_rotation_pool(self):
+        """Build intelligent rotation pool based on performance and availability."""
+        # Clear existing pool
+        self.model_rotation_pool = []
+        
+        # Sort models by priority and performance
+        available_models = [
+            (name, info) for name, info in self.available_models.items()
+            if info.get('available', False)
+        ]
+        
+        # Sort by performance score * priority weight
+        def model_score(item):
+            name, info = item
+            priority_weight = CONFIG['model_priority_weights'].get(info['type'], 0.5)
+            performance_score = info.get('performance_score', 0.5)
+            return priority_weight * performance_score
+        
+        available_models.sort(key=model_score, reverse=True)
+        
+        # Build diverse pool
+        type_counts = {}
+        max_per_type = {
+            'remote': 2,
+            'ollama': CONFIG['model_pool_size'] - 5,
+            'local': 3,
+            'static': 1
+        }
+        
+        for name, info in available_models:
+            model_type = info['type']
+            current_count = type_counts.get(model_type, 0)
+            
+            if current_count < max_per_type.get(model_type, 1):
+                self.model_rotation_pool.append(name)
+                type_counts[model_type] = current_count + 1
+                
+            if len(self.model_rotation_pool) >= CONFIG['model_pool_size']:
+                break
+        
+        logger.info(f"🎯 Built rotation pool: {len(self.model_rotation_pool)} models")
+        for model_type, count in type_counts.items():
+            logger.info(f"   {model_type}: {count} models")
+    
+    def _test_remote_api(self) -> bool:
+        """Test remote API availability."""
+        try:
+            # Simple test request
+            test_payload = {
+                "model": "claude-3-sonnet-20240229",
+                "max_tokens": 10,
+                "messages": [{"role": "user", "content": "test"}]
+            }
+            
+            response = requests.post(
+                CONFIG['llm_url'],
+                json=test_payload,
+                headers={"x-api-key": CONFIG['llm_key']},
+                timeout=5
+            )
+            
+            return response.status_code in [200, 400]  # 400 is ok for test
+            
+        except Exception:
+            return False
+    
+    def get_next_models(self, count: int = None) -> List[str]:
+        """Get next models in rotation with intelligent selection."""
+        if count is None:
+            count = self.models_per_question
+        
+        # Re-discover models periodically
+        if time.time() - self.last_discovery > CONFIG['ollama_discovery_interval']:
+            self._discover_all_models()
+            self._build_intelligent_rotation_pool()
+        
+        if not self.model_rotation_pool:
+            return ['static']
+        
+        # Select models with variety
+        selected = []
+        start_index = self.current_model_index
+        
+        for i in range(count):
+            if len(self.model_rotation_pool) == 0:
+                break
+                
+            index = (start_index + i) % len(self.model_rotation_pool)
+            model_key = self.model_rotation_pool[index]
+            selected.append(model_key)
+        
+        # Update rotation counter
+        self.rotation_counter += 1
+        if self.rotation_counter >= self.rotation_interval:
+            self.current_model_index = (self.current_model_index + count) % len(self.model_rotation_pool)
+            self.rotation_counter = 0
+        
+        return selected
+    
+    def generate_responses(self, prompt: str, max_tokens: int = 300) -> List[Dict]:
+        """Generate responses using intelligent model selection."""
+        responses = []
+        selected_models = self.get_next_models()
+        
+        for model_key in selected_models:
+            if model_key not in self.available_models:
+                continue
+                
+            model_info = self.available_models[model_key]
+            start_time = time.time()
+            
+            try:
+                if model_info['type'] == 'remote':
+                    response = self._query_remote(prompt, max_tokens)
+                elif model_info['type'] == 'ollama':
+                    response = self._query_ollama(prompt, model_info['model_name'], max_tokens)
+                elif model_info['type'] == 'local':
+                    response = self._query_local(prompt, model_info['model_path'], max_tokens)
+                elif model_info['type'] == 'static':
+                    response = self._get_static_response(prompt)
+                else:
+                    continue
+                
+                if response and len(response.strip()) > CONFIG['response_quality_threshold']:
+                    response_time = time.time() - start_time
+                    
+                    responses.append({
+                        "model": model_key,
+                        "response": response,
+                        "model_type": model_info['type'],
+                        "response_time": response_time,
+                        "quality_score": min(len(response) / 100, 10.0)
+                    })
+                    
+                    # Update performance tracking
+                    self._update_performance(model_key, response_time, True)
+                else:
+                    self._update_performance(model_key, time.time() - start_time, False)
+                    
+            except Exception as e:
+                logger.debug(f"Error with {model_key}: {e}")
+                self._update_performance(model_key, time.time() - start_time, False)
+                continue
+        
+        # Fallback if no responses
+        if not responses:
+            responses = [{
+                "model": "emergency_fallback",
+                "response": "System temporarily unavailable. Please check configuration and try again.",
+                "model_type": "emergency"
+            }]
+        
+        return responses
+    
+    def _update_performance(self, model_key: str, response_time: float, success: bool):
+        """Update model performance metrics."""
+        if not CONFIG.get('track_model_performance'):
+            return
+        
+        if model_key not in self.performance_tracker:
+            self.performance_tracker[model_key] = {
+                'total_requests': 0,
+                'successful_requests': 0,
+                'total_response_time': 0.0,
+                'average_response_time': 0.0,
+                'success_rate': 0.0,
+                'last_updated': time.time()
+            }
+        
+        tracker = self.performance_tracker[model_key]
+        tracker['total_requests'] += 1
+        tracker['total_response_time'] += response_time
+        
+        if success:
+            tracker['successful_requests'] += 1
+        
+        # Calculate averages
+        tracker['average_response_time'] = tracker['total_response_time'] / tracker['total_requests']
+        tracker['success_rate'] = tracker['successful_requests'] / tracker['total_requests']
+        tracker['last_updated'] = time.time()
+        
+        # Update model performance score
+        if model_key in self.available_models:
+            # Performance score based on success rate and response time
+            time_score = max(0.1, 1.0 - (tracker['average_response_time'] / 30.0))  # 30s = 0 score
+            combined_score = (tracker['success_rate'] * 0.7) + (time_score * 0.3)
+            self.available_models[model_key]['performance_score'] = combined_score
+    
+    def _query_remote(self, prompt: str, max_tokens: int) -> Optional[str]:
+        """Query remote API."""
+        try:
+            payload = {
+                "model": "claude-3-sonnet-20240229",
+                "max_tokens": max_tokens,
+                "messages": [{"role": "user", "content": prompt}]
+            }
+            
+            response = requests.post(
+                CONFIG['llm_url'],
+                json=payload,
+                headers={"x-api-key": CONFIG['llm_key']},
+                timeout=CONFIG['llm_timeout']
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('content', [{}])[0].get('text', '').strip()
+                
+        except Exception as e:
+            logger.debug(f"Remote API error: {e}")
+        
+        return None
+    
+    def _query_ollama(self, prompt: str, model: str, max_tokens: int) -> Optional[str]:
+        """Query Ollama model with enhanced error handling."""
+        try:
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": CONFIG['ollama_temperature'],
+                    "num_predict": max_tokens,
+                    "top_p": 0.9
+                }
+            }
+            
+            response = requests.post(
+                f"{CONFIG['ollama_url']}/api/generate",
+                json=payload,
+                timeout=CONFIG['ollama_timeout']
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('response', '').strip()
+                
+        except Exception as e:
+            logger.debug(f"Ollama error with {model}: {e}")
+        
+        return None
+    
+    def _query_local(self, prompt: str, model_path: str, max_tokens: int) -> Optional[str]:
+        """Query local model."""
+        try:
+            from transformers import AutoTokenizer, AutoModelForCausalLM
+            import torch
+            
+            # Load model and tokenizer
+            tokenizer = AutoTokenizer.from_pretrained(model_path)
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                torch_dtype=CONFIG['torch_dtype']
+            )
+            
+            # Ensure pad token exists
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+            
+            # Tokenize input
+            inputs = tokenizer.encode(
+                prompt, 
+                return_tensors="pt", 
+                max_length=512, 
+                truncation=True
+            )
+            
+            # Generate response
+            with torch.no_grad():
+                outputs = model.generate(
+                    inputs,
+                    max_new_tokens=max_tokens,
+                    temperature=CONFIG['local_model_temperature'],
+                    do_sample=True,
+                    pad_token_id=tokenizer.eos_token_id
+                )
+            
+            # Decode response
+            response = tokenizer.decode(
+                outputs[0][inputs.shape[1]:], 
+                skip_special_tokens=True
+            )
+            
+            return response.strip()
+            
+        except Exception as e:
+            logger.debug(f"Local model error: {e}")
+        
+        return None
+    
+    def _get_static_response(self, prompt: str) -> str:
+        """Get static fallback response."""
+        static_file = Path(CONFIG['static_fallback_path']) / "static_responses.json"
+        
+        if static_file.exists():
+            try:
+                with open(static_file, "r") as f:
+                    static_responses = json.load(f)
+                
+                # Simple keyword matching
+                prompt_lower = prompt.lower()
+                for category, responses in static_responses.items():
+                    for keyword, response in responses.items():
+                        if keyword.lower() in prompt_lower:
+                            return f"{response} [Static Response]"
+            except Exception as e:
+                logger.debug(f"Static response error: {e}")
+        
+        return "Unable to process request. Please check system configuration. [Static Response]"
+    
+    def get_status(self) -> Dict:
+        """Get comprehensive model chain status."""
+        return {
+            "total_models": len(self.available_models),
+            "rotation_pool_size": len(self.model_rotation_pool),
+            "models_per_question": self.models_per_question,
+            "current_rotation_index": self.current_model_index,
+            "performance_tracking": CONFIG.get('track_model_performance', False),
+            "model_types": {
+                model_type: len([m for m in self.available_models.values() if m['type'] == model_type])
+                for model_type in ['remote', 'ollama', 'local', 'static']
+            },
+            "last_discovery": datetime.fromtimestamp(self.last_discovery).isoformat(),
+            "performance_summary": {
+                model_key: {
+                    'success_rate': data.get('success_rate', 0),
+                    'avg_response_time': data.get('average_response_time', 0)
+                }
+                for model_key, data in self.performance_tracker.items()
+            } if CONFIG.get('track_model_performance') else {}
+        }
+
+def setup_directories():
+    """Create necessary directories with enhanced structure."""
+    dirs = [
+        CONFIG["training_dir"], 
+        CONFIG["checkpoints_dir"], 
+        CONFIG["logs_dir"],
+        CONFIG["models_dir"], 
+        CONFIG["hf_cache_dir"], 
+        CONFIG["local_model_path"],
+        CONFIG["static_fallback_path"],
+        CONFIG["data_config_dir"],
+        CONFIG["pretrained_dir"]
+    ]
+    
+    for dir_path in dirs:
+        Path(dir_path).mkdir(parents=True, exist_ok=True)
+
+def setup_shared_cache_environment():
+    """Setup shared cache environment if enabled."""
+    if CONFIG['shared_cache_enabled']:
+        logger.info("🔄 Configuring shared cache environment")
+        
+        # Ensure shared directories exist and are accessible
+        shared_dirs = [
+            CONFIG['hf_cache_dir'],
+            CONFIG['models_dir'], 
+            CONFIG['local_model_path'],
+            CONFIG['pretrained_dir']
+        ]
+        
+        for dir_path in shared_dirs:
+            try:
+                path_obj = Path(dir_path)
+                path_obj.mkdir(parents=True, exist_ok=True)
+                
+                # Test write access
+                test_file = path_obj / ".access_test"
+                test_file.write_text("test")
+                test_file.unlink()
+                
+                logger.info(f"📁 Shared cache ready: {dir_path}")
+            except Exception as e:
+                logger.error(f"❌ Shared cache setup failed for {dir_path}: {e}")
+                # Fallback to local directory
+                CONFIG[dir_path.split('/')[-1]] = f"./{dir_path.split('/')[-1]}/"
+
+def detect_training_environment():
+    """Enhanced training environment detection with optimization recommendations."""
+    if CONFIG["force_cpu"]:
+        return "cpu"
+    
+    # Check CUDA availability and optimization
+    if CONFIG["use_cuda"] and torch.cuda.is_available():
+        gpu_count = torch.cuda.device_count()
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory // (1024**3)
+        
+        logger.info(f"🎮 CUDA GPU: {gpu_name} ({gpu_memory}GB)")
+        
+        # Set optimizations based on GPU
+        if gpu_memory >= 8:
+            CONFIG['batch_size'] = min(CONFIG['batch_size'], 16)
+        elif gpu_memory >= 4:
+            CONFIG['batch_size'] = min(CONFIG['batch_size'], 8)
+        else:
+            CONFIG['batch_size'] = min(CONFIG['batch_size'], 4)
+        
+        return "cuda"
+    
+    # Check Apple Silicon (MPS)
+    if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        logger.info("🍎 Apple Silicon (MPS) available")
+        CONFIG['batch_size'] = min(CONFIG['batch_size'], 8)  # Conservative for MPS
+        return "mps"
+    
+    # Check for Spark
+    try:
+        from pyspark.sql import SparkSession
+        logger.info("⚡ Spark environment detected")
+        return "spark"
+    except ImportError:
+        pass
+    
+    # CPU fallback with threading optimization
+    import multiprocessing
+    cpu_count = multiprocessing.cpu_count()
+    logger.info(f"💻 CPU training: {cpu_count} cores")
+    
+    # Adjust batch size for CPU
+    CONFIG['batch_size'] = min(CONFIG['batch_size'], max(2, cpu_count // 2))
+    
+    return "cpu"
+
+def load_config(config_path="./config.json"):
+    """Load configuration from JSON file with validation."""
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                loaded_config = json.load(f)
+            
+            # Validate critical settings
+            for key, value in loaded_config.items():
+                if key in CONFIG:
+                    # Type validation
+                    if isinstance(CONFIG[key], type(value)) or CONFIG[key] is None:
+                        CONFIG[key] = value
+                    else:
+                        logger.warning(f"Config type mismatch for {key}: expected {type(CONFIG[key])}, got {type(value)}")
+                else:
+                    logger.info(f"New config key: {key} = {value}")
+                    CONFIG[key] = value
+            
+            logger.info(f"📖 Configuration loaded from {config_path}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to load config: {e}")
+
+def save_config(config_path="./config.json"):
+    """Save configuration to JSON file."""
+    try:
+        config_copy = CONFIG.copy()
+        
+        # Remove non-serializable items
+        non_serializable = ["use_cuda", "torch_dtype"]
+        for key in non_serializable:
+            config_copy.pop(key, None)
+        
+        # Convert Path objects to strings
+        for key, value in config_copy.items():
+            if isinstance(value, Path):
+                config_copy[key] = str(value)
+        
+        with open(config_path, 'w') as f:
+            json.dump(config_copy, f, indent=2)
+        
+        logger.info(f"💾 Configuration saved to {config_path}")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to save config: {e}")
+
+def setup_fallback_system():
+    """Setup comprehensive fallback system with validation."""
+    print("Setting up comprehensive fallback system...")
+    
+    available_methods = []
+    
+    # Check Remote LLM
+    print("\n1. Checking Remote LLM...")
+    if CONFIG.get('llm_url') and CONFIG.get('llm_key'):
+        print("   ✅ Remote LLM configured")
+        available_methods.append("Remote LLM")
+    else:
+        print("   ❌ Remote LLM not configured")
+    
+    # Check Ollama with enhanced discovery
+    print("\n2. Checking Ollama...")
+    try:
+        response = requests.get(f"{CONFIG['ollama_url']}/api/tags", timeout=10)
+        if response.status_code == 200:
+            models = response.json().get('models', [])
+            if models:
+                print(f"   ✅ Ollama available with {len(models)} models")
+                available_methods.append("Ollama")
+                
+                # Log discovered models
+                for model in models[:5]:  # Show first 5
+                    print(f"      • {model['name']}")
+                if len(models) > 5:
+                    print(f"      • ... and {len(models) - 5} more")
+            else:
+                print("   ❌ Ollama running but no models found")
+        else:
+            print("   ❌ Ollama server not responding")
+    except Exception as e:
+        print(f"   ❌ Ollama not available: {e}")
+    
+    # Check Local Models with enhanced scanning
+    print("\n3. Checking Local Models...")
+    try:
+        from transformers import AutoTokenizer
+        local_count = 0
+        
+        for scan_dir in CONFIG['local_model_scan_dirs']:
+            if not scan_dir:
+                continue
+                
+            scan_path = Path(scan_dir).expanduser()
+            if scan_path.exists():
+                for item in scan_path.iterdir():
+                    if item.is_dir() and (item / "config.json").exists():
+                        local_count += 1
+                        if local_count <= 3:  # Show first 3
+                            print(f"      • {item.name}")
+        
+        if local_count > 0:
+            print(f"   ✅ {local_count} local models available")
+            available_methods.append("Local Models")
+        else:
+            print("   ❌ No local models found")
+            
+    except ImportError:
+        print("   ❌ Transformers not available for local models")
+    except Exception as e:
+        print(f"   ❌ Local model check failed: {e}")
+    
+    # Setup Static Fallback
+    print("\n4. Setting up Static Fallback...")
+    if CONFIG.get('enable_static_fallback', True):
+        success = create_static_fallback_responses()
+        if success:
+            print("   ✅ Static fallback responses created")
+            available_methods.append("Static Fallback")
+        else:
+            print("   ⚠️  Static fallback setup had issues")
+    
+    print(f"\n✅ Fallback system ready with {len(available_methods)} methods: {', '.join(available_methods)}")
+    return len(available_methods) > 0
+
+def test_fallback_system():
+    """Test the fallback system with realistic prompts."""
+    print("Testing fallback system...")
+    
+    test_prompts = [
+        "Explain what high CPU usage indicates in system monitoring.",
+        "What causes java.lang.OutOfMemoryError in applications?",
+        "How do you troubleshoot network connectivity issues on Linux?"
+    ]
+    
+    print("\nRunning test queries...")
+    successful_tests = 0
+    
+    for i, prompt in enumerate(test_prompts, 1):
+        print(f"\nTest {i}: {prompt[:50]}...")
+        try:
+            responses = model_chain.generate_responses(prompt, max_tokens=150)
+            
+            if responses and len(responses) > 0:
+                first_response = responses[0].get('response', '')
+                if len(first_response.strip()) >= CONFIG.get('response_quality_threshold', 15):
+                    print(f"✅ Success: {len(first_response)} chars, {len(responses)} model(s)")
+                    print(f"   Sample: {first_response[:80]}...")
+                    successful_tests += 1
+                else:
+                    print(f"❌ Response too short: {len(first_response)} chars")
+            else:
+                print(f"❌ No response generated")
+                
+        except Exception as e:
+            print(f"❌ Test failed: {str(e)}")
+    
+    print(f"\n📊 TEST RESULTS: {successful_tests}/{len(test_prompts)} successful")
+    return successful_tests > 0
+
+def create_static_fallback_responses():
+    """Create comprehensive static fallback responses."""
+    try:
+        static_responses = {
+            "technical_explanations": {
+                "cpu_usage": "CPU usage represents the percentage of processing power being used. High CPU usage (>80%) may indicate heavy processes, inefficient code, or system stress. Monitor with tools like top, htop, or sar to identify resource-intensive processes.",
+                
+                "memory_usage": "Memory usage shows RAM consumption by system processes. High memory usage (>85%) can cause swapping and performance degradation. Use free, ps, or /proc/meminfo to monitor. Consider memory leaks if usage grows continuously.",
+                
+                "disk_usage": "Disk usage indicates storage space consumption on filesystems. High disk usage (>90%) can cause application failures and system instability. Monitor with df, du, or lsblk. Implement log rotation and cleanup policies.",
+                
+                "load_average": "Load average represents system load over 1, 5, and 15-minute periods. Values above CPU core count indicate system stress. Use uptime or top to monitor. High load may indicate CPU bottlenecks or I/O waits.",
+                
+                "java_heap_usage": "Java heap usage shows memory allocated to Java applications. High heap usage (>85%) may indicate memory leaks or undersized heap. Use jstat, jmap, or heap dumps for analysis. Tune with -Xmx and -Xms flags.",
+                
+                "network_io": "Network I/O measures data transfer rates over network interfaces. High network I/O may indicate heavy traffic, inefficient protocols, or network congestion. Monitor with netstat, ss, iftop, or nload.",
+                
+                "systemd": "systemd is a system and service manager for Linux. It manages system initialization, service lifecycle, and dependencies. Use systemctl for service management and journalctl for log viewing."
+            },
+            
+            "error_interpretations": {
+                "OutOfMemoryError": "OutOfMemoryError occurs when JVM cannot allocate objects due to insufficient heap space. Solutions: increase heap size (-Xmx), find memory leaks with heap dumps, optimize object lifecycle, or add more physical memory.",
+                
+                "connection_refused": "Connection refused means the target service isn't listening on the specified port or is blocked by firewall. Check: service status (systemctl status), port binding (netstat -tulpn), firewall rules (iptables -L).",
+                
+                "disk_full": "Disk full error occurs when filesystem reaches capacity. Solutions: clean temporary files (/tmp), rotate logs, use du to find large files, expand storage, or move data to other filesystems.",
+                
+                "permission_denied": "Permission denied indicates insufficient access rights. Check file permissions (ls -l), user/group ownership (id), sudo access, SELinux contexts (ls -Z), and directory execute permissions.",
+                
+                "network_unreachable": "Network unreachable indicates routing problems or network connectivity issues. Check: interface status (ip addr), routing table (ip route), DNS resolution (nslookup), and physical connectivity."
+            },
+            
+            "troubleshooting_scenarios": {
+                "high_cpu": "For high CPU usage: 1) Use top/htop to identify processes, 2) Check for runaway processes or infinite loops, 3) Analyze with strace or perf, 4) Consider process optimization, 5) Check for malware or unauthorized processes.",
+                
+                "memory_leak": "For memory leaks: 1) Monitor memory growth with free/top over time, 2) Generate heap dumps (jmap for Java), 3) Analyze object references, 4) Review application logs, 5) Restart service as temporary fix, 6) Profile application code.",
+                
+                "slow_performance": "For performance issues: 1) Check system resources (CPU, memory, disk, network), 2) Identify bottlenecks with monitoring tools, 3) Review recent changes, 4) Analyze application and system logs, 5) Consider scaling or optimization.",
+                
+                "network_issues": "For network problems: 1) Test connectivity (ping, traceroute), 2) Check interface status (ip addr show), 3) Verify routing (ip route), 4) Check DNS (nslookup, dig), 5) Analyze traffic (tcpdump, wireshark), 6) Review firewall rules."
+            },
+            
+            "best_practices": {
+                "monitoring": "Effective monitoring includes: proactive alerting on key metrics, trend analysis not just current values, appropriate thresholds to avoid alert fatigue, comprehensive logging, regular review and tuning of monitoring rules.",
+                
+                "performance": "Performance best practices: establish baseline metrics, make incremental changes with measurement, focus on actual bottlenecks first, test in non-production environments, document all changes and results.",
+                
+                "security": "Security hardening: keep systems updated, use principle of least privilege, implement proper firewall rules, regular security audits, monitor for suspicious activities, secure configurations.",
+                
+                "backup_recovery": "Backup and recovery: implement automated backups, test restore procedures regularly, store backups in multiple locations, document recovery procedures, monitor backup success."
+            }
+        }
+        
+        # Save static responses
+        static_dir = Path(CONFIG["static_fallback_path"])
+        static_dir.mkdir(parents=True, exist_ok=True)
+        
+        with open(static_dir / "static_responses.json", "w") as f:
+            json.dump(static_responses, f, indent=2)
+        
+        logger.info(f"📝 Static responses created: {sum(len(cat) for cat in static_responses.values())} responses")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Static response creation failed: {e}")
+        return False
+
+def validate_integrations():
+    """Validate external service integrations."""
+    integration_status = {}
+    
+    # Test Splunk integration
+    if CONFIG['splunk_integration']['enabled']:
+        try:
+            response = requests.get(
+                f"{CONFIG['splunk_integration']['url']}/services/server/info",
+                headers={'Authorization': f"Bearer {CONFIG['splunk_integration']['token']}"},
+                timeout=10
+            )
+            integration_status['splunk'] = response.status_code == 200
+        except Exception as e:
+            integration_status['splunk'] = False
+            logger.debug(f"Splunk test failed: {e}")
+    
+    # Test Jira integration
+    if CONFIG['jira_integration']['enabled']:
+        try:
+            response = requests.get(
+                f"{CONFIG['jira_integration']['url']}/rest/api/2/serverInfo",
+                auth=(CONFIG['jira_integration']['username'], CONFIG['jira_integration']['token']),
+                timeout=10
+            )
+            integration_status['jira'] = response.status_code == 200
+        except Exception as e:
+            integration_status['jira'] = False
+            logger.debug(f"Jira test failed: {e}")
+    
+    # Test Spectrum integration
+    if CONFIG['spectrum_integration']['enabled']:
+        try:
+            response = requests.get(
+                f"{CONFIG['spectrum_integration']['url']}/platform/rest/conductor/v1/clusters",
+                auth=(CONFIG['spectrum_integration']['username'], CONFIG['spectrum_integration']['password']),
+                timeout=10
+            )
+            integration_status['spectrum'] = response.status_code == 200
+        except Exception as e:
+            integration_status['spectrum'] = False
+            logger.debug(f"Spectrum test failed: {e}")
+    
+    return integration_status
+
+# Initialize enhanced model chain
+model_chain = EnhancedModelChain()
+
+# Initialize directories and shared cache on import
+setup_directories()
+if CONFIG.get('shared_cache_enabled'):
+    setup_shared_cache_environment()
+
+# Load user configuration if exists
+load_config()
+
+if __name__ == "__main__":
+    print("🚀 Enhanced Distilled Monitoring System Configuration")
+    print("=" * 60)
+    
+    # Setup fallback system
+    setup_success = setup_fallback_system()
+    
+    if setup_success:
+        # Test the system
+        test_success = test_fallback_system()
+        
+        if test_success:
+            print("\n✅ Configuration and fallback system ready!")
+            print(f"   Models available: {len(model_chain.available_models)}")
+            print(f"   Rotation pool: {len(model_chain.model_rotation_pool)}")
+            
+            # Show integration status
+            integrations = validate_integrations()
+            if integrations:
+                print(f"   Integrations: {integrations}")
+        else:
+            print("\n⚠️  System configured but some tests failed")
+    else:
+        print("\n❌ Fallback system setup failed")
+    
+    # Show configuration summary
+    print(f"\nCache directories:")
+    print(f"  HF Cache: {CONFIG['hf_cache_dir']}")
+    print(f"  Models: {CONFIG['models_dir']}")
+    print(f"  Local Models: {CONFIG['local_model_path']}")
+    print(f"  Shared Cache: {'Enabled' if CONFIG['shared_cache_enabled'] else 'Disabled'}")
+    
+    print(f"\nTraining environment: {detect_training_environment()}")
+    print(f"Continual learning: {'Enabled' if CONFIG['continual_learning_enabled'] else 'Disabled'}")
+    print("=" * 60)

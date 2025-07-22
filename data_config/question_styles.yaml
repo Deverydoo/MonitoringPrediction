@@ -1,0 +1,140 @@
+styles:
+- name: direct
+  pattern: What is {topic}?
+  tone: straightforward
+  context: quick_reference
+  examples:
+  - What is systemd?
+  - What is garbage collection?
+  - What is load average?
+- name: exploratory
+  pattern: Can you explain how {topic} works?
+  tone: curious
+  context: learning
+  examples:
+  - Can you explain how memory management works?
+  - Can you explain how CPU scheduling works?
+  - Can you explain how network routing works?
+- name: practical
+  pattern: How do I use {topic} in practice?
+  tone: application_focused
+  context: implementation
+  examples:
+  - How do I use iptables in practice?
+  - How do I use cron jobs in practice?
+  - How do I use performance monitoring in practice?
+- name: troubleshooting
+  pattern: How do I troubleshoot issues with {topic}?
+  tone: problem_solving
+  context: debugging
+  examples:
+  - How do I troubleshoot issues with high CPU usage?
+  - How do I troubleshoot issues with network connectivity?
+  - How do I troubleshoot issues with disk space?
+- name: conversational
+  pattern: Tell me about {topic} - I keep hearing about it but don't really understand it
+  tone: casual
+  context: informal_learning
+  examples:
+  - Tell me about Docker - I keep hearing about it but don't really understand it
+  - Tell me about Kubernetes - I keep hearing about it but don't really understand it
+  - Tell me about microservices - I keep hearing about it but don't really understand it
+- name: comparative
+  pattern: How does {topic} compare to alternatives?
+  tone: analytical
+  context: decision_making
+  examples:
+  - How does systemd compare to alternatives?
+  - How does nginx compare to alternatives?
+  - How does Prometheus compare to alternatives?
+- name: deep_dive
+  pattern: Give me a technical deep-dive on {topic}
+  tone: expert_level
+  context: advanced_learning
+  examples:
+  - Give me a technical deep-dive on memory management
+  - Give me a technical deep-dive on TCP/IP networking
+  - Give me a technical deep-dive on file systems
+- name: scenario_based
+  pattern: In what scenarios would I use {topic}?
+  tone: practical_application
+  context: use_cases
+  examples:
+  - In what scenarios would I use load balancing?
+  - In what scenarios would I use caching?
+  - In what scenarios would I use monitoring alerts?
+- name: beginner_friendly
+  pattern: I'm new to {topic} - can you explain it simply?
+  tone: novice
+  context: basic_introduction
+  examples:
+  - I'm new to Linux - can you explain it simply?
+  - I'm new to system administration - can you explain it simply?
+  - I'm new to monitoring - can you explain it simply?
+- name: expert_consultation
+  pattern: As an expert, what should I know about {topic}?
+  tone: professional
+  context: expert_advice
+  examples:
+  - As an expert, what should I know about security hardening?
+  - As an expert, what should I know about performance optimization?
+  - As an expert, what should I know about disaster recovery?
+question_contexts:
+  quick_reference:
+  - Need a quick definition
+  - Looking for basic understanding
+  - Want concise explanation
+  learning:
+  - Studying new concepts
+  - Expanding knowledge
+  - Understanding fundamentals
+  implementation:
+  - Ready to start using
+  - Need practical guidance
+  - Want hands-on examples
+  debugging:
+  - Facing specific problems
+  - Need troubleshooting help
+  - Looking for solutions
+  informal_learning:
+  - Casual conversation
+  - Overheard terminology
+  - General curiosity
+  decision_making:
+  - Evaluating options
+  - Comparing tools
+  - Making technology choices
+  advanced_learning:
+  - Deep technical understanding
+  - Architecture-level knowledge
+  - Expert-level details
+  use_cases:
+  - Understanding applications
+  - Identifying opportunities
+  - Planning implementation
+  basic_introduction:
+  - Complete beginner
+  - No prior experience
+  - Need simple explanations
+  expert_advice:
+  - Professional development
+  - Best practices
+  - Strategic guidance
+response_modifiers:
+  urgency_levels:
+  - routine_inquiry
+  - moderate_priority
+  - urgent_need
+  - crisis_situation
+  audience_types:
+  - junior_developer
+  - senior_engineer
+  - system_administrator
+  - DevOps_engineer
+  - technical_manager
+  communication_styles:
+  - formal_documentation
+  - casual_conversation
+  - technical_presentation
+  - training_material
+  - troubleshooting_guide

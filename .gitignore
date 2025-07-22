@@ -1,0 +1,96 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Model files and caches (LARGE FILES)
+hf_cache/
+*.pth
+*.pt
+checkpoints/
+local_models/
+
+# Logs
+logs/
+*.log
+
+# Cache directories
+.cache/
+cache/
+
+# Static responses and generated content
+static_responses/
+exported/
+backup*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ollama models (if cached locally)
+.ollama/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Secrets and credentials
+.env.local
+.env.production
+secrets.json
+credentials.json
+api_keys.txt
+
+# Large data files
+*.gz
+*.zip
+*.tar
+*.bz2
+*.xz
+
+# Backup files
+*_backup_*
+backup_*

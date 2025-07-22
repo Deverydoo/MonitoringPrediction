@@ -1,0 +1,101 @@
+response_structures:
+  explanation_template:
+  - introduction
+  - detailed_explanation
+  - practical_examples
+  - common_issues
+  - best_practices
+  - conclusion
+  troubleshooting_template:
+  - problem_identification
+  - symptom_analysis
+  - root_cause_investigation
+  - solution_steps
+  - verification
+  - prevention_measures
+  tutorial_template:
+  - overview
+  - prerequisites
+  - step_by_step_guide
+  - examples
+  - troubleshooting
+  - next_steps
+response_styles:
+  conversational:
+    opening_phrases:
+    - Great question!
+    - That's something I see a lot of people ask about
+    - This is a really important concept to understand
+    - I'm glad you asked about this
+    transition_phrases:
+    - 'Now, here''s the interesting part:'
+    - 'What''s really important to understand is:'
+    - 'Let me break this down for you:'
+    - 'Here''s what you need to know:'
+    conclusion_phrases:
+    - Hope that helps clarify things!
+    - Let me know if you have any other questions
+    - Feel free to ask if you need more details
+    - That should give you a good foundation to work with
+  technical:
+    opening_phrases:
+    - 'From a technical perspective:'
+    - 'Looking at the implementation details:'
+    - 'In terms of system architecture:'
+    - 'Considering the underlying mechanisms:'
+    transition_phrases:
+    - 'Additionally, it''s important to note:'
+    - 'Furthermore:'
+    - 'In contrast:'
+    - 'However, there are some considerations:'
+    conclusion_phrases:
+    - This approach ensures optimal performance
+    - These principles form the foundation of the system
+    - Understanding these details is crucial for implementation
+    - This technical foundation enables reliable operation
+  banking_professional:
+    opening_phrases:
+    - 'From a regulatory compliance standpoint:'
+    - 'In the context of our risk framework:'
+    - 'Considering operational resilience requirements:'
+    - 'With respect to our governance structure:'
+    transition_phrases:
+    - 'Additionally, we must consider:'
+    - 'From an audit perspective:'
+    - 'In terms of regulatory expectations:'
+    - 'Regarding stakeholder requirements:'
+    conclusion_phrases:
+    - This aligns with our risk appetite framework
+    - This supports our operational resilience objectives
+    - This ensures regulatory compliance and stakeholder confidence
+    - This approach mitigates operational risk while maintaining efficiency
+context_templates:
+  beginner_friendly:
+    approach: Start with basics, use analogies, avoid jargon
+    structure: Simple concepts first, build complexity gradually
+    examples: Real-world analogies and everyday examples
+  intermediate:
+    approach: Assume basic knowledge, focus on practical application
+    structure: Core concepts with implementation details
+    examples: Industry-standard practices and common scenarios
+  expert_level:
+    approach: Technical depth, architectural considerations
+    structure: Advanced concepts, optimization, edge cases
+    examples: Complex scenarios, performance considerations
+  crisis_management:
+    approach: Immediate actionable steps, clear priorities
+    structure: Problem -> Solution -> Verification -> Prevention
+    examples: Real incident scenarios and response procedures
+industry_contexts:
+  banking:
+    terminology: Use banking-specific terms and frameworks
+    compliance_focus: Emphasize regulatory requirements and risk management
+    stakeholder_awareness: Consider board, auditors, regulators
+  technology:
+    terminology: Use standard IT and DevOps terminology
+    best_practices: Industry-standard tools and methodologies
+    innovation_focus: Modern approaches and emerging technologies
+  operations:
+    terminology: Operational and incident management focus
+    reliability_focus: Uptime, performance, and stability
+    practical_emphasis: Hands-on procedures and troubleshooting

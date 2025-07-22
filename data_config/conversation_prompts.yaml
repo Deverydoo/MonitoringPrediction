@@ -1,0 +1,702 @@
+# Enhanced conversation_prompts.yaml - Comprehensive variety for training data generation
+# This file provides extensive variety in conversation styles, scenarios, and prompts
+# for generating realistic training data for the distilled monitoring model
+
+# Core conversation styles with personality variations
+conversation_styles:
+  # Explanatory styles
+  - casual_explanation
+  - expert_breakdown
+  - troubleshooting_help
+  - newbie_friendly
+  - practical_advice
+  - step_by_step
+  - visual_metaphor
+  - analogical_explanation
+  - comparative_analysis
+  - historical_context
+  
+  # Interactive styles
+  - socratic_questioning
+  - collaborative_exploration
+  - peer_review_style
+  - mentor_guidance
+  - discovery_learning
+  - problem_solving_partner
+  
+  # Technical depths
+  - surface_level_overview
+  - intermediate_deep_dive
+  - expert_technical_detail
+  - architectural_perspective
+  - implementation_focused
+  - optimization_oriented
+
+# Conversation types representing real workplace scenarios
+conversation_types:
+  # Mentoring scenarios
+  - mentor_moment
+  - career_guidance
+  - skill_development
+  - knowledge_transfer
+  - wisdom_sharing
+  - experience_reflection
+  
+  # Collaborative scenarios
+  - debugging_buddy
+  - pair_troubleshooting
+  - knowledge_share
+  - peer_consultation
+  - team_brainstorming
+  - collective_problem_solving
+  
+  # Learning scenarios
+  - onboarding_help
+  - concept_clarification
+  - technology_introduction
+  - best_practice_discussion
+  - lesson_learned_sharing
+  - retrospective_analysis
+  
+  # Crisis scenarios
+  - crisis_debrief
+  - incident_response
+  - post_mortem_discussion
+  - emergency_consultation
+  - rapid_fire_troubleshooting
+  - war_room_coordination
+  
+  # Planning scenarios
+  - tool_recommendation
+  - architecture_planning
+  - capacity_planning
+  - performance_optimization
+  - preventive_maintenance
+  - strategic_discussion
+
+# Error handling scenarios with emotional and situational context
+error_scenarios:
+  # Emotional states
+  frustrated_user:
+    - "I keep getting this error: '{error}' and it's driving me crazy! What the hell is going on?"
+    - "This stupid error '{error}' keeps popping up. I have no idea what to do."
+    - "I'm at my wit's end with this '{error}' message. Can someone please help?"
+    - "Ugh, '{error}' again! Why does this keep happening?"
+    - "I'm going insane with this '{error}' - it's been happening for hours!"
+    - "This '{error}' is making me want to throw my laptop out the window!"
+    - "I've tried everything and this '{error}' won't go away. Help!"
+    
+  confused_beginner:
+    - "I got this '{error}' but I don't understand what it means. Can you explain?"
+    - "I'm new to this and saw '{error}'. Is this bad? What should I do?"
+    - "Sorry if this is a dumb question, but what does '{error}' actually mean?"
+    - "I'm learning and encountered '{error}'. Can you walk me through this?"
+    - "As a beginner, I'm confused by this '{error}'. Where do I start?"
+    - "I don't have much experience - is '{error}' something serious?"
+    
+  learning_opportunity:
+    - "I got this error '{error}' and want to understand what really happened."
+    - "Can you walk me through why '{error}' occurs and how to prevent it?"
+    - "I'm trying to learn from this '{error}'. What's the root cause?"
+    - "This '{error}' was interesting. Can you explain the underlying issue?"
+    - "I want to understand '{error}' better so I can handle it next time."
+    - "This '{error}' taught me something. Can you help me understand what?"
+    - "I'd like to deep-dive into why '{error}' happened."
+
+  urgent_production:
+    - "URGENT: Production is down with error '{error}'. Need immediate help!"
+    - "Red alert! We're seeing '{error}' in production. What's the quickest fix?"
+    - "Production emergency: '{error}' is affecting all our users. Help!"
+    - "Crisis mode: '{error}' just took down our main service. What do we do?"
+    - "All hands on deck! '{error}' in production. Need solutions NOW!"
+    - "Customer-facing outage due to '{error}'. Emergency response needed!"
+    - "SLA breach alert: '{error}' causing widespread issues!"
+
+  preventive_mindset:
+    - "I saw '{error}' in our logs. How can we prevent this from becoming a bigger issue?"
+    - "We had '{error}' in staging. What should we watch for in production?"
+    - "I want to be proactive about '{error}'. What monitoring should we add?"
+    - "Before we deploy, I noticed '{error}' in testing. Should we be concerned?"
+    - "Let's discuss '{error}' so we can prevent it in the future."
+    - "I'm doing a pre-mortem on '{error}'. What could go wrong?"
+
+  detective_mode:
+    - "I'm investigating '{error}' and need to understand the forensics."
+    - "This '{error}' appeared suddenly. Let's trace what happened."
+    - "I'm doing root cause analysis on '{error}'. What clues should I look for?"
+    - "The '{error}' timeline is confusing. Can you help me piece it together?"
+    - "I'm hunting down the cause of '{error}'. Where should I look?"
+    - "Let's solve the mystery of '{error}' - what evidence do we have?"
+
+# Explanation prompt varieties with different approaches
+explanation_prompts:
+  # Casual and approachable
+  casual_explanation:
+    - "Hey, can you explain {term} in simple terms? I keep hearing about it but don't really get what it does."
+    - "I'm trying to understand {term}. What's the deal with it?"
+    - "Someone mentioned {term} in a meeting. Can you break it down for me?"
+    - "What exactly is {term} and why should I care about it?"
+    - "I've seen {term} mentioned in logs. What does it actually mean?"
+    - "Can you give me the TL;DR on {term}?"
+    - "I'm curious about {term} - what's it all about?"
+    - "Help me understand {term} without getting too technical."
+
+  # Expert-level technical
+  expert_breakdown:
+    - "Can you give me a technical deep-dive on {term}? I need to understand the internals."
+    - "I'm debugging an issue related to {term}. What are the key technical details I should know?"
+    - "From an architecture perspective, how does {term} work?"
+    - "What are the performance implications of {term}?"
+    - "I need to optimize {term} - what are the technical considerations?"
+    - "Can you explain the implementation details of {term}?"
+    - "What are the edge cases and limitations of {term}?"
+    - "I need expert-level knowledge about {term} for a design review."
+
+  # Beginner-friendly
+  newbie_friendly:
+    - "I'm new to system administration. Can you explain {term} like I'm five?"
+    - "As someone just starting out, what should I know about {term}?"
+    - "I keep seeing {term} everywhere but I'm a beginner. Help me understand?"
+    - "Can you explain {term} without all the jargon? I'm still learning."
+    - "What's {term} in plain English? I'm not a technical expert."
+    - "I'm learning the basics. How does {term} fit into the bigger picture?"
+    - "For a complete newbie, what's the essential knowledge about {term}?"
+    - "Can you start from the very beginning with {term}?"
+
+  # Problem-solving focus
+  troubleshooting_help:
+    - "I'm having issues with {term}. What usually goes wrong?"
+    - "When {term} acts up, what's the first thing you check?"
+    - "What are the common problems with {term} and how do you fix them?"
+    - "I think {term} is causing performance issues. How do I troubleshoot this?"
+    - "My system is having {term} problems. Where do I even start?"
+    - "What's your troubleshooting playbook for {term}?"
+    - "I need a systematic approach to diagnosing {term} issues."
+    - "When {term} fails, what's the debugging methodology?"
+
+  # Practical application
+  practical_advice:
+    - "In real-world scenarios, how do you actually use {term}?"
+    - "What are the best practices for implementing {term}?"
+    - "Can you share some practical examples of {term} in action?"
+    - "What would you do differently with {term} if you could start over?"
+    - "What are the gotchas and pitfalls with {term}?"
+    - "How do you monitor and maintain {term} in production?"
+    - "What's your practical experience with {term}?"
+    - "Any hard-learned lessons about {term} you can share?"
+
+  # Comparative understanding
+  comparative_analysis:
+    - "How does {term} compare to similar technologies?"
+    - "What makes {term} different from the alternatives?"
+    - "When would you choose {term} over other options?"
+    - "What are the trade-offs of using {term}?"
+    - "How has {term} evolved compared to older approaches?"
+    - "In what scenarios is {term} the best choice?"
+    - "What are the pros and cons of {term} versus competitors?"
+    - "How do you decide between {term} and other solutions?"
+
+  # Historical and contextual
+  historical_context:
+    - "What problem was {term} originally designed to solve?"
+    - "How did {term} come about and why was it needed?"
+    - "What was the state of things before {term} existed?"
+    - "How has {term} changed the way we do things?"
+    - "What's the evolution story of {term}?"
+    - "Why did {term} become popular in the industry?"
+    - "What were the limitations that led to {term} being created?"
+    - "How does {term} fit into the historical timeline of this technology?"
+
+  # Banking/Business professional styles
+  executive_inquiry:
+    - "From a business continuity perspective, how does {term} impact our operations?"
+    - "What are the regulatory implications of {term} for our institution?"
+    - "How does {term} align with our risk management framework?"
+    - "Can you provide an executive summary of {term} and its strategic importance?"
+    - "What are the cost-benefit considerations of implementing {term}?"
+    - "How does {term} support our digital transformation initiatives?"
+    - "What governance controls should we have around {term}?"
+    - "From a fiduciary standpoint, what are our obligations regarding {term}?"
+
+  # Risk and compliance focused
+  risk_management:
+    - "What are the operational risks associated with {term}?"
+    - "How does {term} impact our compliance posture?"
+    - "What controls do we need to implement for {term}?"
+    - "From an audit perspective, what documentation is required for {term}?"
+    - "How does {term} affect our regulatory reporting requirements?"
+    - "What are the cybersecurity implications of {term}?"
+    - "How do we ensure {term} meets our risk appetite?"
+    - "What's our contingency plan if {term} fails during critical business hours?"
+
+  # Client and stakeholder communication
+  stakeholder_communication:
+    - "How would you explain {term} to our board of directors?"
+    - "What talking points should I prepare about {term} for the executive committee?"
+    - "How do we communicate {term} changes to our clients?"
+    - "What's the elevator pitch for {term} to senior leadership?"
+    - "How does {term} impact our customer service capabilities?"
+    - "What are the key messages about {term} for our quarterly business review?"
+    - "How do we position {term} in our annual report?"
+    - "What stakeholder concerns might arise regarding {term}?"
+
+  # Budget and resource planning
+  financial_planning:
+    - "What's the total cost of ownership for {term}?"
+    - "How do we justify the ROI on {term} to the finance committee?"
+    - "What budget allocations are needed for {term} implementation?"
+    - "How does {term} impact our operational expenses?"
+    - "What's the business case for investing in {term}?"
+    - "How do we measure the financial benefits of {term}?"
+    - "What are the hidden costs associated with {term}?"
+    - "How does {term} contribute to our bottom line?"
+
+# Response styles representing different personality types and expertise levels
+response_styles:
+  # Mentoring personalities
+  - helpful_colleague
+  - experienced_mentor
+  - patient_teacher
+  - practical_engineer
+  - debugging_partner
+  - friendly_expert
+  - wise_veteran
+  - encouraging_guide
+  - supportive_teammate
+
+  # Technical personalities
+  - methodical_analyst
+  - creative_problem_solver
+  - detail_oriented_specialist
+  - big_picture_architect
+  - performance_optimizer
+  - security_focused_expert
+  - reliability_engineer
+  - automation_enthusiast
+
+  # Communication styles
+  - clear_communicator
+  - story_teller
+  - visual_explainer
+  - step_by_step_guide
+  - example_driven_teacher
+  - analogy_master
+  - concept_connector
+  - pattern_recognizer
+
+  # Banking/Business professional styles
+  - formal_business_consultant
+  - executive_advisor
+  - risk_management_specialist
+  - compliance_focused_professional
+  - client_facing_representative
+  - board_presentation_ready
+  - audit_documentation_style
+  - regulatory_compliance_expert
+  - stakeholder_communicator
+  - budget_conscious_advisor
+
+  # Executive communication styles
+  - c_suite_briefing_style
+  - strategic_business_advisor
+  - executive_summary_presenter
+  - board_room_professional
+  - investor_relations_tone
+  - senior_leadership_consultant
+  - corporate_governance_expert
+  - fiduciary_responsibility_focused
+  
+  # Future-looking
+forward_thinking:
+  - "Where is {term} heading in the future?"
+  - "What trends are affecting {term}?"
+  - "How do you see {term} evolving over the next few years?"
+  - "What innovations might replace or enhance {term}?"
+  - "What should we be preparing for with {term}?"
+  - "How might {term} adapt to emerging challenges?"
+  - "What's the roadmap looking like for {term}?"
+  - "What new capabilities might we see in {term}?"
+    
+# Workplace expressions and technical slang for authentic conversations
+workplace_expressions:
+  # Banking/Financial services professional language
+  banking_terminology:
+    - "We need to ensure this meets our regulatory requirements"
+    - "This must align with our risk appetite"
+    - "Let's review the compliance implications"
+    - "We need board-level visibility on this"
+    - "This requires executive committee approval"
+    - "We must document this for audit purposes"
+    - "This impacts our operational resilience"
+    - "We need to assess the business continuity implications"
+    - "This affects our customer data protection obligations"
+    - "We must ensure this meets industry standards"
+    - "This requires stakeholder communication"
+    - "We need to evaluate the reputational risk"
+    
+  # Executive communication patterns
+  executive_language:
+    - "What's the strategic significance of this?"
+    - "How does this ladder up to our business objectives?"
+    - "What's the competitive advantage here?"
+    - "How do we socialize this across the organization?"
+    - "What's our go-to-market strategy for this?"
+    - "How does this impact shareholder value?"
+    - "What are the macro-economic implications?"
+    - "How do we scale this across the enterprise?"
+    - "What's the total addressable market impact?"
+    - "How does this affect our market positioning?"
+    - "What's the opportunity cost of not pursuing this?"
+    - "How do we de-risk this initiative?"
+    
+  # Formal business expressions
+  corporate_formality:
+    - "Per our previous discussion"
+    - "As outlined in the executive summary"
+    - "In accordance with best practices"
+    - "Subject to regulatory approval"
+    - "Pending stakeholder alignment"
+    - "Following due diligence procedures"
+    - "In compliance with industry standards"
+    - "As per the governance framework"
+    - "Consistent with our strategic direction"
+    - "Aligned with fiduciary responsibilities"
+    
+  # Risk and compliance language
+  risk_compliance_terms:
+    - "This requires risk assessment and mitigation"
+    - "We need to validate control effectiveness"
+    - "This must undergo compliance review"
+    - "We need to document the risk rationale"
+    - "This requires three lines of defense validation"
+    - "We must ensure proper segregation of duties"
+    - "This needs regulatory impact assessment"
+    - "We require audit trail documentation"
+    - "This must meet data governance standards"
+    - "We need cyber risk evaluation"
+  # Technical slang and jargon
+  slang_contexts:
+    - "That system is completely borked"
+    - "We need to yak shave this configuration"
+    - "The database is thrashing like crazy"
+    - "This code is a real footgun"
+    - "We're bikeshedding this monitoring setup"
+    - "Time to rubber duck this problem"
+    - "This is a classic heisenbug"
+    - "We're seeing some really gnarly race conditions"
+    - "The system is exhibiting pathological behavior"
+    - "This smells like a memory leak"
+    - "We've got a runaway process eating CPU"
+    - "The logs are super chatty today"
+    - "This endpoint is dog slow"
+    - "We're getting hammered with requests"
+    - "The cache is stone cold"
+    - "This query is a real resource hog"
+    
+  # Emotional expressions
+  stress_indicators:
+    - "This is giving me gray hairs"
+    - "I'm pulling my hair out over this"
+    - "This is keeping me up at night"
+    - "My eye is twitching from this bug"
+    - "This problem is haunting me"
+    - "I'm losing sleep over this performance issue"
+    
+  # Success expressions
+  victory_phrases:
+    - "Finally nailed that bug!"
+    - "Got it working like a charm"
+    - "That fix was chef's kiss perfect"
+    - "Boom! Problem solved"
+    - "We're cooking with gas now"
+    - "That performance improvement is *chef's kiss*"
+    - "We absolutely crushed that optimization"
+    
+  # Collaboration phrases
+  team_expressions:
+    - "Let's put our heads together on this"
+    - "Two brains are better than one"
+    - "Fresh eyes might help here"
+    - "Let's bounce ideas off each other"
+    - "Time for a rubber duck session"
+    - "Want to pair on this problem?"
+    - "Let's sanity check this approach"
+
+# Question patterns for generating diverse training scenarios
+question_patterns:
+  # Direct technical questions
+  direct_technical:
+    - "What is {term}?"
+    - "How does {term} work?"
+    - "Why do we use {term}?"
+    - "When should I use {term}?"
+    - "Where does {term} fit in our architecture?"
+    
+  # Problem-solving questions
+  problem_solving:
+    - "How do I fix {term}?"
+    - "What's wrong with my {term}?"
+    - "Why is {term} not working?"
+    - "How can I optimize {term}?"
+    - "What's the best way to implement {term}?"
+    
+  # Comparative questions
+  comparative:
+    - "What's better: {term} or {alternative}?"
+    - "Should I use {term} or stick with {current_solution}?"
+    - "How does {term} compare to {competitor}?"
+    - "What are the trade-offs of {term}?"
+    - "Which approach is more reliable: {option1} or {option2}?"
+    
+  # Scenario-based questions
+  scenario_based:
+    - "In a high-traffic environment, how would you handle {term}?"
+    - "For a small startup, is {term} overkill?"
+    - "In a regulated industry, what are the compliance implications of {term}?"
+    - "During a migration, how do you manage {term}?"
+    - "In a disaster recovery scenario, how does {term} behave?"
+
+# Conversation starters for different contexts
+conversation_starters:
+  # Casual workplace conversations
+  water_cooler:
+    - "I was just reading about {topic} and wondered..."
+    - "Someone in Slack mentioned {topic} - what's your take?"
+    - "I overheard an interesting discussion about {topic}..."
+    - "Been thinking about {topic} lately - curious what you think..."
+    - "Saw an article about {topic} that reminded me to ask you..."
+    
+  # Meeting contexts
+  meeting_discussions:
+    - "Before we wrap up, I wanted to ask about {topic}..."
+    - "While we're all here, what's everyone's experience with {topic}?"
+    - "This ties into our earlier discussion about {topic}..."
+    - "I know we've talked about {topic} before, but..."
+    - "For the next sprint, should we consider {topic}?"
+    
+  # Executive briefing contexts
+  executive_briefings:
+    - "For the board presentation, I need to understand {topic}..."
+    - "The CEO is asking about our strategy regarding {topic}..."
+    - "In preparation for the quarterly review, let's discuss {topic}..."
+    - "The risk committee wants clarity on {topic}..."
+    - "For the investor call, how do we position {topic}?"
+    - "The audit committee is inquiring about {topic}..."
+    - "Senior leadership needs a briefing on {topic}..."
+    - "The compliance officer has questions about {topic}..."
+    
+  # Client/Customer contexts
+  client_interactions:
+    - "A key client is asking about our capabilities with {topic}..."
+    - "We need to prepare talking points about {topic} for the customer meeting..."
+    - "The relationship manager wants to understand {topic} for client discussions..."
+    - "Our largest client is concerned about {topic}..."
+    - "We need to demonstrate our expertise in {topic} to prospects..."
+    - "The client advisory board is discussing {topic}..."
+    
+  # Regulatory and compliance contexts
+  regulatory_discussions:
+    - "The regulator is asking questions about our approach to {topic}..."
+    - "We need to prepare for the examination regarding {topic}..."
+    - "The compliance team needs clarity on {topic} requirements..."
+    - "For the regulatory filing, we need to document {topic}..."
+    - "The external auditors are reviewing our {topic} processes..."
+    - "We need to ensure {topic} meets regulatory expectations..."
+    
+  # Crisis situations
+  emergency_scenarios:
+    - "Houston, we have a problem with {topic}..."
+    - "All hands meeting - we need to discuss {topic} immediately"
+    - "Just got escalated an issue with {topic}..."
+    - "Customer is reporting problems related to {topic}..."
+    - "SRE is asking urgent questions about {topic}..."
+    
+  # Learning contexts
+  educational_moments:
+    - "I'm trying to level up my knowledge of {topic}..."
+    - "Been studying {topic} and have some questions..."
+    - "Working on certification and need to understand {topic}..."
+    - "New team member asked about {topic} - good learning opportunity..."
+    - "Documentation is unclear about {topic} - can you clarify?"
+
+# Scenario contexts for realistic conversations
+scenario_contexts:
+  # Time pressures
+  time_contexts:
+    - urgent_deadline_pressure
+    - leisurely_exploration
+    - regular_business_hours
+    - after_hours_emergency
+    - weekend_maintenance_window
+    - holiday_skeleton_crew
+    
+  # Audience contexts
+  audience_types:
+    - explaining_to_management
+    - teaching_junior_developer
+    - consulting_with_peer
+    - presenting_to_client
+    - documenting_for_future_self
+    - training_new_hire
+    
+  # Technical complexity
+  complexity_levels:
+    - surface_level_overview
+    - working_knowledge_depth
+    - expert_implementation_details
+    - architectural_implications
+    - research_level_exploration
+    - bleeding_edge_experimentation
+    
+  # Business contexts
+  business_situations:
+    - startup_resource_constraints
+    - enterprise_scale_requirements
+    - regulated_industry_compliance
+    - high_availability_demands
+    - cost_optimization_pressure
+    - security_first_environment
+    - digital_transformation_initiative
+    - regulatory_change_adaptation
+    - merger_acquisition_integration
+    - market_expansion_strategy
+    
+  # Banking-specific contexts
+  banking_scenarios:
+    - federal_reserve_examination
+    - sox_compliance_audit
+    - basel_iii_implementation
+    - stress_testing_requirements
+    - anti_money_laundering_controls
+    - consumer_protection_regulations
+    - operational_risk_management
+    - business_continuity_planning
+    - cyber_security_framework
+    - data_privacy_compliance
+    
+  # Executive decision contexts
+  executive_contexts:
+    - board_of_directors_oversight
+    - shareholder_value_creation
+    - competitive_market_analysis
+    - strategic_planning_cycle
+    - budget_allocation_decisions
+    - risk_appetite_framework
+    - stakeholder_relationship_management
+    - regulatory_relationship_management
+    - crisis_management_response
+    - reputation_risk_mitigation
+
+# Meta-conversation patterns for training variety
+meta_patterns:
+  # Conversation flow types
+  flow_patterns:
+    - question_answer_followup
+    - exploratory_discussion
+    - step_by_step_walkthrough
+    - collaborative_problem_solving
+    - teaching_moment_expansion
+    - troubleshooting_journey
+    - executive_briefing_flow
+    - risk_assessment_discussion
+    - compliance_review_process
+    - stakeholder_alignment_conversation
+    
+  # Emotional arcs
+  emotional_journeys:
+    - confusion_to_clarity
+    - frustration_to_resolution
+    - curiosity_to_understanding
+    - panic_to_calm_solution
+    - skepticism_to_conviction
+    - overwhelm_to_confidence
+    - concern_to_assurance
+    - uncertainty_to_strategic_direction
+    
+  # Knowledge transfer patterns
+  learning_patterns:
+    - concept_introduction
+    - building_on_basics
+    - connecting_related_ideas
+    - practical_application
+    - advanced_nuances
+    - mastery_demonstration
+    - executive_summary_presentation
+    - risk_impact_analysis
+    - business_case_development
+    
+  # Banking communication patterns
+  banking_communication_flows:
+    - risk_identification_to_mitigation
+    - compliance_question_to_resolution
+    - business_need_to_technical_solution
+    - audit_finding_to_remediation
+    - regulatory_change_to_implementation
+    - client_concern_to_stakeholder_response
+    - incident_escalation_to_executive_brief
+    - cost_concern_to_business_justification
+
+# Professional development and training contexts
+professional_contexts:
+  # Learning and development
+  training_scenarios:
+    - regulatory_training_session
+    - risk_management_workshop
+    - technology_awareness_briefing
+    - compliance_update_meeting
+    - business_continuity_drill
+    - cyber_security_awareness
+    - audit_preparation_session
+    - leadership_development_program
+    
+  # Career progression contexts
+  career_development:
+    - technical_competency_assessment
+    - leadership_readiness_evaluation
+    - cross_functional_collaboration
+    - mentoring_junior_staff
+    - succession_planning_discussion
+    - performance_review_preparation
+    - professional_certification_pursuit
+    - industry_knowledge_expansion
+    
+  # Stakeholder relationship building
+  relationship_contexts:
+    - client_relationship_management
+    - vendor_partnership_discussion
+    - regulatory_relationship_building
+    - internal_stakeholder_alignment
+    - cross_departmental_collaboration
+    - external_audit_coordination
+    - board_member_engagement
+    - investor_relations_communication
+
+# Industry-specific terminology contexts
+industry_contexts:
+  # Industry-specific needs
+  sectors:
+    - financial_services
+    - healthcare_systems
+    - e_commerce_platforms
+    - gaming_infrastructure
+    - media_streaming
+    - iot_deployments
+    - machine_learning_ops
+    - blockchain_networks
+    - investment_banking
+    - retail_banking
+    - insurance_services
+    - asset_management
+    - payment_processing
+    - regulatory_technology
+    - wealth_management
+    - credit_risk_management
+    
+  # Scale contexts
+  scale_considerations:
+    - single_server_deployment
+    - small_cluster_setup
+    - medium_enterprise_infrastructure
+    - large_scale_distributed_systems
+    - global_cdn_requirements
+    - edge_computing_scenarios
