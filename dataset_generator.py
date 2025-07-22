@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 import logging
+import time
 from dataclasses import dataclass, asdict
 from config import CONFIG, model_chain
 

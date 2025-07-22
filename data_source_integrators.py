@@ -13,6 +13,11 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 import base64
+import urllib3
+from urllib3.exceptions import InsecureRequestWarning
+
+# Disable SSL warnings for self-signed certificates
+urllib3.disable_warnings(InsecureRequestWarning)
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -79,7 +84,7 @@ class SplunkIntegrator:
                 headers=self._get_headers(),
                 auth=self._get_auth(),
                 timeout=self.timeout,
-                verify=False
+                verify=False  # Disable SSL verification
             )
             
             if response.status_code != 201:
@@ -100,7 +105,7 @@ class SplunkIntegrator:
                 auth=self._get_auth(),
                 params={'output_mode': 'json'},
                 timeout=self.timeout,
-                verify=False
+                verify=False  # Disable SSL verification
             )
             
             if results_response.status_code == 200:
@@ -130,7 +135,7 @@ class JiraIntegrator:
     def __init__(self):
         self.base_url = os.getenv('JIRA_URL')
         self.username = os.getenv('JIRA_USERNAME')
-        self.token = os.getenv('JIRA_TOKEN')  # API token, not password
+        self.token = # Left blank this is a password that will be provided via ansible vault. 
         self.timeout = int(os.getenv('JIRA_TIMEOUT', '30'))
         
         if not all([self.base_url, self.username, self.token]):
@@ -168,7 +173,8 @@ class JiraIntegrator:
                 url,
                 headers=self._get_headers(),
                 params=params,
-                timeout=self.timeout
+                timeout=self.timeout,
+                verify=False  # Disable SSL verification
             )
             
             if response.status_code == 200:
@@ -236,7 +242,8 @@ class ConfluenceIntegrator:
                 url,
                 headers=self._get_headers(),
                 params=params,
-                timeout=self.timeout
+                timeout=self.timeout,
+                verify=False  # Disable SSL verification
             )
             
             if response.status_code == 200:
@@ -260,7 +267,7 @@ class SpectrumIntegrator:
     def __init__(self):
         self.base_url = os.getenv('SPECTRUM_URL')
         self.username = os.getenv('SPECTRUM_USERNAME')
-        self.password = os.getenv('SPECTRUM_PASSWORD')
+        self.password = # left blank, will be retrieved via ansible vault. 
         self.timeout = int(os.getenv('SPECTRUM_TIMEOUT', '30'))
         
         if not all([self.base_url, self.username, self.password]):
@@ -285,7 +292,7 @@ class SpectrumIntegrator:
                 url,
                 auth=self._get_auth(),
                 timeout=self.timeout,
-                verify=False
+                verify=False  # Disable SSL verification
             )
             
             if response.status_code == 200:
@@ -309,7 +316,7 @@ class SpectrumIntegrator:
                 url,
                 auth=self._get_auth(),
                 timeout=self.timeout,
-                verify=False
+                verify=False  # Disable SSL verification
             )
             
             if response.status_code == 200:
@@ -334,7 +341,7 @@ class SpectrumIntegrator:
                 url,
                 auth=self._get_auth(),
                 timeout=self.timeout,
-                verify=False
+                verify=False  # Disable SSL verification
             )
             
             if response.status_code == 200:

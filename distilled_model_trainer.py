@@ -414,30 +414,38 @@ class DistilledModelTrainer:
         return model
     
     def load_tokenizer(self):
-        """Load tokenizer with PyTorch backend."""
+        """Load tokenizer with PyTorch backend and proper local fallback."""
         try:
-            # Try HuggingFace first
-            tokenizer = AutoTokenizer.from_pretrained(
-                CONFIG['model_name'],
-                cache_dir=CONFIG['hf_cache_dir'],
-                trust_remote_code=CONFIG.get('trust_remote_code', False),
-                use_auth_token=CONFIG.get('use_auth_token', False)
-            )
+            # Check for local pretrained model first (matching your working test)
+            local_model_path = CONFIG['local_pretrained_models'].get(CONFIG['model_name'])
+            
+            if local_model_path and os.path.exists(local_model_path):
+                logger.info(f"Loading tokenizer from local pretrained: {local_model_path}")
+                tokenizer = AutoTokenizer.from_pretrained(
+                    local_model_path,
+                    local_files_only=True,
+                    trust_remote_code=CONFIG.get('trust_remote_code', False)
+                )
+                logger.info(f"Successfully loaded local tokenizer: {CONFIG['model_name']}")
+            else:
+                # Fallback to HuggingFace with cache
+                logger.info(f"Loading tokenizer from HuggingFace: {CONFIG['model_name']}")
+                tokenizer = AutoTokenizer.from_pretrained(
+                    CONFIG['model_name'],
+                    cache_dir=CONFIG['hf_cache_dir'],
+                    trust_remote_code=CONFIG.get('trust_remote_code', False),
+                    use_auth_token=CONFIG.get('use_auth_token', False)
+                )
+            
+            # Add pad token if not present
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+            
+            return tokenizer
+            
         except Exception as e:
-            logger.warning(f"Could not load tokenizer from HuggingFace: {e}")
-            try:
-                # Try local cache
-                local_path = os.path.join(CONFIG['local_model_cache'], CONFIG['model_name'])
-                tokenizer = AutoTokenizer.from_pretrained(local_path)
-            except Exception as e2:
-                logger.error(f"Could not load tokenizer from local cache: {e2}")
-                raise RuntimeError("No tokenizer available")
-        
-        # Add pad token if not present
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-        
-        return tokenizer
+            logger.error(f"Could not load tokenizer: {e}")
+            raise RuntimeError(f"No tokenizer available for {CONFIG['model_name']}")
     
     def train_model(self):
         """Main training loop with PyTorch backend."""
