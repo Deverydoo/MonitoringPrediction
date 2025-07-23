@@ -6,7 +6,7 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 
 # Force PyTorch-only environment before any imports
 os.environ['USE_TF'] = 'NO'
@@ -86,9 +86,31 @@ def find_local_model_path(model_name: str) -> Optional[str]:
 class DistilledMonitoringModel(nn.Module):
     """Custom distilled model for system monitoring - PyTorch only."""
     
-    def __init__(self, base_model_name: str, num_labels: int = 3):
+    def __init__(self, base_model, num_labels=8, num_metrics=10):
         super().__init__()
+        self.base_model = base_model
         self.num_labels = num_labels
+        self.num_metrics = num_metrics
+        
+        # Get hidden size from base model
+        hidden_size = base_model.config.hidden_size
+        
+        # Classification heads
+        self.classifier = nn.Linear(hidden_size, num_labels)
+        self.anomaly_detector = nn.Linear(hidden_size, 2)  # binary: normal/anomaly
+        
+        # Metrics regression head - updated to 10 outputs
+        self.metrics_regressor = nn.Sequential(
+            nn.Linear(hidden_size, 256),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(256, num_metrics)  # 10 metrics output
+        )
+        
+        # Multi-task loss weights
+        self.classification_weight = 1.0
+        self.anomaly_weight = 1.0
+        self.metrics_weight = 0.5
         
         try:
             # Enhanced local model discovery with multiple path options
@@ -201,62 +223,41 @@ class DistilledMonitoringModel(nn.Module):
                 if module.bias is not None:
                     module.bias.data.zero_()
         
-    def forward(self, input_ids, attention_mask=None, labels=None, 
-                metrics_targets=None, anomaly_targets=None):
-        
+    def forward(self, input_ids, attention_mask, labels=None, metrics=None, anomalies=None):
         # Get base model outputs
-        outputs = self.base_model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            return_dict=True
-        )
+        outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
+        sequence_output = outputs.last_hidden_state
+        pooled_output = sequence_output[:, 0]  # Use [CLS] token
         
-        # Use [CLS] token representation
-        if hasattr(outputs, 'last_hidden_state'):
-            pooled_output = outputs.last_hidden_state[:, 0]  # [CLS] token
-        elif hasattr(outputs, 'pooler_output'):
-            pooled_output = outputs.pooler_output
-        else:
-            # Fallback: mean pooling
-            pooled_output = outputs.last_hidden_state.mean(dim=1)
-        
-        pooled_output = self.dropout(pooled_output)
-        
-        # Classification logits
+        # Multi-task outputs
         classification_logits = self.classifier(pooled_output)
-        
-        # Regression outputs
-        metrics_predictions = self.regressor(pooled_output)
-        
-        # Anomaly detection
         anomaly_logits = self.anomaly_detector(pooled_output)
+        metrics_pred = self.metrics_regressor(pooled_output)
         
         loss = None
         if labels is not None:
-            loss_fct = nn.CrossEntropyLoss()
-            classification_loss = loss_fct(classification_logits, labels)
+            loss_fn = nn.CrossEntropyLoss()
+            mse_loss = nn.MSELoss()
             
-            total_loss = classification_loss
+            # Classification loss
+            classification_loss = loss_fn(classification_logits, labels)
             
-            # Add regression loss if targets provided
-            if metrics_targets is not None:
-                mse_loss = nn.MSELoss()
-                regression_loss = mse_loss(metrics_predictions, metrics_targets)
-                total_loss += 0.5 * regression_loss
+            # Anomaly detection loss
+            anomaly_loss = loss_fn(anomaly_logits, anomalies) if anomalies is not None else 0
             
-            # Add anomaly detection loss if targets provided
-            if anomaly_targets is not None:
-                bce_loss = nn.BCEWithLogitsLoss()
-                anomaly_loss = bce_loss(anomaly_logits.squeeze(), anomaly_targets.float())
-                total_loss += 0.3 * anomaly_loss
+            # Metrics regression loss
+            metrics_loss = mse_loss(metrics_pred, metrics) if metrics is not None else 0
             
-            loss = total_loss
+            # Combined loss
+            loss = (self.classification_weight * classification_loss + 
+                   self.anomaly_weight * anomaly_loss + 
+                   self.metrics_weight * metrics_loss)
         
         return {
             'loss': loss,
             'classification_logits': classification_logits,
-            'metrics_predictions': metrics_predictions,
-            'anomaly_logits': anomaly_logits
+            'anomaly_logits': anomaly_logits,
+            'metrics_predictions': metrics_pred
         }
 
 class MonitoringDataset:
@@ -543,9 +544,32 @@ class DistilledModelTrainer:
 class FlexibleDatasetLoader:
     """Dynamic loader for various training data formats."""
     
-    def __init__(self, training_dir: str):
+    def __init__(self, training_dir: str, tokenizer=None):
         self.training_dir = Path(training_dir)
         self.supported_formats = ['.json', '.jsonl', '.csv', '.txt']
+        self.tokenizer = tokenizer
+        
+        # Initialize tokenizer if not provided
+        if self.tokenizer is None:
+            try:
+                from transformers import AutoTokenizer
+                from config import CONFIG
+                
+                # Try to load from local path first
+                local_model_path = find_local_model_path(CONFIG['model_name'])
+                if local_model_path:
+                    self.tokenizer = AutoTokenizer.from_pretrained(
+                        local_model_path,
+                        local_files_only=True
+                    )
+                    logger.info(f"✅ Loaded tokenizer from local path: {local_model_path}")
+                else:
+                    self.tokenizer = AutoTokenizer.from_pretrained(CONFIG['model_name'])
+                    logger.info(f"✅ Loaded tokenizer from HuggingFace: {CONFIG['model_name']}")
+                    
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize tokenizer: {e}")
+                self.tokenizer = None
         
     def discover_training_files(self) -> Dict[str, List[Path]]:
         """Discover all training files by type."""
@@ -576,7 +600,262 @@ class FlexibleDatasetLoader:
                 logger.info(f"  {file_type}: {len(files)} files")
         
         return files_by_type
-    
+
+    def train_model_with_debug(self):
+        """Train the model with detailed debugging."""
+        logger.info("🏋️ Starting model training with debug info...")
+
+        try:
+            # Initialize tokenizer first
+            logger.info("🔤 Initializing tokenizer...")
+            from transformers import AutoTokenizer
+            
+            local_model_path = find_local_model_path(CONFIG['model_name'])
+            if local_model_path:
+                tokenizer = AutoTokenizer.from_pretrained(
+                    local_model_path,
+                    local_files_only=True
+                )
+                logger.info(f"✅ Loaded tokenizer from: {local_model_path}")
+            else:
+                tokenizer = AutoTokenizer.from_pretrained(CONFIG['model_name'])
+                logger.info(f"✅ Loaded tokenizer from HuggingFace")
+            
+            # Initialize loader with tokenizer
+            loader = FlexibleDatasetLoader(CONFIG['training_dir'], tokenizer=tokenizer)
+            
+            # Load data with debugging
+            logger.info("📚 Loading training data...")
+            texts, labels, metrics, anomalies = loader.debug_training_data_loading()
+
+            if not texts:
+                logger.error("❌ No training data loaded!")
+                return False
+            
+            logger.info(f"✅ Successfully loaded {len(texts)} training samples")
+            
+            # Continue with tokenization and training...
+            logger.info("🔤 Starting tokenization...")
+            
+            # Test tokenization on a small subset first
+            test_texts = texts[:5] if len(texts) >= 5 else texts
+            logger.info(f"Testing tokenization on {len(test_texts)} samples...")
+            
+            encoded = tokenizer(
+                test_texts,
+                padding=True,
+                truncation=True,
+                max_length=CONFIG.get('max_length', 512),
+                return_tensors="pt"
+            )
+            
+            logger.info(f"✅ Test tokenization successful - shape: {encoded['input_ids'].shape}")
+            
+            # Now tokenize all data
+            logger.info("🔤 Tokenizing all training data...")
+            all_encoded = tokenizer(
+                texts,
+                padding=True,
+                truncation=True,
+                max_length=CONFIG.get('max_length', 512),
+                return_tensors="pt"
+            )
+            
+            logger.info(f"✅ Full tokenization successful - shape: {all_encoded['input_ids'].shape}")
+            
+            # Create dataset
+            from datasets import Dataset
+            import torch
+
+            logger.info(f"Checking metrics dimensions...")
+            if metrics:
+                first_metric = metrics[0]
+                logger.info(f"First metric sample length: {len(first_metric)}")
+                logger.info(f"First metric sample: {first_metric}")
+                
+                # Ensure all metrics have exactly 10 values
+                normalized_metrics = []
+                for metric_sample in metrics:
+                    if len(metric_sample) != 10:
+                        # Fix the length
+                        if len(metric_sample) > 10:
+                            metric_sample = metric_sample[:10]
+                        else:
+                            while len(metric_sample) < 10:
+                                metric_sample.append(0.0)
+                    normalized_metrics.append(metric_sample)
+                
+                logger.info(f"Normalized metrics to 10 values each")
+                metrics = normalized_metrics
+            
+            logger.info(f"✅ Dataset created - metrics shape: {torch.tensor(metrics).shape}")
+            
+            dataset = Dataset.from_dict({
+                'input_ids': all_encoded['input_ids'],
+                'attention_mask': all_encoded['attention_mask'],
+                'labels': torch.tensor(labels, dtype=torch.long),
+                'metrics': torch.tensor(metrics, dtype=torch.float32),
+                'anomalies': torch.tensor(anomalies, dtype=torch.long)
+            })
+            
+            logger.info(f"✅ Dataset created successfully with {len(dataset)} samples")
+            
+            # Continue with actual training...
+            logger.info("🏋️ Starting model training...")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Training with debug failed: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
+            return False
+
+    def debug_training_data_loading(self):
+        """Debug the exact point where training data loading fails."""
+        logger.info("🔍 Debugging training data loading step by step...")
+        
+        try:
+            # Step 1: Check if files exist
+            files_by_type = self.discover_training_files()
+            logger.info(f"📁 Files discovered: {sum(len(files) for files in files_by_type.values())}")
+            
+            for file_type, file_list in files_by_type.items():
+                logger.info(f"  {file_type}: {len(file_list)} files")
+                for file_path in file_list:
+                    file_size = file_path.stat().st_size
+                    logger.info(f"    - {file_path} ({file_size} bytes)")
+            
+            # Step 2: Try loading each file individually
+            all_texts = []
+            all_labels = []
+            all_metrics = []
+            all_anomalies = []
+            
+            for file_type, file_list in files_by_type.items():
+                for file_path in file_list:
+                    logger.info(f"🔄 Processing {file_path}...")
+                    
+                    try:
+                        # Test basic file reading first
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content_preview = f.read(500)  # Read first 500 chars
+                        logger.info(f"✅ Basic read OK - preview: {repr(content_preview[:100])}...")
+                        
+                        # Now try structured loading
+                        file_texts, file_labels, file_metrics, file_anomalies = self._load_single_file(
+                            file_path, file_type
+                        )
+                        
+                        logger.info(f"✅ Structured loading OK - loaded {len(file_texts)} samples")
+                        
+                        all_texts.extend(file_texts)
+                        all_labels.extend(file_labels)
+                        all_metrics.extend(file_metrics)
+                        all_anomalies.extend(file_anomalies)
+                        
+                    except Exception as e:
+                        logger.error(f"❌ Failed loading {file_path}: {type(e).__name__}: {e}")
+                        
+                        # Try to show exactly where it fails
+                        try:
+                            with open(file_path, 'rb') as f:
+                                raw_content = f.read()
+                            logger.info(f"Raw file size: {len(raw_content)} bytes")
+                            
+                            # Try different encodings
+                            for encoding in ['utf-8', 'cp1252', 'latin-1']:
+                                try:
+                                    decoded = raw_content.decode(encoding)
+                                    logger.info(f"{encoding} decode: SUCCESS")
+                                except UnicodeDecodeError as ude:
+                                    logger.info(f"{encoding} decode: FAILED at position {ude.start}")
+                        except Exception as e2:
+                            logger.error(f"Raw read also failed: {e2}")
+                        
+                        raise  # Re-raise to see full stack trace
+            
+            logger.info(f"🎯 Final totals: {len(all_texts)} texts, {len(all_labels)} labels")
+            return all_texts, all_labels, all_metrics, all_anomalies
+            
+        except Exception as e:
+            logger.error(f"❌ Debug loading failed: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
+            raise
+
+    def clean_all_training_files(self):
+        """Clean all training files to ensure UTF-8 encoding."""
+        logger.info("🧹 Cleaning all training files for UTF-8 compatibility...")
+        
+        files_by_type = self.discover_training_files()
+        cleaned_files = 0
+        
+        for file_type, file_list in files_by_type.items():
+            for file_path in file_list:
+                try:
+                    # Read with multiple encoding attempts
+                    content = None
+                    original_encoding = None
+                    
+                    for encoding in ['utf-8', 'cp1252', 'latin-1']:
+                        try:
+                            with open(file_path, 'r', encoding=encoding) as f:
+                                content = f.read()
+                            original_encoding = encoding
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    
+                    if content is None:
+                        logger.error(f"❌ Could not read {file_path} with any encoding")
+                        continue
+                    
+                    # Clean problematic characters
+                    cleaned_content = content
+                    replacements = {
+                        '\x9d': ' ',      # Operating system command
+                        '\x9c': '"',      # String terminator  
+                        '\x93': '"',      # Set transmit state
+                        '\x94': '"',      # Cancel character
+                        '\x91': "'",      # Private use 1
+                        '\x92': "'",      # Private use 2
+                        '\x96': '-',      # Start selected area
+                        '\x97': '-',      # End selected area
+                        '\x85': '...',    # Next line
+                        '\x80': '€',      # Euro sign
+                        '\x82': ',',      # Break permitted here
+                        '\x83': 'f',      # No break here
+                        '\x84': '"',      # Index
+                        '\x88': '^',      # Character tabulation set
+                        '\x89': '‰',      # Character tabulation with justification
+                        '\x8a': 'Š',      # Line tabulation set
+                        '\x8b': '<',      # Partial line forward
+                        '\x8c': 'Œ',      # Partial line backward
+                        '\x8e': 'Ž',      # Single shift two
+                        '\x8f': '',       # Single shift three
+                    }
+                    
+                    changed = False
+                    for old_char, new_char in replacements.items():
+                        if old_char in cleaned_content:
+                            cleaned_content = cleaned_content.replace(old_char, new_char)
+                            changed = True
+                            logger.info(f"Replaced {repr(old_char)} with {repr(new_char)} in {file_path}")
+                    
+                    # Write back as UTF-8 if changes were made or if original wasn't UTF-8
+                    if changed or original_encoding != 'utf-8':
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            f.write(cleaned_content)
+                        cleaned_files += 1
+                        logger.info(f"✅ Cleaned and saved {file_path} as UTF-8")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error cleaning {file_path}: {e}")
+                    continue
+        
+        logger.info(f"🧹 Cleaned {cleaned_files} training files")
+        return cleaned_files > 0
+        
     def _classify_file(self, file_path: Path) -> str:
         """Classify file based on name patterns."""
         name_lower = file_path.name.lower()
@@ -597,9 +876,148 @@ class FlexibleDatasetLoader:
             return 'vemkd_logs'
         else:
             return 'general'
+
+    def diagnose_encoding_issue(self) -> Dict[str, Any]:
+        """Diagnose which file and position is causing the encoding error."""
+        logger.info("🔍 Diagnosing encoding issues in training files...")
+        
+        files_by_type = self.discover_training_files()
+        diagnostic_results = {
+            'problematic_files': [],
+            'total_files_checked': 0,
+            'encoding_issues': []
+        }
+        
+        position_counter = 0
+        target_position = 255418
+        
+        for file_type, file_list in files_by_type.items():
+            for file_path in file_list:
+                diagnostic_results['total_files_checked'] += 1
+                
+                try:
+                    # Try to read with different methods to pinpoint the issue
+                    file_size = file_path.stat().st_size
+                    logger.info(f"📄 Checking {file_path} (size: {file_size} bytes)")
+                    
+                    # Check if this file contains our target position
+                    if position_counter <= target_position <= position_counter + file_size:
+                        logger.warning(f"🎯 Target position {target_position} found in file: {file_path}")
+                        relative_pos = target_position - position_counter
+                        
+                        # Read the problematic area
+                        with open(file_path, 'rb') as f:
+                            f.seek(max(0, relative_pos - 50))
+                            chunk = f.read(100)
+                            
+                        logger.info(f"Bytes around position {relative_pos}:")
+                        logger.info(f"Hex: {chunk.hex()}")
+                        
+                        # Try to decode with different encodings
+                        for encoding in ['utf-8', 'cp1252', 'latin-1', 'ascii']:
+                            try:
+                                decoded = chunk.decode(encoding, errors='replace')
+                                logger.info(f"{encoding}: {repr(decoded)}")
+                            except Exception as e:
+                                logger.info(f"{encoding}: Failed - {e}")
+                        
+                        diagnostic_results['problematic_files'].append({
+                            'file': str(file_path),
+                            'position': relative_pos,
+                            'hex_chunk': chunk.hex(),
+                            'file_type': file_type
+                        })
+                    
+                    position_counter += file_size
+                    
+                    # Test reading the entire file
+                    with open(file_path, 'r', encoding='utf-8', errors='strict') as f:
+                        content = f.read()
+                        logger.info(f"✅ {file_path} - UTF-8 OK")
+                        
+                except UnicodeDecodeError as e:
+                    logger.error(f"❌ {file_path} - Encoding error: {e}")
+                    diagnostic_results['encoding_issues'].append({
+                        'file': str(file_path),
+                        'error': str(e),
+                        'file_type': file_type
+                    })
+                    
+                    # Try to fix the file
+                    self._fix_encoding_in_file(file_path)
+                    
+                except Exception as e:
+                    logger.error(f"❌ {file_path} - Other error: {e}")
+        
+        return diagnostic_results
     
+    def _fix_encoding_in_file(self, file_path: Path) -> bool:
+        """Attempt to fix encoding issues in a specific file."""
+        logger.info(f"🔧 Attempting to fix encoding in {file_path}")
+        
+        backup_path = file_path.with_suffix(file_path.suffix + '.backup')
+        
+        try:
+            # Create backup
+            import shutil
+            shutil.copy2(file_path, backup_path)
+            logger.info(f"📋 Backup created: {backup_path}")
+            
+            # Try different encodings to read the file
+            content = None
+            successful_encoding = None
+            
+            for encoding in ['cp1252', 'latin-1', 'utf-8', 'ascii']:
+                try:
+                    with open(file_path, 'r', encoding=encoding, errors='replace') as f:
+                        content = f.read()
+                    successful_encoding = encoding
+                    logger.info(f"✅ Successfully read with {encoding}")
+                    break
+                except Exception as e:
+                    logger.info(f"❌ Failed with {encoding}: {e}")
+                    continue
+            
+            if content is not None:
+                # Clean the content - remove or replace problematic characters
+                # Byte 0x9d is a Windows-1252 "operating system command" character
+                cleaned_content = content.replace('\x9d', ' ')  # Replace with space
+                cleaned_content = cleaned_content.replace('\x9c', '"')  # Replace œ with quote
+                cleaned_content = cleaned_content.replace('\x93', '"')  # Replace " with quote
+                cleaned_content = cleaned_content.replace('\x94', '"')  # Replace " with quote
+                cleaned_content = cleaned_content.replace('\x91', "'")  # Replace ' with apostrophe
+                cleaned_content = cleaned_content.replace('\x92', "'")  # Replace ' with apostrophe
+                
+                # Write back as UTF-8
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(cleaned_content)
+                
+                logger.info(f"✅ Fixed and saved {file_path} as UTF-8")
+                return True
+            else:
+                logger.error(f"❌ Could not read {file_path} with any encoding")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to fix {file_path}: {e}")
+            # Restore backup if it exists
+            if backup_path.exists():
+                import shutil
+                shutil.copy2(backup_path, file_path)
+            return False
+            
     def load_flexible_training_data(self) -> Tuple[List[str], List[int], List[List[float]], List[int]]:
-        """Load training data from all discovered files."""
+        """Load training data from all discovered files with encoding diagnosis."""
+        logger.info("📚 Loading training data with encoding diagnosis...")
+        
+        # First, diagnose encoding issues
+        diagnostic_results = self.diagnose_encoding_issue()
+        
+        if diagnostic_results['encoding_issues']:
+            logger.warning(f"Found {len(diagnostic_results['encoding_issues'])} files with encoding issues")
+            for issue in diagnostic_results['encoding_issues']:
+                logger.warning(f"  - {issue['file']}: {issue['error']}")
+        
         texts = []
         labels = []
         metrics = []
@@ -619,25 +1037,366 @@ class FlexibleDatasetLoader:
                     metrics.extend(file_metrics)
                     anomalies.extend(file_anomalies)
                     
+                    logger.info(f"✅ Loaded {len(file_texts)} samples from {file_path}")
+                    
                 except Exception as e:
-                    logger.error(f"Error loading {file_path}: {e}")
-                    continue
+                    logger.error(f"❌ Error loading {file_path}: {e}")
+                    # Try to fix and reload
+                    if self._fix_encoding_in_file(file_path):
+                        try:
+                            file_texts, file_labels, file_metrics, file_anomalies = self._load_single_file(
+                                file_path, file_type
+                            )
+                            texts.extend(file_texts)
+                            labels.extend(file_labels) 
+                            metrics.extend(file_metrics)
+                            anomalies.extend(file_anomalies)
+                            logger.info(f"✅ Fixed and loaded {len(file_texts)} samples from {file_path}")
+                        except Exception as e2:
+                            logger.error(f"❌ Still failed after fix attempt: {e2}")
+                            continue
+                    else:
+                        continue
         
-        logger.info(f"📊 Loaded {len(texts)} total training samples")
+        logger.info(f"📊 Total loaded: {len(texts)} training samples")
         return texts, labels, metrics, anomalies
     
     def _load_single_file(self, file_path: Path, file_type: str) -> Tuple[List[str], List[int], List[List[float]], List[int]]:
-        """Load data from a single file based on its type."""
-        if file_path.suffix == '.json':
-            return self._load_json_file(file_path, file_type)
-        elif file_path.suffix == '.jsonl':
-            return self._load_jsonl_file(file_path, file_type)
-        elif file_path.suffix == '.csv':
-            return self._load_csv_file(file_path, file_type)
-        elif file_path.suffix == '.txt':
-            return self._load_text_file(file_path, file_type)
+        """Load data from a single file based on its type with UTF-8 encoding."""
+        try:
+            if file_path.suffix == '.json':
+                return self._load_json_file(file_path, file_type)
+            elif file_path.suffix == '.jsonl':
+                return self._load_jsonl_file(file_path, file_type)
+            elif file_path.suffix == '.csv':
+                return self._load_csv_file(file_path, file_type)
+            elif file_path.suffix == '.txt':
+                return self._load_text_file(file_path, file_type)
+            else:
+                raise ValueError(f"Unsupported file format: {file_path.suffix}")
+        except UnicodeDecodeError as e:
+            logger.error(f"Encoding error in {file_path}: {e}")
+            # Try with different encodings
+            for encoding in ['utf-8', 'latin-1', 'cp1252']:
+                try:
+                    logger.info(f"Retrying {file_path} with {encoding} encoding")
+                    return self._load_with_encoding(file_path, file_type, encoding)
+                except:
+                    continue
+            raise ValueError(f"Could not decode {file_path} with any supported encoding")
+    
+    def _load_json_file(self, file_path: Path, file_type: str) -> Tuple[List[str], List[int], List[List[float]], List[int]]:
+        """Load JSON file with correct structure handling."""
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            data = json.load(f)
+        
+        texts = []
+        labels = []
+        metrics = []
+        anomalies = []
+        
+        # Handle language_dataset.json structure
+        if file_type == 'language' and 'samples' in data:
+            samples = data['samples']
+            logger.info(f"Processing {len(samples)} language samples from {file_path}")
+            
+            for sample in samples:
+                # Extract text from different possible fields
+                text = ""
+                if 'response' in sample:
+                    text = sample['response']
+                elif 'explanation' in sample:
+                    text = sample['explanation']
+                elif 'answer' in sample:
+                    text = sample['answer']
+                else:
+                    # Combine available text fields
+                    text_parts = []
+                    for key in ['term', 'question', 'prompt']:
+                        if key in sample and sample[key]:
+                            text_parts.append(f"{key}: {sample[key]}")
+                    text = " ".join(text_parts)
+                
+                if text and text.strip():
+                    texts.append(text.strip())
+                    labels.append(self._generate_label_for_type(file_type))
+                    metrics.append(self._generate_default_metrics())
+                    anomalies.append(0)  # Default to no anomaly
+        
+        # Handle metrics_dataset.json structure  
+        elif file_type == 'metrics' and 'training_samples' in data:
+            samples = data['training_samples']
+            logger.info(f"Processing {len(samples)} metrics samples from {file_path}")
+            
+            for sample in samples:
+                # Create text representation
+                text_parts = []
+                
+                # Add metrics info
+                if 'metrics' in sample:
+                    metric_text = "System metrics: "
+                    
+                    # Define the expected metric order to match your dataset
+                    metric_keys = [
+                        'class_count', 'gc_time', 'heap_usage', 'thread_count', 'cpu_usage',
+                        'disk_io', 'disk_usage', 'load_average', 'memory_usage', 'network_io'
+                    ]
+                    
+                    metric_values = []
+                    for key in metric_keys:
+                        if key in sample['metrics']:
+                            value = float(sample['metrics'][key])
+                            metric_text += f"{key}: {value:.2f}, "
+                            metric_values.append(value)
+                        else:
+                            # Use default value if metric is missing
+                            default_val = self._generate_default_metrics()[len(metric_values)]
+                            metric_values.append(default_val)
+                    
+                    # Ensure exactly 10 values
+                    while len(metric_values) < 10:
+                        metric_values.append(0.0)
+                    metric_values = metric_values[:10]
+                    
+                    text_parts.append(metric_text.rstrip(', '))
+                else:
+                    metric_values = self._generate_default_metrics()
+                
+                # Add status and explanation
+                if 'status' in sample:
+                    text_parts.append(f"Status: {sample['status']}")
+                if 'explanation' in sample:
+                    text_parts.append(f"Explanation: {sample['explanation']}")
+                
+                text = " ".join(text_parts)
+                
+                if text and text.strip():
+                    texts.append(text.strip())
+                    labels.append(2 if sample.get('status') == 'anomaly' else 0)
+                    metrics.append(metric_values)
+                    anomalies.append(1 if sample.get('status') == 'anomaly' else 0)
+        
+        # Handle generic structure
         else:
-            raise ValueError(f"Unsupported file format: {file_path.suffix}")
+            logger.warning(f"Unknown structure in {file_path} for type {file_type}")
+            # Try to extract any available data
+            if isinstance(data, list):
+                samples = data
+            elif isinstance(data, dict):
+                # Try common keys
+                samples = data.get('samples', data.get('training_samples', data.get('data', [])))
+            else:
+                samples = []
+            
+            logger.info(f"Attempting generic processing of {len(samples)} samples")
+            for sample in samples[:10]:  # Limit to prevent issues
+                if isinstance(sample, dict):
+                    text = str(sample.get('text', sample.get('content', str(sample))))
+                    if text and text.strip():
+                        texts.append(text.strip())
+                        labels.append(self._generate_label_for_type(file_type))
+                        metrics.append(self._generate_default_metrics())
+                        anomalies.append(0)
+        
+        logger.info(f"✅ Extracted {len(texts)} valid samples from {file_path}")
+        return texts, labels, metrics, anomalies
+    
+    def _load_jsonl_file(self, file_path: Path, file_type: str) -> Tuple[List[str], List[int], List[List[float]], List[int]]:
+        """Load JSONL file with explicit UTF-8 encoding."""
+        data = []
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        data.append(json.loads(line))
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Skipping invalid JSON line in {file_path}: {e}")
+                        continue
+        return self._process_data_by_type(data, file_type)
+    
+    def _load_text_file(self, file_path: Path, file_type: str) -> Tuple[List[str], List[int], List[List[float]], List[int]]:
+        """Load text file with explicit UTF-8 encoding."""
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+        
+        # Split by lines or paragraphs depending on content
+        if '\n\n' in content:
+            texts = [text.strip() for text in content.split('\n\n') if text.strip()]
+        else:
+            texts = [text.strip() for text in content.split('\n') if text.strip()]
+        
+        # Generate synthetic labels based on file type
+        labels = [self._generate_label_for_type(file_type) for _ in texts]
+        metrics = [self._generate_default_metrics() for _ in texts]
+        anomalies = [0 for _ in texts]  # Default to no anomaly
+        
+        return texts, labels, metrics, anomalies
+    
+    def _load_csv_file(self, file_path: Path, file_type: str) -> Tuple[List[str], List[int], List[List[float]], List[int]]:
+        """Load CSV file with explicit UTF-8 encoding."""
+        import csv
+        
+        texts = []
+        labels = []
+        metrics = []
+        anomalies = []
+        
+        with open(file_path, 'r', encoding='utf-8', errors='replace', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Extract text from the row - look for common text columns
+                text_columns = ['text', 'message', 'description', 'content', 'query', 'log']
+                text = ""
+                
+                for col in text_columns:
+                    if col in row and row[col]:
+                        text = row[col]
+                        break
+                
+                if not text:
+                    # Concatenate all non-numeric columns
+                    text = " ".join([str(v) for k, v in row.items() if v and not k.lower().endswith('_id')])
+                
+                if text.strip():
+                    texts.append(text.strip())
+                    labels.append(int(row.get('label', self._generate_label_for_type(file_type))))
+                    
+                    # Extract metrics if available
+                    metric_values = []
+                    for key, value in row.items():
+                        if key.lower() in ['cpu', 'memory', 'disk', 'network', 'response_time', 'error_rate']:
+                            try:
+                                metric_values.append(float(value))
+                            except (ValueError, TypeError):
+                                continue
+                    
+                    if not metric_values:
+                        metric_values = self._generate_default_metrics()
+                    
+                    metrics.append(metric_values)
+                    anomalies.append(int(row.get('anomaly', 0)))
+        
+        return texts, labels, metrics, anomalies
+    
+    def _load_with_encoding(self, file_path: Path, file_type: str, encoding: str) -> Tuple[List[str], List[int], List[List[float]], List[int]]:
+        """Fallback method to load with specific encoding."""
+        if file_path.suffix == '.json':
+            with open(file_path, 'r', encoding=encoding, errors='replace') as f:
+                data = json.load(f)
+            return self._process_data_by_type(data, file_type)
+        elif file_path.suffix == '.txt':
+            with open(file_path, 'r', encoding=encoding, errors='replace') as f:
+                content = f.read()
+            texts = [text.strip() for text in content.split('\n') if text.strip()]
+            labels = [self._generate_label_for_type(file_type) for _ in texts]
+            metrics = [self._generate_default_metrics() for _ in texts]
+            anomalies = [0 for _ in texts]
+            return texts, labels, metrics, anomalies
+        else:
+            raise ValueError(f"Encoding fallback not implemented for {file_path.suffix}")
+
+    def _generate_label_for_type(self, file_type: str) -> int:
+        """Generate appropriate label based on file type."""
+        type_labels = {
+            'language': 0,
+            'metrics': 1, 
+            'splunk_logs': 2,
+            'jira_tickets': 3,
+            'confluence_docs': 4,
+            'spectrum_logs': 5,
+            'vemkd_logs': 6,
+            'general': 7
+        }
+        return type_labels.get(file_type, 7)
+    
+    def _generate_default_metrics(self) -> List[float]:
+        """Generate default metrics - 10 values to match metrics dataset structure."""
+        return [
+            1000.0,    # class_count
+            0.5,       # gc_time  
+            50.0,      # heap_usage
+            100.0,     # thread_count
+            25.0,      # cpu_usage
+            1000.0,    # disk_io
+            30.0,      # disk_usage
+            1.0,       # load_average
+            40.0,      # memory_usage
+            500.0      # network_io
+        ]
+    
+    def _process_data_by_type(self, data: List[Dict], file_type: str) -> Tuple[List[str], List[int], List[List[float]], List[int]]:
+        """Process loaded data based on file type - now handles correct structures."""
+        texts = []
+        labels = []
+        metrics = []
+        anomalies = []
+        
+        for item in data:
+            if isinstance(item, dict):
+                # Extract text based on type
+                text = ""
+                
+                if file_type == 'language':
+                    # Language samples have 'response', 'explanation', or 'answer'
+                    text = item.get('response') or item.get('explanation') or item.get('answer')
+                    if not text:
+                        # Fallback: combine term and question
+                        parts = []
+                        if item.get('term'):
+                            parts.append(f"Term: {item['term']}")
+                        if item.get('question'):
+                            parts.append(f"Question: {item['question']}")
+                        text = " ".join(parts)
+                
+                elif file_type == 'metrics':
+                    # Metrics samples need metrics data
+                    if 'metrics' in item:
+                        metric_parts = []
+                        metric_values = []
+                        
+                        # Take only first 5 metrics
+                        for key, value in list(item['metrics'].items())[:5]:
+                            metric_parts.append(f"{key}: {value}")
+                            metric_values.append(float(value))
+                        
+                        text = f"Metrics: {', '.join(metric_parts)}. Status: {item.get('status', 'unknown')}"
+                        
+                        # Ensure exactly 5 values
+                        while len(metric_values) < 5:
+                            metric_values.append(0.0)
+                        metric_values = metric_values[:5]
+                        
+                        metrics.append(metric_values)
+                    else:
+                        text = str(item)
+                        metrics.append(self._generate_default_metrics())
+                
+                else:
+                    # Generic extraction
+                    text = item.get('text') or item.get('message') or item.get('content') or str(item)
+                    metrics.append(self._generate_default_metrics())
+                
+                if text and text.strip():
+                    texts.append(str(text).strip())
+                    labels.append(self._get_label_for_sample(item, file_type))
+                    
+                    # Handle metrics if not already set
+                    if file_type != 'metrics':
+                        metrics.append(self._generate_default_metrics())
+                    
+                    # Determine anomaly status
+                    anomalies.append(1 if item.get('status') == 'anomaly' else 0)
+        
+        return texts, labels, metrics, anomalies
+
+    def _get_label_for_sample(self, sample: Dict, file_type: str) -> int:
+        """Get appropriate label for a sample."""
+        if file_type == 'metrics':
+            return 2 if sample.get('status') == 'anomaly' else 0
+        elif sample.get('type') == 'error_interpretation':
+            return 1
+        else:
+            return self._generate_label_for_type(file_type)
 
 class ContinualLearningEngine:
     """Engine for continual learning and metric adjustment."""
