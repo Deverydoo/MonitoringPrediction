@@ -324,10 +324,11 @@ class MonitoringModel(nn.Module):
 class DistilledModelTrainer:
     """Main trainer class with progress tracking and optimization"""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], resume_training: bool = False):
+        """Initialize trainer with optional resume capability"""
         self.config = config
         self.env = TrainingEnvironment()
-        self.loader = DatasetLoader(config['training_dir'])
+        self.loader = DatasetLoader(config['training_dir'])  # This is the correct class name
         self.device = torch.device(self.env.device if 'cuda' in self.env.device else 'cpu')
         
         # Progress tracking
@@ -340,6 +341,15 @@ class DistilledModelTrainer:
             'best_loss': float('inf'),
             'losses': []
         }
+        
+        # Check for resume option
+        if resume_training:
+            latest_model = self.find_latest_model()
+            if latest_model and self.load_from_checkpoint(latest_model):
+                logger.info("🔄 Resuming from existing model")
+                return
+            else:
+                logger.info("🆕 No valid checkpoint found, starting fresh")
     
     def setup_model_and_tokenizer(self):
         """Setup model and tokenizer with local caching"""
@@ -536,6 +546,7 @@ class DistilledModelTrainer:
     def _save_final_model(self) -> str:
         """Save final trained model"""
         from config import CONFIG
+        import numpy as np
         
         models_dir = Path(CONFIG['models_dir'])
         models_dir.mkdir(parents=True, exist_ok=True)
@@ -547,22 +558,128 @@ class DistilledModelTrainer:
         # Save model and tokenizer
         self.model.base_model.save_pretrained(str(model_path))
         self.tokenizer.save_pretrained(str(model_path))
+    
+        # Convert config to JSON-serializable format
+        def make_json_serializable(obj):
+            """Convert numpy/torch types to JSON-serializable types"""
+            import numpy as np
+            import torch
+            
+            if obj is None:
+                return None
+            elif hasattr(obj, 'dtype'):
+                # Handle numpy dtypes specifically
+                if str(type(obj)).startswith("<class 'numpy.dtype"):
+                    return str(obj)
+                # Handle numpy arrays and tensors
+                elif hasattr(obj, 'tolist'):
+                    return obj.tolist()
+                else:
+                    return str(obj)
+            elif isinstance(obj, (np.ndarray, torch.Tensor)):
+                return obj.tolist() if hasattr(obj, 'tolist') else str(obj)
+            elif isinstance(obj, (np.integer, np.int32, np.int64)):
+                return int(obj)
+            elif isinstance(obj, (np.floating, np.float32, np.float64)):
+                return float(obj)
+            elif isinstance(obj, np.bool_):
+                return bool(obj)
+            elif isinstance(obj, type):
+                return str(obj)
+            elif isinstance(obj, dict):
+                return {k: make_json_serializable(v) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple)):
+                return [make_json_serializable(item) for item in obj]
+            elif hasattr(obj, '__dict__'):
+                return str(obj)  # Convert objects to string representation
+            else:
+                try:
+                    # Test if it's JSON serializable
+                    import json
+                    json.dumps(obj)
+                    return obj
+                except (TypeError, ValueError):
+                    return str(obj)
+        
+        # Clean config for JSON serialization
+        clean_config = make_json_serializable(self.config)
         
         # Save training metadata
         metadata = {
             'model_type': 'distilled_monitoring',
             'base_model': self.config.get('model_name'),
-            'training_samples': self.training_progress.get('total_steps', 0),
-            'best_loss': self.training_progress.get('best_loss'),
+            'training_samples': int(self.training_progress.get('total_steps', 0)),
+            'best_loss': float(self.training_progress.get('best_loss', 0.0)),
             'training_time': str(datetime.now() - self.training_progress['start_time']),
-            'config': self.config
+            'config': clean_config,
+            'timestamp': timestamp,
+            'model_path': str(model_path)
         }
         
         with open(model_path / 'training_metadata.json', 'w') as f:
             json.dump(metadata, f, indent=2)
         
         logger.info(f"💾 Model saved to: {model_path}")
+        # Congrats!
         return str(model_path)
+
+    def find_latest_model(self) -> Optional[str]:
+        """Find the most recent trained model for resuming"""
+        from config import CONFIG
+        
+        models_dir = Path(CONFIG['models_dir'])
+        if not models_dir.exists():
+            return None
+        
+        # Find all distilled monitoring models
+        model_dirs = list(models_dir.glob('distilled_monitoring_*'))
+        if not model_dirs:
+            return None
+        
+        # Sort by timestamp (newest first)
+        model_dirs.sort(reverse=True)
+        latest_model = model_dirs[0]
+        
+        # Verify it's a complete model
+        required_files = ['pytorch_model.bin', 'config.json', 'training_metadata.json']
+        if all((latest_model / f).exists() for f in required_files):
+            logger.info(f"🔍 Found latest model: {latest_model}")
+            return str(latest_model)
+        
+        logger.warning(f"⚠️ Latest model incomplete: {latest_model}")
+        return None
+
+    def load_from_checkpoint(self, model_path: str) -> bool:
+        """Load model from previous training checkpoint"""
+        try:
+            from transformers import AutoTokenizer, AutoModel
+            
+            model_path = Path(model_path)
+            
+            # Load the tokenizer
+            self.tokenizer = AutoTokenizer.from_pretrained(str(model_path))
+            
+            # Load the base model
+            base_model = AutoModel.from_pretrained(str(model_path))
+            
+            # Create monitoring model
+            self.model = MonitoringModel(base_model)
+            self.model.to(self.device)
+            
+            # Load training metadata if available
+            metadata_path = model_path / 'training_metadata.json'
+            if metadata_path.exists():
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                    logger.info(f"📊 Previous training: {metadata.get('training_samples', 0)} samples")
+                    logger.info(f"📈 Previous best loss: {metadata.get('best_loss', 'unknown')}")
+            
+            logger.info(f"✅ Loaded model from: {model_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to load checkpoint: {e}")
+            return False
 
 def main():
     """Main training function"""
