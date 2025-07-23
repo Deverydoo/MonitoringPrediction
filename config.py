@@ -36,7 +36,7 @@ CONFIG = {
     "torch_dtype": torch.float32,
     "use_cuda": torch.cuda.is_available(),
     "force_cpu": False,
-    "torch_compile": True,  # Enable PyTorch 2.0+ compilation
+    "torch_compile": False,  # Enable PyTorch 2.0+ compilation
     
     # Dynamic discovery settings
     "auto_discover_models": True,
