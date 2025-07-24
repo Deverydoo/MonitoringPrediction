@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Distilled Model Trainer - Refactored and Streamlined
+distilled_model_trainer.py
 Technology-specific predictive LLM for monitoring and troubleshooting
 """
 
@@ -16,6 +16,7 @@ except:
     pass
 
 import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime
@@ -25,16 +26,35 @@ from collections import defaultdict
 # Configure encoding for Windows/Linux compatibility
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('./logs/training.log', encoding='utf-8')
-    ]
-)
-logger = logging.getLogger(__name__)
+def setup_enhanced_logging():
+    """Setup enhanced logging with local file output for Spark environments."""
+    
+    # Ensure logs directory exists
+    logs_dir = Path('./logs/')
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create timestamp for unique log files
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_file = logs_dir / f'training_{timestamp}.log'
+    
+    # Configure logging with both console and file handlers
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            # Console handler (for local/interactive use)
+            logging.StreamHandler(),
+            # File handler (for Spark environments)
+            logging.FileHandler(log_file, encoding='utf-8')
+        ]
+    )
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"🗂️ Enhanced logging initialized - local log: {log_file}")
+    
+    return logger, log_file
+    
+logger, training_log_file = setup_enhanced_logging()
 
 class TrainingEnvironment:
     """Manages training environment with CUDA->Spark->CPU fallback"""
@@ -330,6 +350,10 @@ class DistilledModelTrainer:
         self.env = TrainingEnvironment()
         self.loader = DatasetLoader(config['training_dir'])  # This is the correct class name
         self.device = torch.device(self.env.device if 'cuda' in self.env.device else 'cpu')
+
+        # Store log file path for reference
+        self.training_log_file = training_log_file
+        logger.info(f"📁 Training logs will be written to: {self.training_log_file}")
         
         # Progress tracking
         self.training_progress = {
@@ -350,6 +374,30 @@ class DistilledModelTrainer:
                 return
             else:
                 logger.info("🆕 No valid checkpoint found, starting fresh")
+
+    def get_log_file_path(self) -> str:
+        """Get the path to the current training log file."""
+        return str(self.training_log_file)
+    
+    def log_training_status(self, message: str, level: str = "info"):
+        """Log a message with explicit file writing for Spark environments."""
+        
+        # Standard logging
+        if level.lower() == "error":
+            logger.error(message)
+        elif level.lower() == "warning":
+            logger.warning(message)
+        else:
+            logger.info(message)
+        
+        # Explicit file write for Spark (in case handlers don't work)
+        try:
+            with open(self.training_log_file, 'a', encoding='utf-8') as f:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                f.write(f"[{timestamp}] {level.upper()}: {message}\n")
+                f.flush()  # Ensure immediate write
+        except Exception as e:
+            print(f"Warning: Could not write to log file: {e}")
     
     def setup_model_and_tokenizer(self):
         """Setup model and tokenizer with local caching"""
@@ -438,42 +486,106 @@ class DistilledModelTrainer:
         logger.info(f"✅ Training dataset ready: {len(dataset)} samples")
         return dataset
     
-    def train(self):
-        """Main training loop with progress tracking"""
-        try:
-            self.training_progress['start_time'] = datetime.now()
+    def train(self) -> bool:
+        """Train the distilled model with enhanced logging for Spark environments."""
+        
+        # Enhanced logging setup - write to both console and local file
+        logs_dir = Path('./logs/')
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        log_file = logs_dir / f'training_{timestamp}.log'
+        
+        def log_message(message: str, level: str = "INFO"):
+            """Log to both console and file for Spark compatibility."""
+            # Standard logging
+            if level == "ERROR":
+                logger.error(message)
+            elif level == "WARNING":
+                logger.warning(message)
+            else:
+                logger.info(message)
             
-            # Setup
-            logger.info("🏋️ Starting model training...")
+            # Direct file write for Spark environments
+            try:
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    f.write(f"[{log_time}] {level}: {message}\n")
+                    f.flush()
+            except Exception:
+                pass  # Silent fail for file write issues
+        
+        log_message("🏋️ Starting distilled model training")
+        log_message(f"📁 Local log file: {log_file}")
+        log_message(f"🖥️ Environment: {self.env.env_type}")
+        log_message(f"🎮 Device: {self.device}")
+        
+        try:
+            # Initialize model
+            log_message("🤖 Initializing model...")
             self.setup_model_and_tokenizer()
+            log_message(f"✅ Model loaded: {self.config.get('model_name', 'unknown')}")
+            
+            # Prepare training data (call once and store result)
+            log_message("📊 Preparing training data...")
             dataset = self.prepare_training_data()
             
-            # Create data loader
-            from torch.utils.data import DataLoader
+            log_message(f"📈 Training samples: {len(dataset)}")
+            
+            # Create dataloader (dataset is already prepared)
+            log_message("🔧 Creating data loaders...")
             dataloader = DataLoader(
                 dataset, 
-                batch_size=self.config.get('batch_size', 8), 
-                shuffle=True
+                batch_size=self.config['batch_size'], 
+                shuffle=True,
+                num_workers=self.config.get('dataloader_num_workers', 2),
+                pin_memory=self.config.get('pin_memory', True),
+                persistent_workers=self.config.get('persistent_workers', True)
             )
             
-            # Setup optimizer
+            log_message(f"📦 Batch size: {self.config['batch_size']}")
+            log_message(f"🔄 Total batches per epoch: {len(dataloader)}")
+            
+            # Setup optimizer and scheduler
+            log_message("⚙️ Setting up optimizer...")
             optimizer = torch.optim.AdamW(
                 self.model.parameters(),
-                lr=self.config.get('learning_rate', 2e-5),
-                weight_decay=self.config.get('weight_decay', 0.01)
+                lr=self.config['learning_rate'],
+                weight_decay=self.config['weight_decay']
             )
             
-            # Calculate total steps
-            epochs = self.config.get('epochs', 3)
-            self.training_progress['total_steps'] = len(dataloader) * epochs
+            scheduler = torch.optim.lr_scheduler.LinearLR(
+                optimizer,
+                start_factor=0.1,
+                total_iters=self.config['warmup_steps']
+            )
+            
+            # Mixed precision setup for efficiency
+            scaler = None
+            if self.config.get('mixed_precision', False) and self.env.env_type == "cuda":
+                scaler = torch.amp.GradScaler('cuda')
+                log_message("🚀 Mixed precision training enabled")
+            
+            # Training progress tracking
+            total_steps = len(dataloader) * self.config['epochs']
+            self.training_progress = {
+                'start_time': datetime.now(),
+                'current_step': 0,
+                'total_steps': total_steps,
+                'best_loss': float('inf'),
+                'losses': []
+            }
+            
+            log_message(f"🎯 Training configuration:")
+            log_message(f"   Epochs: {self.config['epochs']}")
+            log_message(f"   Learning rate: {self.config['learning_rate']}")
+            log_message(f"   Total training steps: {total_steps}")
             
             # Training loop
             self.model.train()
-            for epoch in range(epochs):
-                self.training_progress['current_epoch'] = epoch + 1
+            
+            for epoch in range(self.config['epochs']):
                 epoch_loss = 0.0
-                
-                logger.info(f"📚 Epoch {epoch + 1}/{epochs}")
+                log_message(f"🔄 Starting epoch {epoch + 1}/{self.config['epochs']}")
                 
                 for step, batch in enumerate(dataloader):
                     self.training_progress['current_step'] += 1
@@ -483,52 +595,90 @@ class DistilledModelTrainer:
                         b.to(self.device) for b in batch
                     ]
                     
-                    # Forward pass
+                    # Forward pass with optional mixed precision
                     optimizer.zero_grad()
-                    outputs = self.model(
-                        input_ids=input_ids,
-                        attention_mask=attention_mask,
-                        labels=labels,
-                        metrics=metrics,
-                        anomalies=anomalies
-                    )
                     
-                    loss = outputs['loss']
+                    if scaler:
+                        with torch.amp.autocast('cuda'):
+                            outputs = self.model(
+                                input_ids=input_ids,
+                                attention_mask=attention_mask,
+                                labels=labels,
+                                metrics=metrics,
+                                anomalies=anomalies
+                            )
+                            loss = outputs['loss']
+                        
+                        # Backward pass with scaling
+                        scaler.scale(loss).backward()
+                        scaler.step(optimizer)
+                        scaler.update()
+                    else:
+                        outputs = self.model(
+                            input_ids=input_ids,
+                            attention_mask=attention_mask,
+                            labels=labels,
+                            metrics=metrics,
+                            anomalies=anomalies
+                        )
+                        loss = outputs['loss']
+                        
+                        # Standard backward pass
+                        loss.backward()
+                        optimizer.step()
+                    
+                    if scheduler:
+                        scheduler.step()
+                    
                     epoch_loss += loss.item()
                     
-                    # Backward pass
-                    loss.backward()
-                    optimizer.step()
-                    
-                    # Progress logging
-                    if step % 50 == 0:
+                    # Progress logging every 100 steps
+                    if step % 100 == 0:
                         progress_pct = (self.training_progress['current_step'] / 
                                       self.training_progress['total_steps']) * 100
-                        logger.info(f"  Step {step}: Loss={loss.item():.4f} ({progress_pct:.1f}% complete)")
+                        current_lr = optimizer.param_groups[0]['lr']
+                        log_message(f"   Step {step}: Loss={loss.item():.4f}, LR={current_lr:.2e} ({progress_pct:.1f}% complete)")
+                    
+                    # Save checkpoint every 500 steps
+                    if step % 500 == 0 and step > 0:
+                        checkpoint_name = f"checkpoint_epoch_{epoch+1}_step_{step}"
+                        self._save_checkpoint(checkpoint_name)
+                        log_message(f"💾 Checkpoint saved: {checkpoint_name}")
                 
+                # End of epoch processing
                 avg_loss = epoch_loss / len(dataloader)
                 self.training_progress['losses'].append(avg_loss)
                 
+                log_message(f"✅ Epoch {epoch + 1} completed: Avg Loss={avg_loss:.4f}")
+                
+                # Save best model
                 if avg_loss < self.training_progress['best_loss']:
                     self.training_progress['best_loss'] = avg_loss
                     self._save_checkpoint('best_model')
-                
-                logger.info(f"✅ Epoch {epoch + 1} completed: Avg Loss={avg_loss:.4f}")
+                    log_message(f"🏆 New best model saved: Loss={avg_loss:.4f}")
             
             # Save final model
+            log_message("💾 Saving final model...")
             final_path = self._save_final_model()
             
             # Training summary
             duration = datetime.now() - self.training_progress['start_time']
-            logger.info(f"🎉 Training completed in {duration}")
-            logger.info(f"   Best loss: {self.training_progress['best_loss']:.4f}")
-            logger.info(f"   Final model: {final_path}")
+            log_message(f"🎉 Training completed successfully!")
+            log_message(f"⏱️ Duration: {duration}")
+            log_message(f"📈 Best loss: {self.training_progress['best_loss']:.4f}")
+            log_message(f"💾 Final model saved: {final_path}")
+            log_message(f"📋 Training log saved: {log_file}")
             
             return True
             
+        except KeyboardInterrupt:
+            log_message("⏸️ Training interrupted by user", "WARNING")
+            return False
+            
         except Exception as e:
-            logger.error(f"❌ Training failed: {e}")
-            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            error_msg = f"❌ Training failed: {str(e)}"
+            log_message(error_msg, "ERROR")
+            log_message(f"🔍 Traceback: {traceback.format_exc()}", "ERROR")
             return False
     
     def _save_checkpoint(self, name: str):

@@ -63,7 +63,7 @@ CONFIG = {
     # Dataset generation with dynamic calculation
     "calculate_samples_dynamically": True,
     "language_samples": 9000,
-    "metrics_samples": 100000,
+    "metrics_samples": 10000,
     "base_samples_per_yaml": 50,
     "variety_multiplier": 1.5,
     "quality_over_quantity": True,
@@ -97,7 +97,7 @@ CONFIG = {
     # Model rotation and variety settings
     "model_rotation_enabled": True,
     "model_swap_interval": 25,
-    "models_per_question": 3,
+    "models_per_question": 1,
     "max_concurrent_models": 4,
     "model_pool_size": 20,  # Increased pool size
     "preload_next_model": True,
