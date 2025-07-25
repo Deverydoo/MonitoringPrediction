@@ -63,7 +63,7 @@ CONFIG = {
     # Dataset generation with dynamic calculation
     "calculate_samples_dynamically": True,
     "language_samples": 9000,
-    "metrics_samples": 10000,
+    "metrics_samples": 500000,
     "base_samples_per_yaml": 50,
     "variety_multiplier": 1.5,
     "quality_over_quantity": True,
@@ -97,7 +97,7 @@ CONFIG = {
     # Model rotation and variety settings
     "model_rotation_enabled": True,
     "model_swap_interval": 25,
-    "models_per_question": 1,
+    "models_per_question": 3,
     "max_concurrent_models": 4,
     "model_pool_size": 20,  # Increased pool size
     "preload_next_model": True,
@@ -110,7 +110,7 @@ CONFIG = {
     },
     
     # Local model fallback with enhanced discovery
-    "local_model_enabled": True,
+    "local_model_enabled": False,
     "local_model_max_tokens": 4000,
     "local_model_temperature": 0.7,
     "local_model_auto_scan": True,

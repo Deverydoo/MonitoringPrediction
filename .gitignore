@@ -21,6 +21,7 @@ wheels/
 *.egg
 MANIFEST
 *.safetensors
+metrics_dataset.json
 
 # Virtual environments
 .env
