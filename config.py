@@ -28,13 +28,13 @@ CONFIG = {
     "max_length": 512,
     "batch_size": 20,
     "learning_rate": 2e-5,
-    "epochs": 1,
+    "epochs": 9,
     "warmup_steps": 100,
     "weight_decay": 0.01,
 
     # RTX 4090 Performance Optimizations
     "gradient_accumulation_steps": 2,     # Effective batch size = 40
-    "mixed_precision": True,              # FP16 for 2x speed boost
+    "mixed_precision": False,              # FP16 for 2x speed boost
     "torch_compile": False,                # PyTorch 2.0+ compilation
     "dataloader_num_workers": 4,          # Parallel data loading
     "pin_memory": True,                   # Faster GPU transfers
