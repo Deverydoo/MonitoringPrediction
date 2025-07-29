@@ -2,29 +2,79 @@
 """
 distilled_model_trainer.py
 Technology-specific predictive LLM for monitoring and troubleshooting
+Enhanced with PyTorch/TensorFlow framework selection and Keras interface
 """
 
 import os
 import json
 import logging
-import torch
-# Completely disable dynamo/compilation before any model operations
-try:
-    torch._dynamo.config.disable = True
-    torch._dynamo.config.suppress_errors = True
-except:
-    pass
-
-import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional, Any, Union
 from datetime import datetime
 import traceback
 from collections import defaultdict
+import numpy as np
 
 # Configure encoding for Windows/Linux compatibility
 os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+# Setup basic logging first
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import framework based on config
+try:
+    from config import CONFIG, FRAMEWORK, FRAMEWORK_AVAILABLE, DEVICE_TYPE
+except ImportError:
+    FRAMEWORK = os.environ.get('ML_FRAMEWORK', 'pytorch').lower()
+    FRAMEWORK_AVAILABLE = True
+    DEVICE_TYPE = 'CPU'
+
+# Framework-specific imports
+if FRAMEWORK == 'tensorflow' and FRAMEWORK_AVAILABLE:
+    try:
+        import tensorflow as tf
+        from tensorflow import keras
+        from tensorflow.keras import layers, Model, optimizers, losses, metrics
+        from transformers import TFAutoModel, TFAutoModelForCausalLM, AutoTokenizer
+        
+        # Configure GPU
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+        
+        FRAMEWORK_BACKEND = 'tensorflow'
+        logger.info(f"🔥 TensorFlow backend loaded: {tf.__version__}")
+        
+    except ImportError as e:
+        logger.warning(f"TensorFlow import failed: {e}, falling back to PyTorch")
+        FRAMEWORK_BACKEND = 'pytorch'
+else:
+    FRAMEWORK_BACKEND = 'pytorch'
+
+if FRAMEWORK_BACKEND == 'pytorch':
+    try:
+        import torch
+        import torch.nn as nn
+        from torch.utils.data import Dataset, DataLoader, TensorDataset
+        from transformers import (
+            AutoTokenizer, AutoModel, AutoModelForCausalLM, 
+            Trainer, TrainingArguments, get_linear_schedule_with_warmup
+        )
+        
+        # Disable dynamo/compilation issues
+        try:
+            torch._dynamo.config.disable = True
+            torch._dynamo.config.suppress_errors = True
+        except:
+            pass
+            
+        logger.info(f"🔥 PyTorch backend loaded: {torch.__version__}")
+        
+    except ImportError as e:
+        logger.error(f"Both TensorFlow and PyTorch import failed: {e}")
+        raise ImportError("No suitable ML framework available")
 
 def setup_enhanced_logging():
     """Setup enhanced logging with local file output for Spark environments."""
@@ -51,58 +101,112 @@ def setup_enhanced_logging():
     
     logger = logging.getLogger(__name__)
     logger.info(f"🗂️ Enhanced logging initialized - local log: {log_file}")
+    logger.info(f"🔧 Framework: {FRAMEWORK_BACKEND}")
     
     return logger, log_file
     
 logger, training_log_file = setup_enhanced_logging()
 
 class TrainingEnvironment:
-    """Manages training environment with CUDA->Spark->CPU fallback"""
+    """Manages training environment with framework-specific optimizations"""
     
     def __init__(self):
+        self.framework = FRAMEWORK_BACKEND
         self.device = self._detect_best_device()
         self.env_type = self._get_environment_type()
         self._setup_environment()
     
     def _detect_best_device(self) -> str:
-        """Detect best available device with fallback chain"""
-        if torch.cuda.is_available():
-            device = f"cuda:{torch.cuda.current_device()}"
-            gpu_name = torch.cuda.get_device_name()
-            logger.info(f"🎮 CUDA GPU: {gpu_name}")
-            return device
+        """Detect best available device with framework-specific logic"""
+        if self.framework == 'tensorflow':
+            try:
+                gpus = tf.config.experimental.list_physical_devices('GPU')
+                if gpus:
+                    gpu_name = tf.config.experimental.get_device_details(gpus[0])['device_name']
+                    logger.info(f"🎮 TensorFlow GPU: {gpu_name}")
+                    return f"/GPU:0"
+                else:
+                    logger.info("💻 TensorFlow CPU")
+                    return "/CPU:0"
+            except Exception as e:
+                logger.warning(f"TensorFlow device detection failed: {e}")
+                return "/CPU:0"
         
-        # Check for Spark environment
-        try:
-            from pyspark import SparkContext
-            if SparkContext._active_spark_context:
-                logger.info("⚡ Spark environment detected")
-                return "spark"
-        except ImportError:
-            pass
-        
-        logger.info("💻 Using CPU")
-        return "cpu"
+        else:  # PyTorch
+            try:
+                if torch.cuda.is_available():
+                    device = f"cuda:{torch.cuda.current_device()}"
+                    gpu_name = torch.cuda.get_device_name()
+                    logger.info(f"🎮 PyTorch CUDA GPU: {gpu_name}")
+                    return device
+                
+                # Check Apple Silicon (MPS)
+                if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                    logger.info("🍎 PyTorch Apple Silicon (MPS)")
+                    return "mps"
+                
+                logger.info("💻 PyTorch CPU")
+                return "cpu"
+            except Exception as e:
+                logger.warning(f"PyTorch device detection failed: {e}")
+                return "cpu"
     
     def _get_environment_type(self) -> str:
         """Get environment type for optimization"""
-        if "cuda" in self.device:
-            return "cuda"
-        elif self.device == "spark":
-            return "spark"
-        return "cpu"
+        if self.framework == 'tensorflow':
+            return "tensorflow_gpu" if "GPU" in self.device else "tensorflow_cpu"
+        else:
+            if "cuda" in self.device:
+                return "pytorch_cuda"
+            elif "mps" in self.device:
+                return "pytorch_mps"
+            return "pytorch_cpu"
     
     def _setup_environment(self):
-        """Setup environment-specific optimizations"""
-        if self.env_type == "cuda":
-            torch.backends.cudnn.benchmark = True
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
-            logger.info("🚀 CUDA optimizations enabled")
-        
-        elif self.env_type == "cpu":
-            torch.set_num_threads(os.cpu_count())
-            logger.info(f"🔧 CPU threads: {os.cpu_count()}")
+        """Setup framework-specific optimizations"""
+        if self.framework == 'tensorflow':
+            self._setup_tensorflow()
+        else:
+            self._setup_pytorch()
+    
+    def _setup_tensorflow(self):
+        """Setup TensorFlow optimizations"""
+        try:
+            # Mixed precision
+            if CONFIG.get('tf_mixed_precision_policy') == 'mixed_float16' and "GPU" in self.device:
+                tf.keras.mixed_precision.set_global_policy('mixed_float16')
+                logger.info("🚀 TensorFlow mixed precision enabled")
+            
+            # XLA compilation
+            if CONFIG.get('tf_xla_compile', True):
+                tf.config.optimizer.set_jit(True)
+                logger.info("🚀 TensorFlow XLA compilation enabled")
+            
+            # Memory growth
+            if CONFIG.get('tf_memory_growth', True):
+                gpus = tf.config.experimental.list_physical_devices('GPU')
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                logger.info("🚀 TensorFlow memory growth enabled")
+                
+        except Exception as e:
+            logger.warning(f"TensorFlow optimization setup failed: {e}")
+    
+    def _setup_pytorch(self):
+        """Setup PyTorch optimizations"""
+        try:
+            if "cuda" in self.device:
+                torch.backends.cudnn.benchmark = True
+                torch.backends.cuda.matmul.allow_tf32 = True
+                torch.backends.cudnn.allow_tf32 = True
+                logger.info("🚀 PyTorch CUDA optimizations enabled")
+            
+            elif self.device == "cpu":
+                torch.set_num_threads(os.cpu_count())
+                logger.info(f"🔧 PyTorch CPU threads: {os.cpu_count()}")
+                
+        except Exception as e:
+            logger.warning(f"PyTorch optimization setup failed: {e}")
 
 class DatasetLoader:
     """Efficient dataset loader with dynamic discovery and caching"""
@@ -281,79 +385,242 @@ class DatasetLoader:
         logger.info(f"🧹 Cleaned: {len(cleaned_texts)}/{len(texts)} samples retained")
         return cleaned_texts, cleaned_labels, cleaned_metrics, cleaned_anomalies
 
-class MonitoringModel(nn.Module):
-    """Multi-task monitoring model with technical focus"""
-    
-    def __init__(self, base_model, num_labels: int = 8, num_metrics: int = 10):
-        super().__init__()
-        self.base_model = base_model
-        self.hidden_size = base_model.config.hidden_size
+# Framework-specific model classes
+if FRAMEWORK_BACKEND == 'tensorflow':
+    class MonitoringModel(keras.Model):
+        """Multi-task monitoring model with TensorFlow/Keras"""
         
-        # Multi-task heads
-        self.classifier = nn.Linear(self.hidden_size, num_labels)
-        self.anomaly_detector = nn.Linear(self.hidden_size, 2)  # Binary anomaly detection
-        self.metrics_regressor = nn.Linear(self.hidden_size, num_metrics)
-        
-        # Task weights for loss balancing
-        self.classification_weight = 0.4
-        self.anomaly_weight = 0.3
-        self.metrics_weight = 0.3
-        
-        self._init_weights()
-    
-    def _init_weights(self):
-        """Initialize task-specific heads"""
-        for module in [self.classifier, self.anomaly_detector, self.metrics_regressor]:
-            if isinstance(module, nn.Linear):
-                module.weight.data.normal_(mean=0.0, std=0.02)
-                if module.bias is not None:
-                    module.bias.data.zero_()
-    
-    def forward(self, input_ids, attention_mask, labels=None, metrics=None, anomalies=None):
-        """Forward pass with multi-task outputs"""
-        # Get base model outputs
-        outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
-        pooled_output = outputs.last_hidden_state[:, 0]  # Use [CLS] token
-        
-        # Multi-task predictions
-        classification_logits = self.classifier(pooled_output)
-        anomaly_logits = self.anomaly_detector(pooled_output)
-        metrics_pred = self.metrics_regressor(pooled_output)
-        
-        loss = None
-        if labels is not None:
-            # Calculate multi-task loss
-            ce_loss = nn.CrossEntropyLoss()
-            mse_loss = nn.MSELoss()
+        def __init__(self, base_model, num_labels: int = 8, num_metrics: int = 10, **kwargs):
+            super().__init__(**kwargs)
+            self.base_model = base_model
+            self.hidden_size = base_model.config.hidden_size
             
-            classification_loss = ce_loss(classification_logits, labels)
-            anomaly_loss = ce_loss(anomaly_logits, anomalies) if anomalies is not None else 0
-            metrics_loss = mse_loss(metrics_pred, metrics) if metrics is not None else 0
+            # Multi-task heads
+            self.classifier = layers.Dense(num_labels, activation='softmax', name='classifier')
+            self.anomaly_detector = layers.Dense(2, activation='softmax', name='anomaly_detector')
+            self.metrics_regressor = layers.Dense(num_metrics, name='metrics_regressor')
             
-            loss = (self.classification_weight * classification_loss + 
-                   self.anomaly_weight * anomaly_loss + 
-                   self.metrics_weight * metrics_loss)
+            # Task weights for loss balancing
+            self.classification_weight = 0.4
+            self.anomaly_weight = 0.3
+            self.metrics_weight = 0.3
         
-        return {
-            'loss': loss,
-            'classification_logits': classification_logits,
-            'anomaly_logits': anomaly_logits,
-            'metrics_predictions': metrics_pred
-        }
+        def call(self, inputs, training=None):
+            """Forward pass with multi-task outputs"""
+            if isinstance(inputs, dict):
+                input_ids = inputs.get('input_ids')
+                attention_mask = inputs.get('attention_mask', None)
+            else:
+                input_ids = inputs
+                attention_mask = None
+            
+            # Get base model outputs
+            if attention_mask is not None:
+                outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask, training=training)
+            else:
+                outputs = self.base_model(input_ids=input_ids, training=training)
+            
+            pooled_output = outputs.last_hidden_state[:, 0]  # Use [CLS] token
+            
+            # Multi-task predictions
+            classification_logits = self.classifier(pooled_output)
+            anomaly_logits = self.anomaly_detector(pooled_output)
+            metrics_pred = self.metrics_regressor(pooled_output)
+            
+            return {
+                'classification_logits': classification_logits,
+                'anomaly_logits': anomaly_logits,
+                'metrics_predictions': metrics_pred
+            }
+        
+        def compute_loss(self, labels, metrics_true, anomalies, y_pred):
+            """Compute multi-task loss"""
+            classification_loss = tf.keras.losses.sparse_categorical_crossentropy(
+                labels, y_pred['classification_logits']
+            )
+            anomaly_loss = tf.keras.losses.sparse_categorical_crossentropy(
+                anomalies, y_pred['anomaly_logits']
+            )
+            # Fix: Use tf.reduce_mean with tf.square for MSE
+            metrics_loss = tf.reduce_mean(tf.square(metrics_true - y_pred['metrics_predictions']))
+            
+            total_loss = (self.classification_weight * tf.reduce_mean(classification_loss) + 
+                         self.anomaly_weight * tf.reduce_mean(anomaly_loss) + 
+                         self.metrics_weight * metrics_loss)
+            
+            return total_loss
+
+else:  # PyTorch
+    class MonitoringModel(nn.Module):
+        """Multi-task monitoring model with PyTorch"""
+        
+        def __init__(self, base_model, num_labels: int = 8, num_metrics: int = 10):
+            super().__init__()
+            self.base_model = base_model
+            self.hidden_size = base_model.config.hidden_size
+            
+            # Multi-task heads
+            self.classifier = nn.Linear(self.hidden_size, num_labels)
+            self.anomaly_detector = nn.Linear(self.hidden_size, 2)
+            self.metrics_regressor = nn.Linear(self.hidden_size, num_metrics)
+            
+            # Task weights for loss balancing
+            self.classification_weight = 0.4
+            self.anomaly_weight = 0.3
+            self.metrics_weight = 0.3
+            
+            self._init_weights()
+        
+        def _init_weights(self):
+            """Initialize task-specific heads"""
+            for module in [self.classifier, self.anomaly_detector, self.metrics_regressor]:
+                if isinstance(module, nn.Linear):
+                    module.weight.data.normal_(mean=0.0, std=0.02)
+                    if module.bias is not None:
+                        module.bias.data.zero_()
+        
+        def forward(self, input_ids, attention_mask, labels=None, metrics=None, anomalies=None):
+            """Forward pass with multi-task outputs"""
+            # Get base model outputs
+            outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask)
+            pooled_output = outputs.last_hidden_state[:, 0]  # Use [CLS] token
+            
+            # Multi-task predictions
+            classification_logits = self.classifier(pooled_output)
+            anomaly_logits = self.anomaly_detector(pooled_output)
+            metrics_pred = self.metrics_regressor(pooled_output)
+            
+            loss = None
+            if labels is not None:
+                # Calculate multi-task loss
+                ce_loss = nn.CrossEntropyLoss()
+                mse_loss = nn.MSELoss()
+                
+                classification_loss = ce_loss(classification_logits, labels)
+                anomaly_loss = ce_loss(anomaly_logits, anomalies) if anomalies is not None else 0
+                metrics_loss = mse_loss(metrics_pred, metrics) if metrics is not None else 0
+                
+                loss = (self.classification_weight * classification_loss + 
+                       self.anomaly_weight * anomaly_loss + 
+                       self.metrics_weight * metrics_loss)
+            
+            return {
+                'loss': loss,
+                'classification_logits': classification_logits,
+                'anomaly_logits': anomaly_logits,
+                'metrics_predictions': metrics_pred
+            }
+
+# Framework-specific dataset classes
+if FRAMEWORK_BACKEND == 'tensorflow':
+    class MonitoringDataset:
+        """TensorFlow dataset wrapper"""
+        
+        def __init__(self, texts, labels, metrics, anomalies, tokenizer, max_length):
+            self.texts = texts
+            self.labels = labels
+            self.metrics = metrics
+            self.anomalies = anomalies
+            self.tokenizer = tokenizer
+            self.max_length = max_length
+        
+        def create_tf_dataset(self, batch_size):
+            """Create TensorFlow dataset"""
+            def generator():
+                for i in range(len(self.texts)):
+                    encoded = self.tokenizer(
+                        self.texts[i],
+                        max_length=self.max_length,
+                        padding='max_length',
+                        truncation=True,
+                        return_tensors='tf'
+                    )
+                    
+                    yield (
+                        {
+                            'input_ids': encoded['input_ids'][0],
+                            'attention_mask': encoded['attention_mask'][0]
+                        },
+                        {
+                            'labels': self.labels[i],
+                            'metrics': self.metrics[i],
+                            'anomalies': self.anomalies[i]
+                        }
+                    )
+            
+            output_signature = (
+                {
+                    'input_ids': tf.TensorSpec(shape=(self.max_length,), dtype=tf.int32),
+                    'attention_mask': tf.TensorSpec(shape=(self.max_length,), dtype=tf.int32)
+                },
+                {
+                    'labels': tf.TensorSpec(shape=(), dtype=tf.int32),
+                    'metrics': tf.TensorSpec(shape=(10,), dtype=tf.float32),
+                    'anomalies': tf.TensorSpec(shape=(), dtype=tf.int32)
+                }
+            )
+            
+            dataset = tf.data.Dataset.from_generator(generator, output_signature=output_signature)
+            dataset = dataset.batch(batch_size)
+            dataset = dataset.prefetch(tf.data.AUTOTUNE)
+            
+            return dataset
+
+else:  # PyTorch
+    class MonitoringDataset(Dataset):
+        """PyTorch dataset for monitoring data"""
+        
+        def __init__(self, texts, labels, metrics, anomalies, tokenizer, max_length):
+            self.texts = texts
+            self.labels = labels
+            self.metrics = metrics
+            self.anomalies = anomalies
+            self.tokenizer = tokenizer
+            self.max_length = max_length
+        
+        def __len__(self):
+            return len(self.texts)
+        
+        def __getitem__(self, idx):
+            text = self.texts[idx]
+            
+            # Tokenize
+            encoded = self.tokenizer(
+                text,
+                max_length=self.max_length,
+                padding='max_length',
+                truncation=True,
+                return_tensors='pt'
+            )
+            
+            return {
+                'input_ids': encoded['input_ids'].squeeze(),
+                'attention_mask': encoded['attention_mask'].squeeze(),
+                'labels': torch.tensor(self.labels[idx], dtype=torch.long),
+                'metrics': torch.tensor(self.metrics[idx], dtype=torch.float32),
+                'anomalies': torch.tensor(self.anomalies[idx], dtype=torch.long)
+            }
 
 class DistilledModelTrainer:
-    """Main trainer class with progress tracking and optimization"""
+    """Main trainer class with framework selection and optimization"""
     
     def __init__(self, config: Dict[str, Any], resume_training: bool = False):
-        """Initialize trainer with optional resume capability"""
+        """Initialize trainer with framework selection"""
         self.config = config
+        self.framework = FRAMEWORK_BACKEND
         self.env = TrainingEnvironment()
-        self.loader = DatasetLoader(config['training_dir'])  # This is the correct class name
-        self.device = torch.device(self.env.device if 'cuda' in self.env.device else 'cpu')
+        self.loader = DatasetLoader(config['training_dir'])
+        
+        # Framework-specific device setup
+        if self.framework == 'tensorflow':
+            self.device = self.env.device
+        else:
+            self.device = torch.device(self.env.device if 'cuda' in self.env.device else 'cpu')
 
         # Store log file path for reference
         self.training_log_file = training_log_file
         logger.info(f"📁 Training logs will be written to: {self.training_log_file}")
+        logger.info(f"🔧 Using {self.framework.title()} framework")
         
         # Progress tracking
         self.training_progress = {
@@ -375,35 +642,8 @@ class DistilledModelTrainer:
             else:
                 logger.info("🆕 No valid checkpoint found, starting fresh")
 
-    def get_log_file_path(self) -> str:
-        """Get the path to the current training log file."""
-        return str(self.training_log_file)
-    
-    def log_training_status(self, message: str, level: str = "info"):
-        """Log a message with explicit file writing for Spark environments."""
-        
-        # Standard logging
-        if level.lower() == "error":
-            logger.error(message)
-        elif level.lower() == "warning":
-            logger.warning(message)
-        else:
-            logger.info(message)
-        
-        # Explicit file write for Spark (in case handlers don't work)
-        try:
-            with open(self.training_log_file, 'a', encoding='utf-8') as f:
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                f.write(f"[{timestamp}] {level.upper()}: {message}\n")
-                f.flush()  # Ensure immediate write
-        except Exception as e:
-            print(f"Warning: Could not write to log file: {e}")
-    
     def setup_model_and_tokenizer(self):
-        """Setup model and tokenizer with local caching"""
-        from transformers import AutoTokenizer, AutoModel
-        from config import CONFIG
-        
+        """Setup model and tokenizer with framework selection"""
         model_name = self.config.get('model_name', 'bert-base-uncased')
         
         # Try local model first
@@ -414,9 +654,16 @@ class DistilledModelTrainer:
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     str(local_path), local_files_only=True
                 )
-                base_model = AutoModel.from_pretrained(
-                    str(local_path), local_files_only=True
-                )
+                
+                if self.framework == 'tensorflow':
+                    base_model = TFAutoModel.from_pretrained(
+                        str(local_path), local_files_only=True
+                    )
+                else:
+                    base_model = AutoModel.from_pretrained(
+                        str(local_path), local_files_only=True
+                    )
+                    
                 logger.info(f"✅ Loaded local model: {model_name}")
             except Exception as e:
                 logger.error(f"❌ Local model load failed: {e}")
@@ -427,9 +674,15 @@ class DistilledModelTrainer:
             self.tokenizer = AutoTokenizer.from_pretrained(
                 model_name, cache_dir=CONFIG['hf_cache_dir']
             )
-            base_model = AutoModel.from_pretrained(
-                model_name, cache_dir=CONFIG['hf_cache_dir']
-            )
+            
+            if self.framework == 'tensorflow':
+                base_model = TFAutoModel.from_pretrained(
+                    model_name, cache_dir=CONFIG['hf_cache_dir']
+                )
+            else:
+                base_model = AutoModel.from_pretrained(
+                    model_name, cache_dir=CONFIG['hf_cache_dir']
+                )
             
             # Save locally for next time
             local_path.mkdir(parents=True, exist_ok=True)
@@ -439,15 +692,17 @@ class DistilledModelTrainer:
         
         # Create monitoring model
         self.model = MonitoringModel(base_model)
-        self.model.to(self.device)
         
-        # Enable compilation if supported
-        if hasattr(torch, 'compile') and self.env.env_type == "cuda":
-            try:
-                self.model = torch.compile(self.model)
-                logger.info("🚀 Model compilation enabled")
-            except Exception as e:
-                logger.warning(f"Model compilation failed: {e}")
+        if self.framework == 'pytorch':
+            self.model.to(self.device)
+            
+            # Enable compilation if supported
+            if hasattr(torch, 'compile') and self.env.env_type == "pytorch_cuda":
+                try:
+                    self.model = torch.compile(self.model)
+                    logger.info("🚀 PyTorch model compilation enabled")
+                except Exception as e:
+                    logger.warning(f"Model compilation failed: {e}")
     
     def prepare_training_data(self):
         """Prepare and tokenize training data"""
@@ -463,76 +718,17 @@ class DistilledModelTrainer:
         if not texts:
             raise ValueError("No training samples extracted!")
         
-        # Tokenize
-        logger.info("🔤 Tokenizing training data...")
-        encoded = self.tokenizer(
-            texts,
-            padding=True,
-            truncation=True,
-            max_length=self.config.get('max_length', 512),
-            return_tensors="pt"
-        )
-        
         # Create dataset
-        from torch.utils.data import TensorDataset
-        dataset = TensorDataset(
-            encoded['input_ids'],
-            encoded['attention_mask'],
-            torch.tensor(labels, dtype=torch.long),
-            torch.tensor(metrics, dtype=torch.float32),
-            torch.tensor(anomalies, dtype=torch.long)
-        )
+        logger.info("🔤 Creating training dataset...")
+        dataset = MonitoringDataset(texts, labels, metrics, anomalies, self.tokenizer, self.config.get('max_length', 512))
         
-        logger.info(f"✅ Training dataset ready: {len(dataset)} samples")
-        return dataset
-    
-    def train(self) -> bool:
-        """Train the distilled model with enhanced logging for Spark environments."""
-        
-        # Enhanced logging setup - write to both console and local file
-        logs_dir = Path('./logs/')
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        log_file = logs_dir / f'training_{timestamp}.log'
-        
-        def log_message(message: str, level: str = "INFO"):
-            """Log to both console and file for Spark compatibility."""
-            # Standard logging
-            if level == "ERROR":
-                logger.error(message)
-            elif level == "WARNING":
-                logger.warning(message)
-            else:
-                logger.info(message)
-            
-            # Direct file write for Spark environments
-            try:
-                with open(log_file, 'a', encoding='utf-8') as f:
-                    log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    f.write(f"[{log_time}] {level}: {message}\n")
-                    f.flush()
-            except Exception:
-                pass  # Silent fail for file write issues
-        
-        log_message("🏋️ Starting distilled model training")
-        log_message(f"📁 Local log file: {log_file}")
-        log_message(f"🖥️ Environment: {self.env.env_type}")
-        log_message(f"🎮 Device: {self.device}")
-        
-        try:
-            # Initialize model
-            log_message("🤖 Initializing model...")
-            self.setup_model_and_tokenizer()
-            log_message(f"✅ Model loaded: {self.config.get('model_name', 'unknown')}")
-            
-            # Prepare training data (call once and store result)
-            log_message("📊 Preparing training data...")
-            dataset = self.prepare_training_data()
-            
-            log_message(f"📈 Training samples: {len(dataset)}")
-            
-            # Create dataloader (dataset is already prepared)
-            log_message("🔧 Creating data loaders...")
+        if self.framework == 'tensorflow':
+            # Create TensorFlow dataset
+            tf_dataset = dataset.create_tf_dataset(self.config['batch_size'])
+            logger.info(f"✅ TensorFlow dataset ready: {len(texts)} samples")
+            return tf_dataset, len(texts)
+        else:
+            # Create PyTorch DataLoader
             dataloader = DataLoader(
                 dataset, 
                 batch_size=self.config['batch_size'], 
@@ -541,48 +737,225 @@ class DistilledModelTrainer:
                 pin_memory=self.config.get('pin_memory', True),
                 persistent_workers=self.config.get('persistent_workers', True)
             )
+            logger.info(f"✅ PyTorch dataset ready: {len(texts)} samples")
+            return dataloader, len(texts)
+    
+    def train(self) -> bool:
+        """Train the distilled model with framework selection."""
+        
+        # Enhanced logging setup
+        logs_dir = Path('./logs/')
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        log_file = logs_dir / f'training_{timestamp}.log'
+        
+        def log_message(message: str, level: str = "INFO"):
+            """Log to both console and file for Spark compatibility."""
+            if level == "ERROR":
+                logger.error(message)
+            elif level == "WARNING":
+                logger.warning(message)
+            else:
+                logger.info(message)
             
+            try:
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    f.write(f"[{log_time}] {level}: {message}\n")
+                    f.flush()
+            except Exception:
+                pass
+        
+        log_message("🏋️ Starting distilled model training")
+        log_message(f"📁 Local log file: {log_file}")
+        log_message(f"🖥️ Environment: {self.env.env_type}")
+        log_message(f"🔧 Framework: {self.framework.title()}")
+        log_message(f"🎮 Device: {self.device}")
+        
+        try:
+            # Initialize model
+            log_message("🤖 Setting up model and tokenizer...")
+            self.setup_model_and_tokenizer()
+            log_message(f"✅ Model loaded: {self.config.get('model_name', 'unknown')}")
+            
+            # Prepare training data
+            log_message("📊 Preparing training data...")
+            dataset, sample_count = self.prepare_training_data()
+            
+            log_message(f"📈 Training samples: {sample_count}")
             log_message(f"📦 Batch size: {self.config['batch_size']}")
-            log_message(f"🔄 Total batches per epoch: {len(dataloader)}")
             
-            # Setup optimizer and scheduler
-            log_message("⚙️ Setting up optimizer...")
-            optimizer = torch.optim.AdamW(
-                self.model.parameters(),
-                lr=self.config['learning_rate'],
-                weight_decay=self.config['weight_decay']
-            )
+            # Framework-specific training
+            if self.framework == 'tensorflow':
+                success = self._train_tensorflow(dataset, sample_count, log_message)
+            else:
+                success = self._train_pytorch(dataset, sample_count, log_message)
             
-            scheduler = torch.optim.lr_scheduler.LinearLR(
-                optimizer,
-                start_factor=0.1,
-                total_iters=self.config['warmup_steps']
-            )
+            if success:
+                # Save final model
+                log_message("💾 Saving final model...")
+                final_path = self._save_final_model()
+                
+                # Training summary
+                duration = datetime.now() - self.training_progress['start_time']
+                log_message(f"🎉 Training completed successfully!")
+                log_message(f"⏱️ Duration: {duration}")
+                log_message(f"📈 Best loss: {self.training_progress['best_loss']:.4f}")
+                log_message(f"💾 Final model saved: {final_path}")
+                log_message(f"📋 Training log saved: {log_file}")
+                
+                return True
+            else:
+                log_message("❌ Training failed", "ERROR")
+                return False
             
-            # Mixed precision setup for efficiency
-            scaler = None
-            if self.config.get('mixed_precision', False) and self.env.env_type == "cuda":
-                scaler = torch.amp.GradScaler('cuda')
-                log_message("🚀 Mixed precision training enabled")
+        except KeyboardInterrupt:
+            log_message("⏸️ Training interrupted by user", "WARNING")
+            return False
             
-            # Training progress tracking
-            total_steps = len(dataloader) * self.config['epochs']
-            self.training_progress = {
-                'start_time': datetime.now(),
-                'current_step': 0,
-                'total_steps': total_steps,
-                'best_loss': float('inf'),
-                'losses': []
-            }
+        except Exception as e:
+            error_msg = f"❌ Training failed: {str(e)}"
+            log_message(error_msg, "ERROR")
+            log_message(f"🔍 Traceback: {traceback.format_exc()}", "ERROR")
+            return False
+    
+    def _train_tensorflow(self, dataset, sample_count, log_message) -> bool:
+        """TensorFlow-specific training logic"""
+        log_message("🔥 Starting TensorFlow training...")
+        
+        # Setup optimizer and metrics
+        optimizer = optimizers.AdamW(
+            learning_rate=self.config['learning_rate'],
+            weight_decay=self.config['weight_decay']
+        )
+        
+        # Compile model
+        self.model.compile(
+            optimizer=optimizer,
+            run_eagerly=False  # Use graph mode for performance
+        )
+        
+        # Setup callbacks
+        callbacks = []
+        
+        # Model checkpoint
+        checkpoint_dir = Path(self.config.get('checkpoints_dir', './checkpoints/'))
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        
+        checkpoint_callback = keras.callbacks.ModelCheckpoint(
+            filepath=str(checkpoint_dir / 'best_model.h5'),
+            monitor='loss',
+            save_best_only=True,
+            save_weights_only=False,
+            verbose=1
+        )
+        callbacks.append(checkpoint_callback)
+        
+        # Early stopping
+        early_stopping = keras.callbacks.EarlyStopping(
+            monitor='loss',
+            patience=3,
+            restore_best_weights=True
+        )
+        callbacks.append(early_stopping)
+        
+        # Progress tracking
+        self.training_progress['start_time'] = datetime.now()
+        steps_per_epoch = sample_count // self.config['batch_size']
+        self.training_progress['total_steps'] = steps_per_epoch * self.config['epochs']
+        
+        # Custom training loop for multi-task learning
+        @tf.function
+        def train_step(inputs, targets):
+            with tf.GradientTape() as tape:
+                predictions = self.model(inputs, training=True)
+                loss = self.model.compute_loss(
+                    targets['labels'], 
+                    targets['metrics'], 
+                    targets['anomalies'], 
+                    predictions
+                )
             
-            log_message(f"🎯 Training configuration:")
-            log_message(f"   Epochs: {self.config['epochs']}")
-            log_message(f"   Learning rate: {self.config['learning_rate']}")
-            log_message(f"   Total training steps: {total_steps}")
+            gradients = tape.gradient(loss, self.model.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+            return loss
+        
+        # Training loop
+        try:
+            epoch_losses = []
+            for epoch in range(self.config['epochs']):
+                log_message(f"🔄 Starting epoch {epoch + 1}/{self.config['epochs']}")
+                epoch_loss = 0.0
+                step_count = 0
+                
+                for batch in dataset:
+                    inputs, targets = batch
+                    loss = train_step(inputs, targets)
+                    epoch_loss += loss
+                    step_count += 1
+                    
+                    if step_count % 100 == 0:
+                        log_message(f"   Step {step_count}: Loss={loss:.4f}")
+                
+                avg_loss = epoch_loss / step_count
+                epoch_losses.append(avg_loss)
+                log_message(f"✅ Epoch {epoch + 1} completed: Avg Loss={avg_loss:.4f}")
+                
+                # Update best loss
+                if avg_loss < self.training_progress['best_loss']:
+                    self.training_progress['best_loss'] = avg_loss
+                    log_message(f"🏆 New best model: Loss={avg_loss:.4f}")
             
-            # Training loop
-            self.model.train()
+            self.training_progress['losses'] = epoch_losses
+            return True
             
+        except Exception as e:
+            log_message(f"TensorFlow training failed: {e}", "ERROR")
+            return False
+    
+    def _train_pytorch(self, dataloader, sample_count, log_message) -> bool:
+        """PyTorch-specific training logic"""
+        log_message("🔥 Starting PyTorch training...")
+        
+        # Setup optimizer and scheduler
+        optimizer = torch.optim.AdamW(
+            self.model.parameters(),
+            lr=self.config['learning_rate'],
+            weight_decay=self.config['weight_decay']
+        )
+        
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=self.config['warmup_steps'],
+            num_training_steps=len(dataloader) * self.config['epochs']
+        )
+        
+        # Mixed precision setup for efficiency
+        scaler = None
+        if self.config.get('mixed_precision', False) and self.env.env_type == "pytorch_cuda":
+            scaler = torch.cuda.amp.GradScaler()
+            log_message("🚀 Mixed precision training enabled")
+        
+        # Training progress tracking
+        total_steps = len(dataloader) * self.config['epochs']
+        self.training_progress = {
+            'start_time': datetime.now(),
+            'current_step': 0,
+            'total_steps': total_steps,
+            'best_loss': float('inf'),
+            'losses': []
+        }
+        
+        log_message(f"🎯 Training configuration:")
+        log_message(f"   Epochs: {self.config['epochs']}")
+        log_message(f"   Learning rate: {self.config['learning_rate']}")
+        log_message(f"   Total training steps: {total_steps}")
+        log_message(f"   Batches per epoch: {len(dataloader)}")
+        
+        # Training loop
+        self.model.train()
+        
+        try:
             for epoch in range(self.config['epochs']):
                 epoch_loss = 0.0
                 log_message(f"🔄 Starting epoch {epoch + 1}/{self.config['epochs']}")
@@ -591,15 +964,17 @@ class DistilledModelTrainer:
                     self.training_progress['current_step'] += 1
                     
                     # Move batch to device
-                    input_ids, attention_mask, labels, metrics, anomalies = [
-                        b.to(self.device) for b in batch
-                    ]
+                    input_ids = batch['input_ids'].to(self.device)
+                    attention_mask = batch['attention_mask'].to(self.device)
+                    labels = batch['labels'].to(self.device)
+                    metrics = batch['metrics'].to(self.device)
+                    anomalies = batch['anomalies'].to(self.device)
                     
                     # Forward pass with optional mixed precision
                     optimizer.zero_grad()
                     
                     if scaler:
-                        with torch.amp.autocast('cuda'):
+                        with torch.cuda.amp.autocast():
                             outputs = self.model(
                                 input_ids=input_ids,
                                 attention_mask=attention_mask,
@@ -657,28 +1032,10 @@ class DistilledModelTrainer:
                     self._save_checkpoint('best_model')
                     log_message(f"🏆 New best model saved: Loss={avg_loss:.4f}")
             
-            # Save final model
-            log_message("💾 Saving final model...")
-            final_path = self._save_final_model()
-            
-            # Training summary
-            duration = datetime.now() - self.training_progress['start_time']
-            log_message(f"🎉 Training completed successfully!")
-            log_message(f"⏱️ Duration: {duration}")
-            log_message(f"📈 Best loss: {self.training_progress['best_loss']:.4f}")
-            log_message(f"💾 Final model saved: {final_path}")
-            log_message(f"📋 Training log saved: {log_file}")
-            
             return True
             
-        except KeyboardInterrupt:
-            log_message("⏸️ Training interrupted by user", "WARNING")
-            return False
-            
         except Exception as e:
-            error_msg = f"❌ Training failed: {str(e)}"
-            log_message(error_msg, "ERROR")
-            log_message(f"🔍 Traceback: {traceback.format_exc()}", "ERROR")
+            log_message(f"PyTorch training failed: {e}", "ERROR")
             return False
     
     def _save_checkpoint(self, name: str):
@@ -686,18 +1043,19 @@ class DistilledModelTrainer:
         checkpoint_dir = Path(self.config.get('checkpoints_dir', './checkpoints/'))
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
         
-        checkpoint_path = checkpoint_dir / f"{name}.pt"
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'training_progress': self.training_progress,
-            'config': self.config
-        }, checkpoint_path)
+        if self.framework == 'tensorflow':
+            checkpoint_path = checkpoint_dir / f"{name}.h5"
+            self.model.save_weights(str(checkpoint_path))
+        else:
+            checkpoint_path = checkpoint_dir / f"{name}.pt"
+            torch.save({
+                'model_state_dict': self.model.state_dict(),
+                'training_progress': self.training_progress,
+                'config': self.config
+            }, checkpoint_path)
     
     def _save_final_model(self) -> str:
-        """Save final trained model"""
-        from config import CONFIG
-        import numpy as np
-        
+        """Save final trained model with framework detection"""
         models_dir = Path(CONFIG['models_dir'])
         models_dir.mkdir(parents=True, exist_ok=True)
         
@@ -706,28 +1064,41 @@ class DistilledModelTrainer:
         model_path.mkdir(exist_ok=True)
         
         # Save model and tokenizer
-        self.model.base_model.save_pretrained(str(model_path))
-        self.tokenizer.save_pretrained(str(model_path))
+        if self.framework == 'tensorflow':
+            # Save TensorFlow model
+            self.model.save(str(model_path / 'tf_model'))
+            self.tokenizer.save_pretrained(str(model_path))
+        else:
+            # Save PyTorch model using transformers format
+            self.model.base_model.save_pretrained(str(model_path))
+            self.tokenizer.save_pretrained(str(model_path))
+            
+            # Save custom heads separately
+            torch.save({
+                'classifier_state_dict': self.model.classifier.state_dict(),
+                'anomaly_detector_state_dict': self.model.anomaly_detector.state_dict(),
+                'metrics_regressor_state_dict': self.model.metrics_regressor.state_dict(),
+                'model_config': {
+                    'num_labels': 8,
+                    'num_metrics': 10,
+                    'hidden_size': self.model.hidden_size
+                }
+            }, model_path / 'custom_heads.pt')
     
         # Convert config to JSON-serializable format
         def make_json_serializable(obj):
             """Convert numpy/torch types to JSON-serializable types"""
-            import numpy as np
-            import torch
-            
             if obj is None:
                 return None
             elif hasattr(obj, 'dtype'):
-                # Handle numpy dtypes specifically
                 if str(type(obj)).startswith("<class 'numpy.dtype"):
                     return str(obj)
-                # Handle numpy arrays and tensors
                 elif hasattr(obj, 'tolist'):
                     return obj.tolist()
                 else:
                     return str(obj)
-            elif isinstance(obj, (np.ndarray, torch.Tensor)):
-                return obj.tolist() if hasattr(obj, 'tolist') else str(obj)
+            elif hasattr(obj, 'tolist'):
+                return obj.tolist()
             elif isinstance(obj, (np.integer, np.int32, np.int64)):
                 return int(obj)
             elif isinstance(obj, (np.floating, np.float32, np.float64)):
@@ -741,11 +1112,9 @@ class DistilledModelTrainer:
             elif isinstance(obj, (list, tuple)):
                 return [make_json_serializable(item) for item in obj]
             elif hasattr(obj, '__dict__'):
-                return str(obj)  # Convert objects to string representation
+                return str(obj)
             else:
                 try:
-                    # Test if it's JSON serializable
-                    import json
                     json.dumps(obj)
                     return obj
                 except (TypeError, ValueError):
@@ -757,10 +1126,12 @@ class DistilledModelTrainer:
         # Save training metadata
         metadata = {
             'model_type': 'distilled_monitoring',
+            'framework': self.framework,
             'base_model': self.config.get('model_name'),
             'training_samples': int(self.training_progress.get('total_steps', 0)),
             'best_loss': float(self.training_progress.get('best_loss', 0.0)),
             'training_time': str(datetime.now() - self.training_progress['start_time']),
+            'device_type': self.env.env_type,
             'config': clean_config,
             'timestamp': timestamp,
             'model_path': str(model_path)
@@ -770,13 +1141,10 @@ class DistilledModelTrainer:
             json.dump(metadata, f, indent=2)
         
         logger.info(f"💾 Model saved to: {model_path}")
-        # Congrats!
         return str(model_path)
 
     def find_latest_model(self) -> Optional[str]:
         """Find the most recent trained model for resuming"""
-        from config import CONFIG
-        
         models_dir = Path(CONFIG['models_dir'])
         if not models_dir.exists():
             return None
@@ -791,7 +1159,11 @@ class DistilledModelTrainer:
         latest_model = model_dirs[0]
         
         # Verify it's a complete model
-        required_files = ['pytorch_model.bin', 'config.json', 'training_metadata.json']
+        if self.framework == 'tensorflow':
+            required_files = ['tf_model', 'config.json', 'training_metadata.json']
+        else:
+            required_files = ['config.json', 'training_metadata.json']
+            
         if all((latest_model / f).exists() for f in required_files):
             logger.info(f"🔍 Found latest model: {latest_model}")
             return str(latest_model)
@@ -802,19 +1174,28 @@ class DistilledModelTrainer:
     def load_from_checkpoint(self, model_path: str) -> bool:
         """Load model from previous training checkpoint"""
         try:
-            from transformers import AutoTokenizer, AutoModel
-            
             model_path = Path(model_path)
             
             # Load the tokenizer
             self.tokenizer = AutoTokenizer.from_pretrained(str(model_path))
             
-            # Load the base model
-            base_model = AutoModel.from_pretrained(str(model_path))
-            
-            # Create monitoring model
-            self.model = MonitoringModel(base_model)
-            self.model.to(self.device)
+            if self.framework == 'tensorflow':
+                # Load TensorFlow model
+                self.model = keras.models.load_model(str(model_path / 'tf_model'))
+            else:
+                # Load PyTorch model
+                base_model = AutoModel.from_pretrained(str(model_path))
+                self.model = MonitoringModel(base_model)
+                
+                # Load custom heads if they exist
+                custom_heads_path = model_path / 'custom_heads.pt'
+                if custom_heads_path.exists():
+                    heads_data = torch.load(custom_heads_path, map_location=self.device)
+                    self.model.classifier.load_state_dict(heads_data['classifier_state_dict'])
+                    self.model.anomaly_detector.load_state_dict(heads_data['anomaly_detector_state_dict'])
+                    self.model.metrics_regressor.load_state_dict(heads_data['metrics_regressor_state_dict'])
+                
+                self.model.to(self.device)
             
             # Load training metadata if available
             metadata_path = model_path / 'training_metadata.json'
@@ -823,6 +1204,7 @@ class DistilledModelTrainer:
                     metadata = json.load(f)
                     logger.info(f"📊 Previous training: {metadata.get('training_samples', 0)} samples")
                     logger.info(f"📈 Previous best loss: {metadata.get('best_loss', 'unknown')}")
+                    logger.info(f"🔧 Previous framework: {metadata.get('framework', 'unknown')}")
             
             logger.info(f"✅ Loaded model from: {model_path}")
             return True
