@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
 
+from common_utils import log_message
+
 # Setup basic logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

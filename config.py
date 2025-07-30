@@ -5,6 +5,7 @@ import logging
 import time
 import random
 import subprocess
+import pickle
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -504,34 +505,123 @@ def get_cache_status():
 class EnhancedModelChain:
     """Optimized model chain with efficient discovery and intelligent rotation."""
     
+    _discovery_cache_file = Path("./model_discovery_cache.pkl")
+    _last_discovery_time = None
+    _cached_models = None
+    
     def __init__(self):
-        self.available_models = {}
-        self.model_rotation_pool = []
+        # Use cached discovery if recent and valid
+        if self._use_cached_discovery():
+            self.available_models = self._cached_models.copy()
+            self.model_rotation_pool = self._build_rotation_pool_from_cache()
+            logger.info(f"✅ Using cached model discovery: {len(self.available_models)} models")
+        else:
+            # Full discovery only when needed
+            self.available_models = {}
+            self.model_rotation_pool = []
+            self._discover_all_models()
+            self._build_intelligent_rotation_pool()
+            self._save_discovery_cache()
+            logger.info(f"✅ Fresh model discovery: {len(self.available_models)} models")
+        
         self.current_model_index = 0
         self.models_per_question = CONFIG.get('models_per_question', 2)
         self.rotation_counter = 0
         self.rotation_interval = CONFIG.get('model_swap_interval', 25)
         self.performance_tracker = {}
+        
+        # Add the missing attributes
         self.last_discovery = 0
         self.discovery_cache = {}
+    
+    def _use_cached_discovery(self) -> bool:
+        """Check if we can use cached discovery results."""
+        if not self._discovery_cache_file.exists():
+            return False
         
-        # Initialize discovery
-        self._discover_all_models()
-        self._build_intelligent_rotation_pool()
+        try:
+            cache_age = datetime.now() - datetime.fromtimestamp(
+                self._discovery_cache_file.stat().st_mtime
+            )
+            
+            # Use cache if less than 5 minutes old
+            if cache_age < timedelta(minutes=5):
+                with open(self._discovery_cache_file, 'rb') as f:
+                    cached_data = pickle.load(f)
+                
+                self._cached_models = cached_data.get('models', {})
+                self._last_discovery_time = cached_data.get('timestamp')
+                
+                return len(self._cached_models) > 0
+        except Exception as e:
+            logger.debug(f"Cache read failed: {e}")
         
-        logger.info(f"✅ Enhanced model chain initialized")
-        logger.info(f"   Total models: {len(self.available_models)}")
-        logger.info(f"   Rotation pool: {len(self.model_rotation_pool)}")
+        return False
+    
+    def _save_discovery_cache(self):
+        """Save discovery results to cache."""
+        try:
+            cache_data = {
+                'models': self.available_models,
+                'timestamp': datetime.now(),
+                'total_models': len(self.available_models)
+            }
+            
+            with open(self._discovery_cache_file, 'wb') as f:
+                pickle.dump(cache_data, f)
+                
+        except Exception as e:
+            logger.debug(f"Cache save failed: {e}")
+    
+    def _build_rotation_pool_from_cache(self) -> List[str]:
+        """Build rotation pool from cached models."""
+        available_models = [
+            (name, info) for name, info in self._cached_models.items()
+            if info.get('available', False)
+        ]
+        
+        # Same sorting logic as original
+        def model_score(item):
+            name, info = item
+            priority_weight = CONFIG['model_priority_weights'].get(info['type'], 0.5)
+            performance_score = info.get('performance_score', 0.5)
+            return priority_weight * performance_score
+        
+        available_models.sort(key=model_score, reverse=True)
+        
+        pool = []
+        type_counts = {}
+        max_per_type = {'remote': 2, 'ollama': 15, 'local': 3, 'static': 1}
+        
+        for name, info in available_models:
+            model_type = info['type']
+            current_count = type_counts.get(model_type, 0)
+            
+            if current_count < max_per_type.get(model_type, 1):
+                pool.append(name)
+                type_counts[model_type] = current_count + 1
+                
+            if len(pool) >= CONFIG['model_pool_size']:
+                break
+        
+        return pool
     
     def _discover_all_models(self):
+        """Efficient model discovery with caching."""
         """Efficient model discovery with caching."""
         current_time = time.time()
         
         # Use cached results if recent
-        if (current_time - self.last_discovery) < CONFIG.get('discovery_cache_ttl', 300):
-            if self.discovery_cache:
+        if hasattr(self, 'last_discovery') and (current_time - self.last_discovery) < CONFIG.get('discovery_cache_ttl', 300):
+            if hasattr(self, 'discovery_cache') and self.discovery_cache:
                 self.available_models = self.discovery_cache.copy()
                 return
+        
+        # Initialize if not exists
+        if not hasattr(self, 'last_discovery'):
+            self.last_discovery = 0
+        if not hasattr(self, 'discovery_cache'):
+            self.discovery_cache = {}
         
         self.available_models = {}
         

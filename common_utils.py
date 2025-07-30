@@ -3,12 +3,13 @@
 common_utils.py - Shared utilities for dataset generation, training, and inference
 Centralizes data format handling and common operations to minimize script modifications
 """
-
+import os, sys
 import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional
 from datetime import datetime
+import torch as tf
 
 logger = logging.getLogger(__name__)
 
@@ -372,3 +373,34 @@ def save_generation_progress(progress_data: Dict, progress_file: Path) -> bool:
     except Exception as e:
         logger.error(f"Failed to save progress: {e}")
         return False
+
+def log_message(message: str, level: str = "INFO"):
+    """Log to both console and file for Spark compatibility."""
+    if level == "ERROR":
+        logger.error(message)
+    elif level == "WARNING":
+        logger.warning(message)
+    else:
+        logger.info(message)
+    
+    try:
+        with open(log_file, 'a', encoding='utf-8') as f:
+            log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            f.write(f"[{log_time}] {level}: {message}\n")
+            f.flush()
+    except Exception:
+        pass
+
+def clear_model_discovery_cache():
+    """Clear model discovery cache to force fresh discovery."""
+    cache_file = Path("./model_discovery_cache.pkl")
+    if cache_file.exists():
+        cache_file.unlink()
+        logger.info("🗑️ Model discovery cache cleared")
+
+def get_optimal_workers():
+    """Get optimal number of DataLoader workers."""
+    if tf.cuda.is_available():
+        return min(4, os.cpu_count() // 4)  # Less workers for GPU training
+    return min(2, os.cpu_count() // 8)  # Minimal workers for CPU
+    

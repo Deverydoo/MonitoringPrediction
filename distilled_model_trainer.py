@@ -605,7 +605,7 @@ class DistilledModelTrainer:
     """Main trainer class with framework selection and optimization"""
     
     def __init__(self, config: Dict[str, Any], resume_training: bool = False):
-        """Initialize trainer with framework selection"""
+        """Initialize trainer with framework selection - avoid redundant model discovery"""
         self.config = config
         self.framework = FRAMEWORK_BACKEND
         self.env = TrainingEnvironment()
@@ -621,6 +621,9 @@ class DistilledModelTrainer:
         self.training_log_file = training_log_file
         logger.info(f"📁 Training logs will be written to: {self.training_log_file}")
         logger.info(f"🔧 Using {self.framework.title()} framework")
+        
+        # DON'T initialize model chain here - only do model discovery when actually needed
+        # This prevents the redundant model loading
         
         # Progress tracking
         self.training_progress = {
@@ -749,23 +752,7 @@ class DistilledModelTrainer:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         log_file = logs_dir / f'training_{timestamp}.log'
         
-        def log_message(message: str, level: str = "INFO"):
-            """Log to both console and file for Spark compatibility."""
-            if level == "ERROR":
-                logger.error(message)
-            elif level == "WARNING":
-                logger.warning(message)
-            else:
-                logger.info(message)
-            
-            try:
-                with open(log_file, 'a', encoding='utf-8') as f:
-                    log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    f.write(f"[{log_time}] {level}: {message}\n")
-                    f.flush()
-            except Exception:
-                pass
-        
+              
         log_message("🏋️ Starting distilled model training")
         log_message(f"📁 Local log file: {log_file}")
         log_message(f"🖥️ Environment: {self.env.env_type}")
