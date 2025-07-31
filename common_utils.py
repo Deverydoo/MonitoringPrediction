@@ -403,4 +403,156 @@ def get_optimal_workers():
     if tf.cuda.is_available():
         return min(4, os.cpu_count() // 4)  # Less workers for GPU training
     return min(2, os.cpu_count() // 8)  # Minimal workers for CPU
+
+def cleanup_generation_artifacts():
+    """Clean up temporary generation artifacts periodically."""
+    import shutil
     
+    try:
+        # Clean up pickle files after data is transferred
+        progress_file = Path("./generation_progress.pkl")
+        if progress_file.exists():
+            # Check if data has been successfully transferred to datasets
+            from config import CONFIG
+            training_dir = Path(CONFIG.get('training_dir', './training/'))
+            dataset_paths = get_dataset_paths(training_dir)
+            
+            # If both datasets exist and have data, we can clean up pickle
+            if (dataset_paths['language_dataset'].exists() and 
+                dataset_paths['metrics_dataset'].exists()):
+                
+                lang_data = load_dataset_file(dataset_paths['language_dataset'])
+                metrics_data = load_dataset_file(dataset_paths['metrics_dataset'])
+                
+                if (lang_data.get('samples') and metrics_data.get('training_samples')):
+                    progress_file.unlink()
+                    logger.info("🗑️ Cleaned up generation progress pickle")
+        
+        # Clean up temporary files
+        temp_files = list(Path('.').glob('*.tmp')) + list(Path('.').glob('*.pkl.tmp'))
+        for temp_file in temp_files:
+            temp_file.unlink()
+            logger.info(f"🗑️ Cleaned up temp file: {temp_file}")
+        
+        # Clean up old discovery cache
+        cache_file = Path("./model_discovery_cache.pkl")
+        if cache_file.exists():
+            from datetime import datetime, timedelta
+            cache_age = datetime.now() - datetime.fromtimestamp(cache_file.stat().st_mtime)
+            if cache_age > timedelta(hours=1):  # Cache older than 1 hour
+                cache_file.unlink()
+                logger.info("🗑️ Cleaned up old model discovery cache")
+        
+    except Exception as e:
+        logger.error(f"Cleanup error: {e}")
+
+def manage_training_checkpoints(checkpoints_dir: Path, models_dir: Path, keep_recent: int = 1, keep_best: int = 1):
+    """Manage training checkpoints - handle both safetensors and pytorch formats."""
+    try:
+        if not checkpoints_dir.exists():
+            return
+        
+        # Get all checkpoint files (both formats)
+        checkpoint_files = (list(checkpoints_dir.glob('checkpoint_*.pt')) + 
+                          list(checkpoints_dir.glob('checkpoint_*_metadata.json')))
+        
+        # Group by checkpoint name (safetensors creates multiple files)
+        checkpoint_groups = {}
+        for f in checkpoint_files:
+            if f.name.endswith('_metadata.json'):
+                base_name = f.name.replace('_metadata.json', '')
+            elif f.name.endswith('.pt'):
+                base_name = f.name.replace('.pt', '')
+            else:
+                continue
+                
+            if base_name not in checkpoint_groups:
+                checkpoint_groups[base_name] = []
+            checkpoint_groups[base_name].append(f)
+        
+        if len(checkpoint_groups) <= (keep_recent + keep_best):
+            return  # Not enough checkpoints to clean up
+        
+        # Sort groups by modification time (newest first)
+        sorted_groups = sorted(checkpoint_groups.items(), 
+                             key=lambda x: max(f.stat().st_mtime for f in x[1]), 
+                             reverse=True)
+        
+        # Keep the most recent ones
+        groups_to_keep = set([name for name, _ in sorted_groups[:keep_recent]])
+        
+        # Find best performing checkpoints by loss
+        best_checkpoints = []
+        for group_name, files in checkpoint_groups.items():
+            try:
+                # Look for metadata file first (safetensors format)
+                metadata_file = next((f for f in files if f.name.endswith('_metadata.json')), None)
+                
+                if metadata_file:
+                    with open(metadata_file, 'r') as f:
+                        metadata = json.load(f)
+                    loss = metadata.get('training_stats', {}).get('best_loss', float('inf'))
+                else:
+                    # Try PyTorch format
+                    pt_file = next((f for f in files if f.name.endswith('.pt')), None)
+                    if pt_file:
+                        import torch
+                        checkpoint = torch.load(pt_file, map_location='cpu')
+                        loss = checkpoint.get('training_stats', {}).get('best_loss', float('inf'))
+                    else:
+                        loss = float('inf')
+                
+                best_checkpoints.append((group_name, loss))
+            except Exception:
+                continue
+        
+        # Sort by loss (best first) and keep the best ones
+        best_checkpoints.sort(key=lambda x: x[1])
+        groups_to_keep.update([name for name, _ in best_checkpoints[:keep_best]])
+        
+        # Remove checkpoint groups not in keep list
+        removed_count = 0
+        for group_name, files in checkpoint_groups.items():
+            if group_name not in groups_to_keep:
+                for file in files:
+                    file.unlink()
+                    removed_count += 1
+                logger.info(f"🗑️ Removed checkpoint group: {group_name}")
+        
+        if removed_count > 0:
+            logger.info(f"🧹 Checkpoint cleanup: removed {removed_count} files, kept {len(groups_to_keep)} checkpoint groups")
+        
+    except Exception as e:
+        logger.error(f"Checkpoint cleanup error: {e}")
+
+def periodic_cleanup(config: Dict):
+    """Comprehensive periodic cleanup function."""
+    logger.info("🧹 Starting periodic cleanup...")
+    
+    # Clean generation artifacts
+    cleanup_generation_artifacts()
+    
+    # Manage checkpoints
+    checkpoints_dir = Path(config.get('checkpoints_dir', './checkpoints/'))
+    models_dir = Path(config.get('models_dir', './models/'))
+    manage_training_checkpoints(checkpoints_dir, models_dir)
+    
+    # Clean up old log files (keep last 30 days)
+    logs_dir = Path(config.get('logs_dir', './logs/'))
+    if logs_dir.exists():
+        from datetime import datetime, timedelta
+        cutoff_date = datetime.now() - timedelta(days=30)
+        
+        old_logs = []
+        for log_file in logs_dir.glob('*.log'):
+            if datetime.fromtimestamp(log_file.stat().st_mtime) < cutoff_date:
+                old_logs.append(log_file)
+        
+        for log_file in old_logs:
+            log_file.unlink()
+            logger.info(f"🗑️ Cleaned up old log: {log_file.name}")
+        
+        if old_logs:
+            logger.info(f"🧹 Log cleanup: removed {len(old_logs)} old log files")
+    
+    logger.info("✅ Periodic cleanup completed")

@@ -11,7 +11,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
 # Framework selection - set before imports
-FRAMEWORK = os.environ.get('ML_FRAMEWORK', 'tensorflow').lower()  # 'pytorch' or 'tensorflow'
+FRAMEWORK = os.environ.get('ML_FRAMEWORK', 'pytorch').lower()  # 'pytorch' or 'tensorflow'
 
 if FRAMEWORK == 'tensorflow':
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # Reduce TF logging
@@ -50,6 +50,20 @@ CONFIG = {
     "framework": FRAMEWORK,
     "framework_available": FRAMEWORK_AVAILABLE,
     "device_type": DEVICE_TYPE,
+
+    # Project directories
+    "training_dir": "./training/",
+    "checkpoints_dir": "./checkpoints/",
+    "logs_dir": "./logs/",
+    "data_config_dir": "./data_config/",
+
+    # Cleanup settings.
+    "cleanup_enabled": True,
+    "cleanup_interval_hours": 6,  # Run cleanup every 6 hours
+    "keep_recent_checkpoints": 1,
+    "keep_best_checkpoints": 1,
+    "log_retention_days": 30,
+    "auto_cleanup_on_epoch": True,
     
     # Model and training settings
     "model_name": "bert-base-uncased",
@@ -59,6 +73,14 @@ CONFIG = {
     "epochs": 1,
     "warmup_steps": 100,
     "weight_decay": 0.01,
+
+    
+
+    # Dask GPU acceleration (for production Spark environments)
+    "use_dask_gpu": True,  # Enable Dask GPU acceleration when available
+    "dask_scheduler_address": os.environ.get('DASK_SCHEDULER_ADDRESS', ''),  # Connect to existing cluster
+    "dask_gpu_memory_limit": "auto",  # GPU memory limit for Dask workers
+    "dask_workers": "auto",  # Number of Dask workers (auto-detect)
 
     # Framework-specific optimizations
     "mixed_precision": True if DEVICE_TYPE in ['GPU', 'CUDA'] else False,
@@ -101,6 +123,21 @@ CONFIG = {
     "quality_over_quantity": True,
     "anomaly_ratio": 0.2,
     
+    # Performance settings
+    "response_quality_threshold": 15,
+    "api_rate_limit": 0.1,
+    "max_retries": 3,
+    "retry_backoff": 2.0,
+    
+    # Continual learning framework
+    "continual_learning_enabled": True,
+    "learning_batch_size": 50,
+    "threshold_adjustment_rate": 0.05,
+    "feedback_retention_days": 30,
+    "auto_threshold_adjustment": True,
+    "learning_rate_decay": 0.95,
+    "performance_tracking_window": 100,
+
     # Remote LLM (primary)
     "llm_url": os.environ.get('REMOTE_LLM_URL', ""),
     "llm_key": os.environ.get('REMOTE_LLM_KEY', ""),
@@ -158,27 +195,6 @@ CONFIG = {
     "enable_static_fallback": True,
     "static_fallback_path": "./static_responses/",
     "static_response_categories": ["technical", "errors", "troubleshooting", "best_practices"],
-    
-    # Performance settings
-    "response_quality_threshold": 15,
-    "api_rate_limit": 0.1,
-    "max_retries": 3,
-    "retry_backoff": 2.0,
-    
-    # Project directories
-    "training_dir": "./training/",
-    "checkpoints_dir": "./checkpoints/",
-    "logs_dir": "./logs/",
-    "data_config_dir": "./data_config/",
-    
-    # Continual learning framework
-    "continual_learning_enabled": True,
-    "learning_batch_size": 50,
-    "threshold_adjustment_rate": 0.05,
-    "feedback_retention_days": 30,
-    "auto_threshold_adjustment": True,
-    "learning_rate_decay": 0.95,
-    "performance_tracking_window": 100,
 
     # Data source integration
     "integrate_real_data": True,
@@ -503,190 +519,96 @@ def get_cache_status():
     return status
 
 class EnhancedModelChain:
-    """Optimized model chain with efficient discovery and intelligent rotation."""
+    """Optimized model chain with consolidated discovery and intelligent rotation."""
     
     _discovery_cache_file = Path("./model_discovery_cache.pkl")
-    _last_discovery_time = None
-    _cached_models = None
+    _discovery_cache = {}
+    _last_discovery_time = 0
     
     def __init__(self):
-        # Use cached discovery if recent and valid
-        if self._use_cached_discovery():
-            self.available_models = self._cached_models.copy()
-            self.model_rotation_pool = self._build_rotation_pool_from_cache()
-            logger.info(f"✅ Using cached model discovery: {len(self.available_models)} models")
-        else:
-            # Full discovery only when needed
-            self.available_models = {}
-            self.model_rotation_pool = []
-            self._discover_all_models()
-            self._build_intelligent_rotation_pool()
-            self._save_discovery_cache()
-            logger.info(f"✅ Fresh model discovery: {len(self.available_models)} models")
+        # Single discovery method
+        self.available_models = self._discover_all_models()
+        self.model_rotation_pool = self._build_rotation_pool()
         
         self.current_model_index = 0
-        self.models_per_question = CONFIG.get('models_per_question', 2)
+        self.models_per_question = CONFIG.get('models_per_question', 1)
         self.rotation_counter = 0
         self.rotation_interval = CONFIG.get('model_swap_interval', 25)
         self.performance_tracker = {}
         
-        # Add the missing attributes
-        self.last_discovery = 0
-        self.discovery_cache = {}
+        logger.info(f"✅ Model chain initialized: {len(self.available_models)} models")
     
-    def _use_cached_discovery(self) -> bool:
-        """Check if we can use cached discovery results."""
-        if not self._discovery_cache_file.exists():
-            return False
-        
-        try:
-            cache_age = datetime.now() - datetime.fromtimestamp(
-                self._discovery_cache_file.stat().st_mtime
-            )
-            
-            # Use cache if less than 5 minutes old
-            if cache_age < timedelta(minutes=5):
-                with open(self._discovery_cache_file, 'rb') as f:
-                    cached_data = pickle.load(f)
-                
-                self._cached_models = cached_data.get('models', {})
-                self._last_discovery_time = cached_data.get('timestamp')
-                
-                return len(self._cached_models) > 0
-        except Exception as e:
-            logger.debug(f"Cache read failed: {e}")
-        
-        return False
-    
-    def _save_discovery_cache(self):
-        """Save discovery results to cache."""
-        try:
-            cache_data = {
-                'models': self.available_models,
-                'timestamp': datetime.now(),
-                'total_models': len(self.available_models)
-            }
-            
-            with open(self._discovery_cache_file, 'wb') as f:
-                pickle.dump(cache_data, f)
-                
-        except Exception as e:
-            logger.debug(f"Cache save failed: {e}")
-    
-    def _build_rotation_pool_from_cache(self) -> List[str]:
-        """Build rotation pool from cached models."""
-        available_models = [
-            (name, info) for name, info in self._cached_models.items()
-            if info.get('available', False)
-        ]
-        
-        # Same sorting logic as original
-        def model_score(item):
-            name, info = item
-            priority_weight = CONFIG['model_priority_weights'].get(info['type'], 0.5)
-            performance_score = info.get('performance_score', 0.5)
-            return priority_weight * performance_score
-        
-        available_models.sort(key=model_score, reverse=True)
-        
-        pool = []
-        type_counts = {}
-        max_per_type = {'remote': 2, 'ollama': 15, 'local': 3, 'static': 1}
-        
-        for name, info in available_models:
-            model_type = info['type']
-            current_count = type_counts.get(model_type, 0)
-            
-            if current_count < max_per_type.get(model_type, 1):
-                pool.append(name)
-                type_counts[model_type] = current_count + 1
-                
-            if len(pool) >= CONFIG['model_pool_size']:
-                break
-        
-        return pool
-    
-    def _discover_all_models(self):
-        """Efficient model discovery with caching."""
-        """Efficient model discovery with caching."""
+    def _discover_all_models(self) -> Dict[str, Dict]:
+        """SINGLE consolidated model discovery method."""
         current_time = time.time()
         
         # Use cached results if recent
-        if hasattr(self, 'last_discovery') and (current_time - self.last_discovery) < CONFIG.get('discovery_cache_ttl', 300):
-            if hasattr(self, 'discovery_cache') and self.discovery_cache:
-                self.available_models = self.discovery_cache.copy()
-                return
+        if (current_time - self._last_discovery_time) < CONFIG.get('discovery_cache_ttl', 300):
+            if self._discovery_cache:
+                return self._discovery_cache.copy()
         
-        # Initialize if not exists
-        if not hasattr(self, 'last_discovery'):
-            self.last_discovery = 0
-        if not hasattr(self, 'discovery_cache'):
-            self.discovery_cache = {}
+        models = {}
         
-        self.available_models = {}
-        
-        # 1. Remote API models (cached check)
+        # 1. Remote API models
         if CONFIG.get('llm_url') and CONFIG.get('llm_key'):
             if self._test_remote_api():
-                self.available_models['remote_primary'] = {
+                models['remote_primary'] = {
                     'type': 'remote',
                     'available': True,
                     'priority': 1,
-                    'performance_score': 1.0,
-                    'last_used': 0
+                    'performance_score': 1.0
                 }
         
-        # 2. Ollama models - batch discovery
+        # 2. Ollama models (batch discovery)
         if CONFIG.get('ollama_enabled'):
-            ollama_models = self._discover_ollama_models_batch()
+            ollama_models = self._discover_ollama_batch()
             for i, model_name in enumerate(ollama_models):
                 key = f'ollama_{model_name.replace(":", "_").replace("/", "_")}'
-                self.available_models[key] = {
+                models[key] = {
                     'type': 'ollama',
                     'model_name': model_name,
                     'available': True,
                     'priority': 2,
-                    'performance_score': 0.9 - (i * 0.01),
-                    'last_used': 0
+                    'performance_score': 0.9 - (i * 0.01)
                 }
         
-        # 3. Local models - efficient scanning
+        # 3. Local models (efficient scanning)
         if CONFIG.get('local_model_enabled'):
-            local_models = self._discover_local_models_efficient()
+            local_models = self._discover_local_models()
             for i, (model_name, model_path) in enumerate(local_models):
                 key = f'local_{model_name.replace("/", "_")}'
-                self.available_models[key] = {
+                models[key] = {
                     'type': 'local',
                     'model_name': model_name,
                     'model_path': model_path,
                     'available': True,
                     'priority': 3,
-                    'performance_score': 0.7 - (i * 0.05),
-                    'last_used': 0
+                    'performance_score': 0.7 - (i * 0.05)
                 }
         
         # 4. Static fallback
-        self.available_models['static'] = {
+        models['static'] = {
             'type': 'static',
             'available': True,
             'priority': 4,
-            'performance_score': 0.1,
-            'last_used': 0
+            'performance_score': 0.1
         }
         
         # Cache results
-        self.discovery_cache = self.available_models.copy()
-        self.last_discovery = current_time
+        self._discovery_cache = models.copy()
+        self._last_discovery_time = current_time
+        EnhancedModelChain._last_discovery_time = current_time
+        EnhancedModelChain._discovery_cache = models.copy()
         
-        logger.info(f"📋 Discovered {len(self.available_models)} total models")
+        logger.info(f"📋 Discovered {len(models)} total models")
+        return models
     
-    def _discover_ollama_models_batch(self) -> List[str]:
-        """Batch Ollama discovery with single API call."""
+    def _discover_ollama_batch(self) -> List[str]:
+        """Single batch Ollama discovery."""
         models = []
         
         try:
             import requests
-            # Single API call for all models
             response = requests.get(
                 f"{CONFIG['ollama_url']}/api/tags", 
                 timeout=CONFIG['model_discovery_timeout']
@@ -697,7 +619,7 @@ class EnhancedModelChain:
                 models = [model['name'] for model in data.get('models', [])]
                 logger.info(f"📋 Batch discovered {len(models)} Ollama models")
             else:
-                # Single CLI fallback
+                # CLI fallback
                 result = subprocess.run(
                     ["ollama", "list"], 
                     capture_output=True, 
@@ -706,7 +628,7 @@ class EnhancedModelChain:
                 )
                 
                 if result.returncode == 0:
-                    lines = result.stdout.strip().split('\n')[1:]  # Skip header
+                    lines = result.stdout.strip().split('\n')[1:]
                     models = [
                         line.split()[0] for line in lines 
                         if line.strip() and not line.startswith('NAME')
@@ -715,13 +637,12 @@ class EnhancedModelChain:
                     
         except Exception as e:
             logger.warning(f"Ollama batch discovery failed: {e}")
-            # Minimal fallback models
             models = ["qwen2.5-coder:latest", "phi4:latest", "deepseek-r1:latest"]
         
         return models[:CONFIG.get('max_ollama_models', 20)]
     
-    def _discover_local_models_efficient(self) -> List[tuple]:
-        """Efficient local model discovery with memoization."""
+    def _discover_local_models(self) -> List[tuple]:
+        """Single efficient local model discovery."""
         local_models = []
         scan_dirs = [dir_path for dir_path in CONFIG['local_model_scan_dirs'] if dir_path]
         
@@ -731,11 +652,11 @@ class EnhancedModelChain:
                 if not scan_path.exists():
                     continue
                 
-                # Use glob for efficient directory scanning
+                # Efficient glob scanning
                 for config_file in scan_path.glob("*/config.json"):
                     model_dir = config_file.parent
                     
-                    # Quick check for model files
+                    # Quick model file check
                     model_files = [
                         "pytorch_model.bin", "model.safetensors", 
                         "tf_model.h5", "model.onnx"
@@ -745,7 +666,6 @@ class EnhancedModelChain:
                         model_name = model_dir.name.replace('_', '/')
                         local_models.append((model_name, str(model_dir)))
                         
-                        # Limit for efficiency
                         if len(local_models) >= CONFIG.get('max_local_models', 10):
                             break
                             
@@ -753,7 +673,7 @@ class EnhancedModelChain:
                 logger.debug(f"Error scanning {scan_dir}: {e}")
                 continue
         
-        # Add explicitly configured models
+        # Add configured models
         for model_name, model_path in CONFIG['local_pretrained_models'].items():
             if Path(model_path).exists():
                 local_models.append((model_name, model_path))
@@ -761,196 +681,42 @@ class EnhancedModelChain:
         logger.info(f"📁 Efficiently discovered {len(local_models)} local models")
         return local_models
 
-    def _build_intelligent_rotation_pool(self):
-        """Build intelligent rotation pool based on performance and availability."""
-        # Clear existing pool
-        self.model_rotation_pool = []
-        
-        # Sort models by priority and performance
-        available_models = [
-            (name, info) for name, info in self.available_models.items()
-            if info.get('available', False)
-        ]
-        
-        # Sort by performance score * priority weight
-        def model_score(item):
-            name, info = item
-            priority_weight = CONFIG['model_priority_weights'].get(info['type'], 0.5)
-            performance_score = info.get('performance_score', 0.5)
-            return priority_weight * performance_score
-        
-        available_models.sort(key=model_score, reverse=True)
-        
-        # Build diverse pool
-        type_counts = {}
-        max_per_type = {
-            'remote': 2,
-            'ollama': CONFIG['model_pool_size'] - 5,
-            'local': 3,
-            'static': 1
-        }
-        
-        for name, info in available_models:
-            model_type = info['type']
-            current_count = type_counts.get(model_type, 0)
-            
-            if current_count < max_per_type.get(model_type, 1):
-                self.model_rotation_pool.append(name)
-                type_counts[model_type] = current_count + 1
-                
-            if len(self.model_rotation_pool) >= CONFIG['model_pool_size']:
-                break
-        
-        logger.info(f"🎯 Built rotation pool: {len(self.model_rotation_pool)} models")
-        for model_type, count in type_counts.items():
-            logger.info(f"   {model_type}: {count} models")
-
-    def _test_remote_api(self) -> bool:
-        """Test remote API availability."""
-        try:
-            import requests
-            # Simple test request
-            test_payload = {
-                "model": "claude-3-sonnet-20240229",
-                "max_tokens": 10,
-                "messages": [{"role": "user", "content": "test"}]
-            }
-            
-            response = requests.post(
-                CONFIG['llm_url'],
-                json=test_payload,
-                headers={"x-api-key": CONFIG['llm_key']},
-                timeout=5
-            )
-            
-            return response.status_code in [200, 400]  # 400 is ok for test
-            
-        except Exception:
-            return False
-
     def generate_responses(self, prompt: str, max_tokens: int = 300) -> List[Dict]:
-        """Generate responses using intelligent model selection."""
+        """Generate responses using the model chain fallback system."""
         responses = []
-        selected_models = self.get_next_models()
         
-        for model_key in selected_models:
-            if model_key not in self.available_models:
-                continue
-                
-            model_info = self.available_models[model_key]
-            start_time = time.time()
-            
+        # Try each model in the rotation pool
+        for model_key in self.model_rotation_pool[:self.models_per_question]:
             try:
-                if model_info['type'] == 'remote':
-                    response = self._query_remote(prompt, max_tokens)
-                elif model_info['type'] == 'ollama':
-                    response = self._query_ollama(prompt, model_info['model_name'], max_tokens)
-                elif model_info['type'] == 'local':
-                    response = self._query_local(prompt, model_info['model_path'], max_tokens)
-                elif model_info['type'] == 'static':
-                    response = self._get_static_response(prompt)
+                model_info = self.available_models.get(model_key, {})
+                model_type = model_info.get('type', 'unknown')
+                
+                if model_type == 'remote' and CONFIG.get('llm_url') and CONFIG.get('llm_key'):
+                    response = self._query_remote_api(prompt, max_tokens)
+                elif model_type == 'ollama':
+                    response = self._query_ollama(model_info.get('model_name'), prompt, max_tokens)
+                elif model_type == 'local':
+                    response = self._query_local_model(model_info, prompt, max_tokens)
+                elif model_type == 'static':
+                    response = self._query_static_fallback(prompt)
                 else:
                     continue
                 
-                if response and len(response.strip()) > CONFIG['response_quality_threshold']:
-                    response_time = time.time() - start_time
-                    
+                if response and len(response.strip()) >= CONFIG.get('response_quality_threshold', 15):
                     responses.append({
-                        "model": model_key,
-                        "response": response,
-                        "model_type": model_info['type'],
-                        "response_time": response_time,
-                        "quality_score": min(len(response) / 100, 10.0)
+                        'response': response,
+                        'model': model_key,
+                        'type': model_type,
+                        'quality_score': len(response) / 100.0
                     })
                     
-                    # Update performance tracking
-                    self._update_performance(model_key, response_time, True)
-                else:
-                    self._update_performance(model_key, time.time() - start_time, False)
-                    
             except Exception as e:
-                logger.debug(f"Error with {model_key}: {e}")
-                self._update_performance(model_key, time.time() - start_time, False)
+                logger.debug(f"Model {model_key} failed: {e}")
                 continue
         
-        # Fallback if no responses
-        if not responses:
-            responses = [{
-                "model": "emergency_fallback",
-                "response": "System temporarily unavailable. Please check configuration and try again.",
-                "model_type": "emergency"
-            }]
-        
         return responses
-
-    def get_next_models(self, count: int = None) -> List[str]:
-        """Get next models in rotation with intelligent selection."""
-        if count is None:
-            count = self.models_per_question
-        
-        # Re-discover models periodically
-        if time.time() - self.last_discovery > CONFIG['ollama_discovery_interval']:
-            self._discover_all_models()
-            self._build_intelligent_rotation_pool()
-        
-        if not self.model_rotation_pool:
-            return ['static']
-        
-        # Select models with variety
-        selected = []
-        start_index = self.current_model_index
-        
-        for i in range(count):
-            if len(self.model_rotation_pool) == 0:
-                break
-                
-            index = (start_index + i) % len(self.model_rotation_pool)
-            model_key = self.model_rotation_pool[index]
-            selected.append(model_key)
-        
-        # Update rotation counter
-        self.rotation_counter += 1
-        if self.rotation_counter >= self.rotation_interval:
-            self.current_model_index = (self.current_model_index + count) % len(self.model_rotation_pool)
-            self.rotation_counter = 0
-        
-        return selected
     
-    def _update_performance(self, model_key: str, response_time: float, success: bool):
-        """Update model performance metrics."""
-        if not CONFIG.get('track_model_performance'):
-            return
-        
-        if model_key not in self.performance_tracker:
-            self.performance_tracker[model_key] = {
-                'total_requests': 0,
-                'successful_requests': 0,
-                'total_response_time': 0.0,
-                'average_response_time': 0.0,
-                'success_rate': 0.0,
-                'last_updated': time.time()
-            }
-        
-        tracker = self.performance_tracker[model_key]
-        tracker['total_requests'] += 1
-        tracker['total_response_time'] += response_time
-        
-        if success:
-            tracker['successful_requests'] += 1
-        
-        # Calculate averages
-        tracker['average_response_time'] = tracker['total_response_time'] / tracker['total_requests']
-        tracker['success_rate'] = tracker['successful_requests'] / tracker['total_requests']
-        tracker['last_updated'] = time.time()
-        
-        # Update model performance score
-        if model_key in self.available_models:
-            # Performance score based on success rate and response time
-            time_score = max(0.1, 1.0 - (tracker['average_response_time'] / 30.0))  # 30s = 0 score
-            combined_score = (tracker['success_rate'] * 0.7) + (time_score * 0.3)
-            self.available_models[model_key]['performance_score'] = combined_score
-    
-    def _query_remote(self, prompt: str, max_tokens: int) -> Optional[str]:
+    def _query_remote_api(self, prompt: str, max_tokens: int) -> str:
         """Query remote API."""
         try:
             import requests
@@ -968,26 +734,22 @@ class EnhancedModelChain:
             )
             
             if response.status_code == 200:
-                data = response.json()
-                return data.get('content', [{}])[0].get('text', '').strip()
-                
-        except Exception as e:
-            logger.debug(f"Remote API error: {e}")
-        
-        return None
+                return response.json().get('content', [{}])[0].get('text', '')
+        except Exception:
+            pass
+        return ""
     
-    def _query_ollama(self, prompt: str, model: str, max_tokens: int) -> Optional[str]:
-        """Query Ollama model with enhanced error handling."""
+    def _query_ollama(self, model_name: str, prompt: str, max_tokens: int) -> str:
+        """Query Ollama model."""
         try:
             import requests
             payload = {
-                "model": model,
+                "model": model_name,
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "temperature": CONFIG['ollama_temperature'],
-                    "num_predict": max_tokens,
-                    "top_p": 0.9
+                    "temperature": CONFIG.get('ollama_temperature', 0.7),
+                    "num_predict": max_tokens
                 }
             }
             
@@ -998,159 +760,128 @@ class EnhancedModelChain:
             )
             
             if response.status_code == 200:
-                result = response.json()
-                return result.get('response', '').strip()
-                
-        except Exception as e:
-            logger.debug(f"Ollama error with {model}: {e}")
-        
-        return None
+                return response.json().get('response', '')
+        except Exception:
+            pass
+        return ""
     
-    def _query_local(self, prompt: str, model_path: str, max_tokens: int) -> Optional[str]:
-        """Query local model using selected framework."""
-        try:
-            if CONFIG["framework"] == "tensorflow":
-                return self._query_local_tensorflow(prompt, model_path, max_tokens)
-            else:
-                return self._query_local_pytorch(prompt, model_path, max_tokens)
-        except Exception as e:
-            logger.debug(f"Local model error: {e}")
-            return None
-    
-    def _query_local_pytorch(self, prompt: str, model_path: str, max_tokens: int) -> Optional[str]:
-        """Query local model with PyTorch."""
+    def _query_local_model(self, model_info: Dict, prompt: str, max_tokens: int) -> str:
+        """Query local HuggingFace model."""
         try:
             from transformers import AutoTokenizer, AutoModelForCausalLM
             import torch
             
-            # Load model and tokenizer
+            model_path = model_info.get('model_path')
+            if not model_path or not Path(model_path).exists():
+                return ""
+            
             tokenizer = AutoTokenizer.from_pretrained(model_path)
-            model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                torch_dtype=getattr(torch, CONFIG.get('torch_dtype', 'float32'))
-            )
+            model = AutoModelForCausalLM.from_pretrained(model_path)
             
-            # Ensure pad token exists
-            if tokenizer.pad_token is None:
-                tokenizer.pad_token = tokenizer.eos_token
-            
-            # Tokenize input
-            inputs = tokenizer.encode(
-                prompt, 
-                return_tensors="pt", 
-                max_length=512, 
-                truncation=True
-            )
-            
-            # Generate response
+            inputs = tokenizer.encode(prompt, return_tensors="pt")
             with torch.no_grad():
                 outputs = model.generate(
                     inputs,
-                    max_new_tokens=max_tokens,
-                    temperature=CONFIG['local_model_temperature'],
+                    max_new_tokens=min(max_tokens, 100),
+                    temperature=0.7,
                     do_sample=True,
                     pad_token_id=tokenizer.eos_token_id
                 )
             
-            # Decode response
-            response = tokenizer.decode(
-                outputs[0][inputs.shape[1]:], 
-                skip_special_tokens=True
-            )
+            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            return response[len(prompt):].strip()
             
-            return response.strip()
-            
-        except Exception as e:
-            logger.debug(f"PyTorch local model error: {e}")
-            return None
+        except Exception:
+            pass
+        return ""
     
-    def _query_local_tensorflow(self, prompt: str, model_path: str, max_tokens: int) -> Optional[str]:
-        """Query local model with TensorFlow/Keras."""
+    def _query_static_fallback(self, prompt: str) -> str:
+        """Query static fallback responses."""
         try:
-            import tensorflow as tf
-            from transformers import TFAutoModelForCausalLM, AutoTokenizer
-            
-            # Load model and tokenizer
-            tokenizer = AutoTokenizer.from_pretrained(model_path)
-            model = TFAutoModelForCausalLM.from_pretrained(model_path)
-            
-            # Ensure pad token exists
-            if tokenizer.pad_token is None:
-                tokenizer.pad_token = tokenizer.eos_token
-            
-            # Tokenize input
-            inputs = tokenizer(
-                prompt,
-                return_tensors="tf",
-                max_length=512,
-                truncation=True,
-                padding=True
-            )
-            
-            # Generate response
-            outputs = model.generate(
-                inputs['input_ids'],
-                max_new_tokens=max_tokens,
-                temperature=CONFIG['local_model_temperature'],
-                do_sample=True,
-                pad_token_id=tokenizer.eos_token_id
-            )
-            
-            # Decode response
-            response = tokenizer.decode(
-                outputs[0][inputs['input_ids'].shape[1]:], 
-                skip_special_tokens=True
-            )
-            
-            return response.strip()
-            
-        except Exception as e:
-            logger.debug(f"TensorFlow local model error: {e}")
-            return None
-    
-    def _get_static_response(self, prompt: str) -> str:
-        """Get static fallback response."""
-        static_file = Path(CONFIG['static_fallback_path']) / "static_responses.json"
-        
-        if static_file.exists():
-            try:
-                with open(static_file, "r") as f:
-                    static_responses = json.load(f)
+            static_file = Path(CONFIG["static_fallback_path"]) / "static_responses.json"
+            if static_file.exists():
+                with open(static_file, 'r') as f:
+                    static_data = json.load(f)
+                
+                prompt_lower = prompt.lower()
                 
                 # Simple keyword matching
-                prompt_lower = prompt.lower()
-                for category, responses in static_responses.items():
-                    for keyword, response in responses.items():
-                        if keyword.lower() in prompt_lower:
-                            return f"{response} [Static Response]"
-            except Exception as e:
-                logger.debug(f"Static response error: {e}")
+                for category, responses in static_data.items():
+                    if isinstance(responses, dict):
+                        for key, response in responses.items():
+                            if key.lower() in prompt_lower or any(word in prompt_lower for word in key.lower().split()):
+                                return response
+                
+                # Default response
+                return "This appears to be a system monitoring question. Check system resources, logs, and recent changes for troubleshooting."
+        except Exception:
+            pass
+        return "System monitoring response not available."
         
-        return "Unable to process request. Please check system configuration. [Static Response]"
-    
-    def get_status(self) -> Dict:
-        """Get comprehensive model chain status."""
-        return {
-            "total_models": len(self.available_models),
-            "rotation_pool_size": len(self.model_rotation_pool),
-            "models_per_question": self.models_per_question,
-            "current_rotation_index": self.current_model_index,
-            "performance_tracking": CONFIG.get('track_model_performance', False),
-            "model_types": {
-                model_type: len([m for m in self.available_models.values() if m['type'] == model_type])
-                for model_type in ['remote', 'ollama', 'local', 'static']
-            },
-            "last_discovery": datetime.fromtimestamp(self.last_discovery).isoformat(),
-            "framework": CONFIG["framework"],
-            "device_type": CONFIG["device_type"],
-            "performance_summary": {
-                model_key: {
-                    'success_rate': data.get('success_rate', 0),
-                    'avg_response_time': data.get('average_response_time', 0)
-                }
-                for model_key, data in self.performance_tracker.items()
-            } if CONFIG.get('track_model_performance') else {}
+    def _build_rotation_pool(self) -> List[str]:
+        """Build optimized rotation pool."""
+        available_models = [
+            (name, info) for name, info in self.available_models.items()
+            if info.get('available', False)
+        ]
+        
+        # Sort by performance score * priority weight
+        def model_score(item):
+            name, info = item
+            priority_weight = CONFIG['model_priority_weights'].get(info['type'], 0.5)
+            performance_score = info.get('performance_score', 0.5)
+            return priority_weight * performance_score
+        
+        available_models.sort(key=model_score, reverse=True)
+        
+        # Build diverse pool
+        pool = []
+        type_counts = {}
+        max_per_type = {
+            'remote': 2,
+            'ollama': CONFIG['model_pool_size'] - 5,
+            'local': 3,
+            'static': 1
         }
+        
+        for name, info in available_models:
+            model_type = info['type']
+            current_count = type_counts.get(model_type, 0)
+            
+            if current_count < max_per_type.get(model_type, 1):
+                pool.append(name)
+                type_counts[model_type] = current_count + 1
+                
+            if len(pool) >= CONFIG['model_pool_size']:
+                break
+        
+        logger.info(f"🎯 Built rotation pool: {len(pool)} models")
+        for model_type, count in type_counts.items():
+            logger.info(f"   {model_type}: {count} models")
+        
+        return pool
+    
+    def _test_remote_api(self) -> bool:
+        """Test remote API availability."""
+        try:
+            import requests
+            test_payload = {
+                "model": "claude-3-sonnet-20240229",
+                "max_tokens": 10,
+                "messages": [{"role": "user", "content": "test"}]
+            }
+            
+            response = requests.post(
+                CONFIG['llm_url'],
+                json=test_payload,
+                headers={"x-api-key": CONFIG['llm_key']},
+                timeout=5
+            )
+            
+            return response.status_code in [200, 400]
+            
+        except Exception:
+            return False
 
 def setup_directories():
     """Create necessary directories with enhanced structure."""

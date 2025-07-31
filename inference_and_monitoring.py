@@ -182,31 +182,83 @@ class MonitoringInference:
             raise
     
     def _load_pytorch_model(self):
-        """Load PyTorch model."""
+        """Load PyTorch model with safetensors support."""
         try:
-            # Load the base model
-            base_model = AutoModel.from_pretrained(self.model_path)
+            from transformers import AutoTokenizer, AutoModel, AutoConfig
+            
+            # Check for safetensors format first
+            safetensors_path = Path(self.model_path) / 'model.safetensors'
+            pytorch_path = Path(self.model_path) / 'pytorch_model.bin'
+            
+            if safetensors_path.exists():
+                log_message("📦 Loading model from safetensors format")
+                
+                # Load config
+                config = AutoConfig.from_pretrained(self.model_path)
+                
+                # Load base model with safetensors
+                try:
+                    from safetensors.torch import load_file
+                    
+                    # Create model architecture
+                    base_model = AutoModel.from_config(config)
+                    
+                    # Load safetensors weights
+                    state_dict = load_file(safetensors_path)
+                    base_model.load_state_dict(state_dict)
+                    
+                    log_message("✅ Base model loaded from safetensors")
+                    
+                except ImportError:
+                    log_message("⚠️  safetensors not available, trying standard loading")
+                    base_model = AutoModel.from_pretrained(self.model_path)
+            
+            else:
+                # Standard loading for older models
+                log_message("📦 Loading model from standard format")
+                base_model = AutoModel.from_pretrained(self.model_path)
             
             # Recreate the monitoring model
-            from distilled_model_trainer import MonitoringModel
+            from training_core import MonitoringModel
             self.model = MonitoringModel(base_model)
             
-            # Load custom heads if they exist
-            custom_heads_path = Path(self.model_path) / 'custom_heads.pt'
-            if custom_heads_path.exists():
-                heads_data = torch.load(custom_heads_path, map_location=self.device)
+            # Load custom heads - try safetensors first
+            custom_heads_safetensors = Path(self.model_path) / 'custom_heads.safetensors'
+            custom_heads_pytorch = Path(self.model_path) / 'custom_heads.pt'
+            
+            if custom_heads_safetensors.exists():
+                try:
+                    from safetensors.torch import load_file
+                    heads_data = load_file(custom_heads_safetensors)
+                    
+                    # Load weights into the model
+                    self.model.classifier.weight.data = heads_data['classifier.weight']
+                    self.model.classifier.bias.data = heads_data['classifier.bias']
+                    self.model.anomaly_detector.weight.data = heads_data['anomaly_detector.weight']
+                    self.model.anomaly_detector.bias.data = heads_data['anomaly_detector.bias']
+                    self.model.metrics_regressor.weight.data = heads_data['metrics_regressor.weight']
+                    self.model.metrics_regressor.bias.data = heads_data['metrics_regressor.bias']
+                    
+                    log_message("📦 Custom heads loaded from safetensors")
+                    
+                except ImportError:
+                    log_message("⚠️  safetensors not available for custom heads")
+            
+            elif custom_heads_pytorch.exists():
+                # Fallback to PyTorch format
+                heads_data = torch.load(custom_heads_pytorch, map_location=self.device)
                 self.model.classifier.load_state_dict(heads_data['classifier_state_dict'])
                 self.model.anomaly_detector.load_state_dict(heads_data['anomaly_detector_state_dict'])
                 self.model.metrics_regressor.load_state_dict(heads_data['metrics_regressor_state_dict'])
-                logger.info("📦 Custom task heads loaded")
+                log_message("📦 Custom heads loaded from PyTorch format")
             
             self.model.to(self.device)
             self.model.eval()
             
-            logger.info(f"🔥 PyTorch model loaded on {self.device}")
+            log_message(f"🔥 PyTorch model loaded on {self.device}")
             
         except Exception as e:
-            logger.error(f"PyTorch model loading failed: {e}")
+            log_message(f"PyTorch model loading failed: {e}")
             raise
     
     def predict_anomaly(self, metrics: Dict) -> Dict:

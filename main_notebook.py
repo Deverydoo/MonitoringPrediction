@@ -25,8 +25,11 @@ class DistilledMonitoringSystem:
         self.generator = None
         self.trainer = None
         
-        # Use common utilities for consistent checking
-        self.datasets_exist = self._check_datasets_using_common_utils()
+        # Use ONLY common utilities - no duplicate functions
+        from common_utils import analyze_existing_datasets, check_models_like_trainer
+        
+        analysis = analyze_existing_datasets(Path(CONFIG['training_dir']))
+        self.datasets_exist = analysis['language_dataset']['exists'] and analysis['metrics_dataset']['exists']
         self.model_trained = check_models_like_trainer(Path(CONFIG['models_dir']))
         
     def setup(self):
@@ -55,9 +58,9 @@ class DistilledMonitoringSystem:
         self.setup_complete = True
         print("\n✅ Setup complete!")
         return True
-    
+
     def generate_datasets(self, language_count: int = None, metrics_count: int = None):
-        """Generate training datasets using enhanced generator."""
+        """Generate datasets using ONLY enhanced generator - no duplicates."""
         if not self.setup_complete:
             print("❌ Run setup() first")
             return None, None
@@ -66,15 +69,18 @@ class DistilledMonitoringSystem:
         print("="*50)
         
         try:
-            # Use the correct method name from EnhancedDatasetGenerator
-            language_data, metrics_data = self.generator.generate_complete_dataset(
+            # Use the enhanced generator method that saves to files
+            language_success, metrics_success = self.generator.generate_complete_dataset(
                 language_count, metrics_count
             )
             
-            # Update status using common utilities
-            self.datasets_exist = self._check_datasets_using_common_utils()
+            # Update status using ONLY common utilities
+            from common_utils import analyze_existing_datasets
+            analysis = analyze_existing_datasets(Path(CONFIG['training_dir']))
+            self.datasets_exist = analysis['language_dataset']['exists'] and analysis['metrics_dataset']['exists']
+            
             print("✅ Dataset generation completed!")
-            return language_data, metrics_data
+            return language_success, metrics_success
             
         except KeyboardInterrupt:
             print("\n⏸️  Generation interrupted - progress saved")
@@ -85,7 +91,7 @@ class DistilledMonitoringSystem:
             return None, None
     
     def train(self):
-        """Train using exact trainer logic."""
+        """Train using ONLY simplified trainer - no duplicate logic."""
         if not self.datasets_exist:
             print("❌ No datasets found. Run generate_datasets() first")
             return False
@@ -95,12 +101,13 @@ class DistilledMonitoringSystem:
         print(f"Environment: {detect_training_environment()}")
         
         try:
-            # Use exact same trainer class and logic
+            # Use ONLY the simplified trainer that delegates to training_core
             trainer = DistilledModelTrainer(CONFIG, resume_training=True)
             success = trainer.train()
             
             if success:
-                # Update status using common utilities
+                # Update status using ONLY common utilities
+                from common_utils import check_models_like_trainer
                 self.model_trained = check_models_like_trainer(Path(CONFIG['models_dir']))
                 print("✅ Training completed!")
                 return True
@@ -290,39 +297,55 @@ class DistilledMonitoringSystem:
             logger.error(f"Demo error: {e}")
     
     def status(self):
-        """Show system status using common utilities and enhanced generator methods."""
+        """Show system status using ONLY common utilities."""
         print(f"\n{'='*50}")
         print("SYSTEM STATUS")
         print(f"{'='*50}")
         
         print(f"Setup: {'✅' if self.setup_complete else '❌'}")
-        print(f"Datasets: {'✅' if self._check_datasets_using_common_utils() else '❌'}")
-        print(f"Model: {'✅' if check_models_like_trainer(Path(CONFIG['models_dir'])) else '❌'}")
+        
+        # Use ONLY common utilities for all checks
+        from common_utils import analyze_existing_datasets, check_models_like_trainer
+        
+        analysis = analyze_existing_datasets(Path(CONFIG['training_dir']))
+        datasets_exist = analysis['language_dataset']['exists'] and analysis['metrics_dataset']['exists']
+        model_exists = check_models_like_trainer(Path(CONFIG['models_dir']))
+        
+        print(f"Datasets: {'✅' if datasets_exist else '❌'}")
+        print(f"Model: {'✅' if model_exists else '❌'}")
         print(f"Fallbacks: {'✅' if self.fallback_ready else '❌'}")
         
         # Show progress using generator's method
         if self.generator:
             self.generator.show_progress_with_multiplier()
         
-        # File status using common utilities
-        dataset_analysis = analyze_existing_datasets(Path(CONFIG['training_dir']))
-        
+        # File status using ONLY common utilities
         print(f"\nFiles:")
-        print(f"  Language Dataset: {'✅' if dataset_analysis['language_dataset']['exists'] else '❌'}")
-        if dataset_analysis['language_dataset']['exists']:
-            print(f"    Samples: {dataset_analysis['language_dataset']['samples']}")
+        print(f"  Language Dataset: {'✅' if analysis['language_dataset']['exists'] else '❌'}")
+        if analysis['language_dataset']['exists']:
+            print(f"    Samples: {analysis['language_dataset']['samples']}")
         
-        print(f"  Metrics Dataset: {'✅' if dataset_analysis['metrics_dataset']['exists'] else '❌'}")
-        if dataset_analysis['metrics_dataset']['exists']:
-            print(f"    Samples: {dataset_analysis['metrics_dataset']['samples']}")
+        print(f"  Metrics Dataset: {'✅' if analysis['metrics_dataset']['exists'] else '❌'}")
+        if analysis['metrics_dataset']['exists']:
+            print(f"    Samples: {analysis['metrics_dataset']['samples']}")
         
-        # Model check using common utilities
-        model_found = check_models_like_trainer(Path(CONFIG['models_dir']))
-        print(f"  Trained Model: {'✅' if model_found else '❌'}")
+        print(f"  Trained Model: {'✅' if model_exists else '❌'}")
         
         print(f"\nEnvironment: {detect_training_environment()}")
         print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"{'='*50}")
+    
+    def cleanup(self):
+        """Run system cleanup using ONLY common utilities."""
+        from common_utils import periodic_cleanup
+        
+        print("🧹 Running system cleanup...")
+        try:
+            periodic_cleanup(CONFIG)
+            print("✅ Cleanup completed successfully")
+        except Exception as e:
+            print(f"❌ Cleanup failed: {e}")
+            logger.error(f"Cleanup error: {e}")
     
     def show_progress(self):
         """Show dataset generation progress using generator's method."""
@@ -353,6 +376,10 @@ class DistilledMonitoringSystem:
 
 # Global system instance
 system = DistilledMonitoringSystem()
+
+def cleanup():
+    """Run system cleanup."""
+    return system.cleanup()
 
 # Simple interface functions - all use exact same logic as components
 def setup():

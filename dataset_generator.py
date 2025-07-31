@@ -47,11 +47,14 @@ class EnhancedDatasetGenerator:
         self.progress_file = Path("./generation_progress.pkl")
         self.save_frequency = CONFIG.get('rotation_round_size', 25)
         
-        # Dataset file paths using common utilities
+        # Use ONLY common_utils functions
+        from common_utils import get_dataset_paths, load_generation_progress
         self.dataset_paths = get_dataset_paths(self.training_dir)
         
-        # Enhanced discovery and caching
+        # Discover and load YAML configs FIRST
         self.yaml_configs = self._discover_and_load_yaml_files()
+        
+        # Load progress using common_utils - NO duplicate function
         self.progress = self._load_or_create_progress()
         
         # Rich content extraction
@@ -316,12 +319,13 @@ class EnhancedDatasetGenerator:
         return targets, total_target
     
     def _load_or_create_progress(self) -> GenerationProgress:
-        """Load existing progress or create new session using common utilities."""
+        """Load progress using ONLY common_utils - no duplication."""
+        from common_utils import load_generation_progress
+        
         progress_data = load_generation_progress(self.progress_file)
         
         if progress_data:
             try:
-                # Convert dict back to dataclass
                 if isinstance(progress_data, dict):
                     progress = GenerationProgress(**progress_data)
                 else:
@@ -342,17 +346,20 @@ class EnhancedDatasetGenerator:
         )
     
     def _save_progress_pickle(self):
-        """Save progress using common utilities."""
+        """Save progress using ONLY common_utils - no duplication."""
+        from common_utils import save_generation_progress
+        
         self.progress.last_updated = datetime.now().isoformat()
         save_generation_progress(asdict(self.progress), self.progress_file)
     
     def _analyze_existing_dataset(self) -> Dict[str, int]:
-        """Analyze existing dataset using common utilities."""
+        """Use ONLY common_utils analysis - no duplicate function."""
+        from common_utils import analyze_existing_datasets
+        
         analysis = analyze_existing_datasets(self.training_dir)
         
         # Extract sample counts by type
         existing_counts = {}
-        
         if analysis['language_dataset']['exists']:
             distribution = analysis['language_dataset'].get('distribution', {})
             for sample_type, count in distribution.items():
@@ -425,6 +432,36 @@ class EnhancedDatasetGenerator:
             logger.error(f"Dataset generation error: {e}")
             print(f"❌ Dataset generation failed: {e}")
             return False, False
+
+    def _save_final_dataset(self):
+        """Save final dataset using ONLY common_utils."""
+        from common_utils import load_dataset_file, save_dataset_file
+        
+        # Load existing data
+        existing_data = load_dataset_file(self.dataset_paths['language_dataset'])
+        
+        if existing_data and existing_data.get("samples"):
+            # Update metadata
+            existing_data["metadata"] = {
+                "generated_at": datetime.now().isoformat(),
+                "total_samples": len(existing_data["samples"]),
+                "session_id": self.progress.session_id,
+                "models_per_question": CONFIG.get('models_per_question', 2),
+                "generation_stats": self.generation_stats,
+                "sample_distribution": self._get_sample_distribution(existing_data["samples"])
+            }
+            
+            # Final save using common_utils
+            save_dataset_file(existing_data, self.dataset_paths['language_dataset'], 'language_dataset')
+            logger.info(f"✅ Final dataset saved: {len(existing_data['samples'])} samples")
+            
+            # CLEANUP using common_utils periodic_cleanup
+            if self.progress_file.exists():
+                try:
+                    self.progress_file.unlink()
+                    logger.info("🗑️ Cleaned up generation progress pickle")
+                except Exception as e:
+                    logger.warning(f"Failed to cleanup pickle: {e}")    
     
     def generate_rich_language_dataset(self, target_count: int = None) -> List[Dict]:
         """Generate rich language dataset using enhanced logic."""
@@ -695,25 +732,28 @@ class EnhancedDatasetGenerator:
         
         logger.info(f"💾 Saved {len(new_samples)} samples ({len(existing_data['samples'])} total)")
     
-    def _save_final_dataset(self):
-        """Save final complete dataset using common utilities."""
+    def _save_incremental_progress(self, new_samples: List[Dict]):
+        """Save incremental progress using ONLY common_utils."""
+        if not new_samples:
+            return
+        
+        from common_utils import load_dataset_file, save_dataset_file
+        
         # Load existing data
         existing_data = load_dataset_file(self.dataset_paths['language_dataset'])
+        if not existing_data:
+            existing_data = {"samples": [], "metadata": {}}
         
-        if existing_data and existing_data.get("samples"):
-            # Update metadata
-            existing_data["metadata"] = {
-                "generated_at": datetime.now().isoformat(),
-                "total_samples": len(existing_data["samples"]),
-                "session_id": self.progress.session_id,
-                "models_per_question": CONFIG.get('models_per_question', 2),
-                "generation_stats": self.generation_stats,
-                "sample_distribution": self._get_sample_distribution(existing_data["samples"])
-            }
-            
-            # Final save
-            save_dataset_file(existing_data, self.dataset_paths['language_dataset'], 'language_dataset')
-            logger.info(f"✅ Final dataset saved: {len(existing_data['samples'])} samples")
+        # Add new samples
+        existing_data["samples"].extend(new_samples)
+        
+        # Save updated data
+        save_dataset_file(existing_data, self.dataset_paths['language_dataset'], 'language_dataset')
+        
+        # Save progress
+        self._save_progress_pickle()
+        
+        logger.info(f"💾 Saved {len(new_samples)} samples ({len(existing_data['samples'])} total)")
     
     def _get_sample_distribution(self, samples: List[Dict]) -> Dict[str, int]:
         """Get distribution of sample types."""
