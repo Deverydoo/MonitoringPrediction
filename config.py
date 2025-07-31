@@ -68,9 +68,9 @@ CONFIG = {
     # Model and training settings
     "model_name": "bert-base-uncased",
     "max_length": 512,
-    "batch_size": 20,
+    "batch_size": 24,
     "learning_rate": 2e-5,
-    "epochs": 1,
+    "epochs": 13,
     "warmup_steps": 100,
     "weight_decay": 0.01,
 

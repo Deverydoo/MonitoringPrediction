@@ -469,6 +469,7 @@ class UnifiedTrainer:
             # Save checkpoint periodically
             if step % 500 == 0 and step > 0:
                 self.save_checkpoint(f"checkpoint_epoch_{epoch+1}_step_{step}")
+                self.cleanup_training_artifacts()
         
         return epoch_loss / len(dataloader)
 
@@ -512,6 +513,11 @@ class UnifiedTrainer:
                 current_lr = optimizer.param_groups[0]['lr']
                 log_message(f"   Step {step}: Loss={loss.item():.4f}, "
                           f"LR={current_lr:.2e} ({progress_pct:.1f}%)")
+                
+            # Save checkpoint periodically
+            if step % 500 == 0 and step > 0:
+                self.save_checkpoint(f"checkpoint_epoch_{epoch+1}_step_{step}")
+                self.cleanup_training_artifacts()
         
         return epoch_loss / len(dataloader)
 
@@ -592,12 +598,15 @@ class UnifiedTrainer:
 
     def cleanup_training_artifacts(self):
         """Clean up training artifacts during and after training."""
-        from common_utils import manage_training_checkpoints, periodic_cleanup
+        from common_utils import periodic_cleanup
         
-        # Clean up checkpoints
-        checkpoints_dir = Path(self.config.get('checkpoints_dir', './checkpoints/'))
-        models_dir = Path(self.config.get('models_dir', './models/'))
-        manage_training_checkpoints(checkpoints_dir, models_dir)
+        # Import the function we just fixed
+        manage_training_checkpoints = globals().get('manage_training_checkpoints')
+        if manage_training_checkpoints:
+            # Clean up checkpoints more aggressively
+            checkpoints_dir = Path(self.config.get('checkpoints_dir', './checkpoints/'))
+            models_dir = Path(self.config.get('models_dir', './models/'))
+            manage_training_checkpoints(checkpoints_dir, models_dir, keep_recent=1, keep_best=1)
         
         # Run periodic cleanup
         periodic_cleanup(self.config)

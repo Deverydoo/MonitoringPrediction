@@ -447,80 +447,82 @@ def cleanup_generation_artifacts():
         logger.error(f"Cleanup error: {e}")
 
 def manage_training_checkpoints(checkpoints_dir: Path, models_dir: Path, keep_recent: int = 1, keep_best: int = 1):
-    """Manage training checkpoints - handle both safetensors and pytorch formats."""
+    """Simplified checkpoint management - keep current + best only."""
     try:
         if not checkpoints_dir.exists():
             return
         
-        # Get all checkpoint files (both formats)
-        checkpoint_files = (list(checkpoints_dir.glob('checkpoint_*.pt')) + 
-                          list(checkpoints_dir.glob('checkpoint_*_metadata.json')))
+        # Get all safetensors checkpoint files
+        checkpoint_files = list(checkpoints_dir.glob('*_model.safetensors'))
         
-        # Group by checkpoint name (safetensors creates multiple files)
-        checkpoint_groups = {}
-        for f in checkpoint_files:
-            if f.name.endswith('_metadata.json'):
-                base_name = f.name.replace('_metadata.json', '')
-            elif f.name.endswith('.pt'):
-                base_name = f.name.replace('.pt', '')
-            else:
-                continue
-                
-            if base_name not in checkpoint_groups:
-                checkpoint_groups[base_name] = []
-            checkpoint_groups[base_name].append(f)
+        if len(checkpoint_files) <= 2:  # If 2 or fewer, keep all
+            logger.debug(f"Only {len(checkpoint_files)} checkpoints found, keeping all")
+            return
         
-        if len(checkpoint_groups) <= (keep_recent + keep_best):
-            return  # Not enough checkpoints to clean up
-        
-        # Sort groups by modification time (newest first)
-        sorted_groups = sorted(checkpoint_groups.items(), 
-                             key=lambda x: max(f.stat().st_mtime for f in x[1]), 
-                             reverse=True)
-        
-        # Keep the most recent ones
-        groups_to_keep = set([name for name, _ in sorted_groups[:keep_recent]])
-        
-        # Find best performing checkpoints by loss
-        best_checkpoints = []
-        for group_name, files in checkpoint_groups.items():
+        # Parse checkpoint info (epoch_X_step_Y format)
+        checkpoint_info = []
+        for checkpoint_file in checkpoint_files:
             try:
-                # Look for metadata file first (safetensors format)
-                metadata_file = next((f for f in files if f.name.endswith('_metadata.json')), None)
+                # Extract step number from filename like "checkpoint_epoch_1_step_29500_model.safetensors"
+                name_parts = checkpoint_file.stem.split('_')
+                step_idx = name_parts.index('step') + 1 if 'step' in name_parts else -1
                 
-                if metadata_file:
-                    with open(metadata_file, 'r') as f:
-                        metadata = json.load(f)
-                    loss = metadata.get('training_stats', {}).get('best_loss', float('inf'))
-                else:
-                    # Try PyTorch format
-                    pt_file = next((f for f in files if f.name.endswith('.pt')), None)
-                    if pt_file:
-                        import torch
-                        checkpoint = torch.load(pt_file, map_location='cpu')
-                        loss = checkpoint.get('training_stats', {}).get('best_loss', float('inf'))
-                    else:
-                        loss = float('inf')
-                
-                best_checkpoints.append((group_name, loss))
-            except Exception:
+                if step_idx > 0 and step_idx < len(name_parts):
+                    step_num = int(name_parts[step_idx])
+                    
+                    # Get corresponding metadata file for loss
+                    metadata_file = checkpoint_file.parent / checkpoint_file.name.replace('_model.safetensors', '_metadata.json')
+                    
+                    loss = float('inf')
+                    if metadata_file.exists():
+                        with open(metadata_file, 'r') as f:
+                            metadata = json.load(f)
+                        # Extract loss from training stats
+                        training_stats = metadata.get('training_stats', {})
+                        loss = training_stats.get('best_loss', float('inf'))
+                    
+                    checkpoint_info.append({
+                        'file': checkpoint_file,
+                        'metadata_file': metadata_file,
+                        'step': step_num,
+                        'loss': loss
+                    })
+                    
+            except (ValueError, IndexError, json.JSONDecodeError) as e:
+                logger.warning(f"Failed to parse checkpoint {checkpoint_file.name}: {e}")
                 continue
         
-        # Sort by loss (best first) and keep the best ones
-        best_checkpoints.sort(key=lambda x: x[1])
-        groups_to_keep.update([name for name, _ in best_checkpoints[:keep_best]])
+        if len(checkpoint_info) <= 2:
+            return
         
-        # Remove checkpoint groups not in keep list
+        # Sort by step number (newest first)
+        checkpoint_info.sort(key=lambda x: x['step'], reverse=True)
+        
+        # Keep most recent
+        to_keep = {checkpoint_info[0]['file']}  # Most recent
+        
+        # Find best (lowest loss) that's not already kept
+        best_checkpoint = min(checkpoint_info, key=lambda x: x['loss'])
+        to_keep.add(best_checkpoint['file'])
+        
+        # Remove all others
         removed_count = 0
-        for group_name, files in checkpoint_groups.items():
-            if group_name not in groups_to_keep:
-                for file in files:
-                    file.unlink()
+        for info in checkpoint_info:
+            if info['file'] not in to_keep:
+                try:
+                    # Remove both model and metadata files
+                    info['file'].unlink()
+                    if info['metadata_file'].exists():
+                        info['metadata_file'].unlink()
                     removed_count += 1
-                logger.info(f"🗑️ Removed checkpoint group: {group_name}")
+                    logger.debug(f"Removed checkpoint: {info['file'].name}")
+                except Exception as e:
+                    logger.warning(f"Failed to remove {info['file']}: {e}")
         
         if removed_count > 0:
-            logger.info(f"🧹 Checkpoint cleanup: removed {removed_count} files, kept {len(groups_to_keep)} checkpoint groups")
+            logger.info(f"🧹 Checkpoint cleanup: removed {removed_count} files, kept {len(to_keep)} checkpoints")
+            kept_steps = [info['step'] for info in checkpoint_info if info['file'] in to_keep]
+            logger.info(f"   Kept checkpoints at steps: {sorted(kept_steps)}")
         
     except Exception as e:
         logger.error(f"Checkpoint cleanup error: {e}")
