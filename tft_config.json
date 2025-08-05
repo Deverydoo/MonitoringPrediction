@@ -1,0 +1,68 @@
+{
+  "_comment": "TFT Training Configuration for Server Monitoring",
+  
+  "model_architecture": {
+    "model_type": "TemporalFusionTransformer",
+    "hidden_size": 32,
+    "attention_heads": 4,
+    "dropout": 0.1,
+    "continuous_size": 16
+  },
+  
+  "training_parameters": {
+    "epochs": 50,
+    "batch_size": 64,
+    "learning_rate": 0.03,
+    "early_stopping_patience": 10,
+    "mixed_precision": true
+  },
+  
+  "time_series_parameters": {
+    "prediction_horizon": 12,
+    "context_length": 48,
+    "training_split": 0.8
+  },
+  
+  "directories": {
+    "training_dir": "./training/",
+    "models_dir": "./models/",
+    "checkpoints_dir": "./checkpoints/",
+    "logs_dir": "./logs/"
+  },
+  
+  "hardware_optimization": {
+    "num_workers": 4,
+    "pin_memory": true,
+    "force_cpu": false
+  },
+  
+  "framework_settings": {
+    "framework": "pytorch_forecasting",
+    "torch_compile": false
+  },
+  
+  "monitoring_thresholds": {
+    "cpu_usage": {
+      "warning": 80,
+      "critical": 95
+    },
+    "memory_usage": {
+      "warning": 85,
+      "critical": 95
+    },
+    "disk_usage": {
+      "warning": 85,
+      "critical": 95
+    },
+    "load_average": {
+      "warning": 4.0,
+      "critical": 8.0
+    }
+  },
+  
+  "prediction_settings": {
+    "anomaly_threshold": 3.0,
+    "confidence_level": 0.95,
+    "quantiles": [0.1, 0.5, 0.9]
+  }
+}

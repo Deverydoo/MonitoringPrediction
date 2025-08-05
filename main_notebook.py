@@ -1,452 +1,534 @@
+#!/usr/bin/env python3
+"""
+main_notebook.py - Streamlined TFT Interface
+Clean interface focused only on TFT time-series prediction
+Removes all legacy BERT/language model code
+"""
+
 import os
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Dict, Any, Optional
 
-from config import CONFIG, setup_directories, detect_training_environment, setup_fallback_system, test_fallback_system
-from dataset_generator import EnhancedDatasetGenerator
-from distilled_model_trainer import DistilledModelTrainer
-from inference_and_monitoring import MonitoringInference, RealTimeMonitor, MonitoringDashboard
+# Import streamlined TFT components
+from config import CONFIG, validate_tft_environment, detect_training_environment, get_system_info
+from metrics_generator import MetricsDatasetGenerator
+from tft_model_trainer import DistilledModelTrainer
+from tft_inference import TFTInference
 from common_utils import (
-    analyze_existing_datasets, check_models_like_trainer, 
-    ensure_directory_structure, get_dataset_paths, DATASET_FORMATS
+    analyze_metrics_dataset, check_tft_model_exists, ensure_tft_directories,
+    validate_metrics_dataset, get_dataset_stats, cleanup_tft_artifacts, log_message
 )
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class DistilledMonitoringSystem:
-    """Clean interface synchronized with working trainer and generator."""
+class TFTMonitoringSystem:
+    """Streamlined TFT-only monitoring system."""
     
     def __init__(self):
         self.setup_complete = False
-        self.fallback_ready = False
         self.generator = None
         self.trainer = None
+        self.inference = None
         
-        # Use ONLY common utilities - no duplicate functions
-        from common_utils import analyze_existing_datasets, check_models_like_trainer
+        # Check current state
+        analysis = analyze_metrics_dataset(Path(CONFIG['training_dir']))
+        self.dataset_exists = analysis['exists']
+        self.model_trained = check_tft_model_exists(Path(CONFIG['models_dir']))
         
-        analysis = analyze_existing_datasets(Path(CONFIG['training_dir']))
-        self.datasets_exist = analysis['language_dataset']['exists'] and analysis['metrics_dataset']['exists']
-        self.model_trained = check_models_like_trainer(Path(CONFIG['models_dir']))
+        log_message("🎯 TFT Monitoring System initialized")
+        log_message(f"📊 Dataset: {'✅' if self.dataset_exists else '❌'}")
+        log_message(f"🤖 Model: {'✅' if self.model_trained else '❌'}")
+    
+    def setup(self) -> bool:
+        """Setup TFT environment and directories."""
+        log_message("🚀 Setting up TFT monitoring system...")
         
-    def setup(self):
-        """Setup system environment and fallbacks."""
-        print("🚀 Setting up distilled monitoring system...")
-        
-        # Create directories using common utilities
-        ensure_directory_structure(CONFIG)
-        
-        # Setup fallback system
-        print(f"\n{'='*50}")
-        print("FALLBACK SYSTEM SETUP")
-        print(f"{'='*50}")
-        
-        self.fallback_ready = setup_fallback_system()
-        if self.fallback_ready:
-            test_fallback_system()
-            print("✅ Fallback system ready")
-        else:
-            print("❌ Fallback system failed")
+        # Validate TFT environment
+        if not validate_tft_environment():
+            log_message("❌ TFT environment validation failed")
             return False
         
-        # Initialize generator using enhanced class
-        self.generator = EnhancedDatasetGenerator()
+        # Create directories
+        if not ensure_tft_directories(CONFIG):
+            log_message("❌ Failed to create directories")
+            return False
+        
+        # Initialize components
+        self.generator = MetricsDatasetGenerator(CONFIG)
         
         self.setup_complete = True
-        print("\n✅ Setup complete!")
-        return True
-
-    def generate_datasets(self, language_count: int = None, metrics_count: int = None):
-        """Generate datasets using ONLY enhanced generator - no duplicates."""
-        if not self.setup_complete:
-            print("❌ Run setup() first")
-            return None, None
+        log_message("✅ TFT setup complete!")
         
-        print("\n📊 DATASET GENERATION")
-        print("="*50)
+        # Show system info
+        info = get_system_info()
+        log_message(f"🎮 Environment: {info['environment']}")
+        if info.get('gpu_name'):
+            log_message(f"🔥 GPU: {info['gpu_name']} ({info['gpu_memory_gb']}GB)")
+        
+        return True
+    
+    def generate_dataset(self, hours: int = 168, force_regenerate: bool = False) -> bool:
+        """Generate metrics dataset for TFT training."""
+        if not self.setup_complete:
+            log_message("❌ Run setup() first")
+            return False
+        
+        dataset_path = Path(CONFIG['training_dir']) / 'metrics_dataset.json'
+        
+        # Check if dataset already exists
+        if dataset_path.exists() and not force_regenerate:
+            stats = get_dataset_stats(dataset_path)
+            existing_hours = stats.get('time_span_hours', 0)
+            
+            if existing_hours >= hours * 0.9:  # Within 90% of requested hours
+                log_message(f"✅ Dataset already exists with {existing_hours:.1f} hours")
+                log_message("💡 Use force_regenerate=True to regenerate")
+                self.dataset_exists = True
+                return True
+        
+        log_message(f"📊 Generating {hours} hours of TFT training data...")
+        log_message(f"🎯 Target: ~{hours * 12 * CONFIG.get('servers_count', 57):,} samples")
         
         try:
-            # Use the enhanced generator method that saves to files
-            language_success, metrics_success = self.generator.generate_complete_dataset(
-                language_count, metrics_count
+            # Generate dataset
+            dataset = self.generator.generate_dataset(
+                total_hours=hours,
+                output_file=str(dataset_path)
             )
             
-            # Update status using ONLY common utilities
-            from common_utils import analyze_existing_datasets
-            analysis = analyze_existing_datasets(Path(CONFIG['training_dir']))
-            self.datasets_exist = analysis['language_dataset']['exists'] and analysis['metrics_dataset']['exists']
-            
-            print("✅ Dataset generation completed!")
-            return language_success, metrics_success
-            
-        except KeyboardInterrupt:
-            print("\n⏸️  Generation interrupted - progress saved")
-            return None, None
-        except Exception as e:
-            print(f"\n❌ Generation failed: {e}")
-            logger.error(f"Dataset generation error: {e}")
-            return None, None
-    
-    def train(self):
-        """Train using ONLY simplified trainer - no duplicate logic."""
-        if not self.datasets_exist:
-            print("❌ No datasets found. Run generate_datasets() first")
-            return False
-        
-        print("\n🏋️ TRAINING DISTILLED MODEL")
-        print("="*40)
-        print(f"Environment: {detect_training_environment()}")
-        
-        try:
-            # Use ONLY the simplified trainer that delegates to training_core
-            trainer = DistilledModelTrainer(CONFIG, resume_training=True)
-            success = trainer.train()
-            
-            if success:
-                # Update status using ONLY common utilities
-                from common_utils import check_models_like_trainer
-                self.model_trained = check_models_like_trainer(Path(CONFIG['models_dir']))
-                print("✅ Training completed!")
-                return True
+            if dataset:
+                # Validate generated dataset
+                if validate_metrics_dataset(dataset_path):
+                    self.dataset_exists = True
+                    
+                    # Show stats
+                    stats = get_dataset_stats(dataset_path)
+                    log_message("🎉 Dataset generation completed!")
+                    log_message(f"   📊 Total samples: {stats['total_samples']:,}")
+                    log_message(f"   ⏱️  Time span: {stats['time_span_hours']:.1f} hours")
+                    log_message(f"   🖥️  Servers: {stats['servers_count']}")
+                    log_message(f"   ⚠️  Anomaly ratio: {stats['anomaly_ratio']*100:.1f}%")
+                    
+                    return True
+                else:
+                    log_message("❌ Generated dataset failed validation")
+                    return False
             else:
-                print("❌ Training failed")
+                log_message("❌ Dataset generation failed")
                 return False
                 
+        except KeyboardInterrupt:
+            log_message("⏸️  Generation interrupted")
+            return False
         except Exception as e:
-            print(f"❌ Training failed: {e}")
-            logger.error(f"Training error: {e}")
+            log_message(f"❌ Generation failed: {e}")
             return False
     
-    def test(self):
-        """Test model inference with rule-based fallback."""
-        print("\n🧪 TESTING MODEL INFERENCE")
-        print("="*40)
+    def train(self, resume: bool = False) -> bool:
+        """Train TFT model."""
+        if not self.dataset_exists:
+            log_message("❌ No dataset found. Run generate_dataset() first")
+            return False
+        
+        log_message("🏋️ Training TFT model...")
+        log_message(f"🎯 Model: Temporal Fusion Transformer")
+        log_message(f"⚡ Environment: {detect_training_environment()}")
+        log_message(f"📊 Config: {CONFIG['epochs']} epochs, batch size {CONFIG['batch_size']}")
         
         try:
-            # Try ML model first
-            inference = MonitoringInference()
+            # Create trainer
+            self.trainer = DistilledModelTrainer(CONFIG, resume_training=resume)
             
-            test_cases = [
-                {
-                    'name': 'Normal Operation',
-                    'metrics': {
-                        'cpu_usage': 25.5, 'memory_usage': 45.2, 'disk_usage': 35.8,
-                        'load_average': 1.2, 'java_heap_usage': 55.0
-                    }
-                },
-                {
-                    'name': 'High CPU',
-                    'metrics': {
-                        'cpu_usage': 92.3, 'memory_usage': 65.1, 'disk_usage': 45.2,
-                        'load_average': 8.7, 'java_heap_usage': 75.0
-                    }
-                },
-                {
-                    'name': 'Memory Pressure',
-                    'metrics': {
-                        'cpu_usage': 35.2, 'memory_usage': 96.8, 'disk_usage': 55.1,
-                        'load_average': 2.1, 'java_heap_usage': 97.5
-                    }
-                }
-            ]
+            # Train model
+            success = self.trainer.train()
             
-            ml_success = False
-            for test_case in test_cases:
-                print(f"\n--- {test_case['name']} ---")
-                
-                # Try ML prediction
-                prediction = inference.predict_anomaly(test_case['metrics'])
-                
-                if 'error' in prediction:
-                    print(f"ML Model Error: {prediction['error']}")
-                    # Fall back to rule-based prediction
-                    prediction = self._rule_based_prediction(test_case['metrics'])
-                    print("Using rule-based fallback")
-                else:
-                    ml_success = True
-                
-                print(f"Status: {prediction.get('predicted_status', 'Unknown')}")
-                print(f"Anomaly: {prediction.get('final_anomaly', False)} ({prediction.get('anomaly_probability', 0.0):.3f})")
-                print(f"Recommendation: {prediction.get('recommendations', ['None'])[0]}")
-            
-            if ml_success:
-                print("\n✅ ML Model testing successful!")
+            if success:
+                self.model_trained = check_tft_model_exists(Path(CONFIG['models_dir']))
+                log_message("🎉 TFT training completed!")
+                log_message("💡 Model capabilities:")
+                log_message("   - Multi-horizon time-series forecasting")
+                log_message("   - Attention-based feature importance")
+                log_message("   - Uncertainty quantification")
+                return True
             else:
-                print("\n⚠️  ML Model needs debugging, but rule-based fallback works")
-            
-            # Update status
-            self.model_trained = check_models_like_trainer(Path(CONFIG['models_dir']))
-            return True
-            
-        except FileNotFoundError as e:
-            print(f"❌ No trained model found. Run train() first")
-            print(f"Details: {e}")
-            self.model_trained = False
+                log_message("❌ Training failed")
+                return False
+                
+        except KeyboardInterrupt:
+            log_message("⏸️ Training interrupted")
             return False
         except Exception as e:
-            print(f"❌ Testing failed: {e}")
-            logger.error(f"Testing error: {e}")
+            log_message(f"❌ Training failed: {e}")
             return False
-
-    def _rule_based_prediction(self, metrics: Dict) -> Dict:
-        """Rule-based fallback prediction for testing."""
-        cpu = metrics.get('cpu_usage', 0)
-        memory = metrics.get('memory_usage', 0)
-        disk = metrics.get('disk_usage', 0)
-        load = metrics.get('load_average', 0)
-        
-        # Simple rule-based logic
-        anomaly_score = 0.0
-        status = "System Normal"
-        recommendations = ["Continue normal monitoring"]
-        
-        if cpu > 90:
-            anomaly_score = 0.9
-            status = "Performance Issue"
-            recommendations = ["Check CPU-intensive processes", "Review recent deployments"]
-        elif memory > 90:
-            anomaly_score = 0.85
-            status = "Resource Constraint"
-            recommendations = ["Check memory usage", "Look for memory leaks"]
-        elif disk > 90:
-            anomaly_score = 0.8
-            status = "Resource Constraint"
-            recommendations = ["Clean up disk space", "Review log rotation"]
-        elif load > 8:
-            anomaly_score = 0.75
-            status = "Performance Issue"
-            recommendations = ["Check system load", "Review running processes"]
-        elif cpu > 80 or memory > 80:
-            anomaly_score = 0.6
-            status = "Performance Issue"
-            recommendations = ["Monitor resource usage closely"]
-        
-        return {
-            'predicted_status': status,
-            'final_anomaly': anomaly_score > 0.7,
-            'anomaly_probability': anomaly_score,
-            'recommendations': recommendations,
-            'model_type': 'rule_based_fallback'
-        }
     
-    def demo(self, minutes: int = 5):
-        """Run monitoring demo."""
-        print(f"\n🎭 MONITORING DEMO ({minutes} minutes)")
-        print("="*40)
+    def test(self) -> bool:
+        """Test TFT model inference."""
+        if not self.model_trained:
+            log_message("❌ No trained model found. Run train() first")
+            return False
         
-        # Check model using common utilities
-        if not check_models_like_trainer(Path(CONFIG['models_dir'])):
-            print("❌ No trained model found. Run train() first")
-            return
+        log_message("🧪 Testing TFT model inference...")
+        
+        try:
+            # Initialize inference engine
+            self.inference = TFTInference()
+            
+            if not self.inference.is_ready():
+                log_message("❌ TFT inference engine not ready")
+                return False
+            
+            # Generate test scenarios
+            test_scenarios = self._create_test_scenarios()
+            
+            success_count = 0
+            for i, scenario in enumerate(test_scenarios, 1):
+                log_message(f"\n--- Test {i}: {scenario['name']} ---")
+                
+                # Run prediction
+                result = self.inference.predict(scenario['data'])
+                
+                if 'error' in result:
+                    log_message(f"❌ Error: {result['error']}")
+                    continue
+                
+                # Display results
+                predictions = result.get('predictions', {})
+                alerts = result.get('alerts', [])
+                
+                log_message(f"✅ Prediction successful")
+                
+                # Show key predictions
+                for metric, pred_data in list(predictions.items())[:3]:  # Show first 3 metrics
+                    values = pred_data['values']
+                    log_message(f"   {metric}: {values[0]:.1f} → {values[-1]:.1f}")
+                
+                # Show alerts
+                if alerts:
+                    critical_alerts = [a for a in alerts if a['severity'] == 'critical']
+                    warning_alerts = [a for a in alerts if a['severity'] == 'warning']
+                    
+                    if critical_alerts:
+                        log_message(f"   🚨 {len(critical_alerts)} critical alerts")
+                    if warning_alerts:
+                        log_message(f"   ⚠️  {len(warning_alerts)} warning alerts")
+                else:
+                    log_message("   ✅ No alerts generated")
+                
+                success_count += 1
+            
+            log_message(f"\n🎉 Testing completed: {success_count}/{len(test_scenarios)} successful")
+            return success_count > 0
+            
+        except Exception as e:
+            log_message(f"❌ Testing failed: {e}")
+            return False
+    
+    def demo(self, minutes: int = 5) -> bool:
+        """Run TFT monitoring demo."""
+        if not self.model_trained:
+            log_message("❌ No trained model found. Run train() first")
+            return False
+        
+        log_message(f"🎭 Running TFT monitoring demo ({minutes} minutes)...")
+        log_message("📈 Features: Multi-horizon forecasting, attention weights, uncertainty quantification")
         
         try:
             import time
-            import numpy as np
+            import random
             
-            inference = MonitoringInference()
-            monitor = RealTimeMonitor(check_interval=12)
-            dashboard = MonitoringDashboard()
+            if not self.inference:
+                self.inference = TFTInference()
             
             start_time = time.time()
             end_time = start_time + (minutes * 60)
             iteration = 0
             
+            log_message("🚀 Starting live TFT prediction demo...")
+            
             while time.time() < end_time:
                 iteration += 1
                 
-                # Collect basic metrics
-                metrics = {
-                    'cpu_usage': np.random.uniform(15, 45),
-                    'memory_usage': np.random.uniform(30, 60),
-                    'disk_usage': np.random.uniform(20, 50),
-                    'load_average': np.random.uniform(0.5, 2.0),
-                    'java_heap_usage': np.random.uniform(40, 70)
-                }
+                # Generate realistic server metrics sequence
+                demo_data = self._generate_demo_sequence()
                 
-                # Inject anomalies for demo
-                if iteration % 8 == 0:
-                    print("\n🔥 Simulating CPU spike...")
-                    metrics.update({
-                        'cpu_usage': np.random.uniform(85, 99),
-                        'load_average': np.random.uniform(8, 15)
-                    })
-                elif iteration % 12 == 0:
-                    print("\n💾 Simulating memory pressure...")
-                    metrics.update({
-                        'memory_usage': np.random.uniform(88, 97),
-                        'java_heap_usage': np.random.uniform(92, 99)
-                    })
+                # Run TFT prediction
+                result = self.inference.predict(demo_data)
                 
-                # Process and display
-                prediction = inference.predict_anomaly(metrics)
+                if 'error' not in result:
+                    predictions = result.get('predictions', {})
+                    alerts = result.get('alerts', [])
+                    
+                    # Show prediction summary
+                    status = "🔴 ALERTS" if alerts else "🟢 Normal"
+                    log_message(f"Iteration {iteration}: {status}")
+                    
+                    # Show interesting predictions
+                    if iteration % 3 == 0:  # Every 3rd iteration
+                        for metric, pred_data in list(predictions.items())[:2]:
+                            values = pred_data['values']
+                            trend = "↗️" if values[-1] > values[0] else "↘️" if values[-1] < values[0] else "→"
+                            log_message(f"   {metric}: {values[0]:.1f} {trend} {values[-1]:.1f}")
+                    
+                    # Show critical alerts
+                    critical_alerts = [a for a in alerts if a['severity'] == 'critical']
+                    if critical_alerts:
+                        alert = critical_alerts[0]
+                        log_message(f"   🚨 CRITICAL: {alert['metric']} predicted at {alert['predicted_value']}")
                 
-                status = "🔴 ANOMALY" if prediction.get('final_anomaly') else "🟢 Normal"
-                print(f"{status} - Iteration {iteration} (confidence: {prediction['anomaly_probability']:.3f})")
-                
-                time.sleep(12)
+                time.sleep(10)  # 10 second intervals
             
-            print("\n✅ Demo completed!")
+            log_message("🎉 Demo completed successfully!")
+            log_message("💡 Demo showcased:")
+            log_message("   - Real-time multi-horizon forecasting")
+            log_message("   - Automated alert generation")
+            log_message("   - Temporal pattern recognition")
+            
+            return True
             
         except KeyboardInterrupt:
-            print("\n⏹️  Demo stopped by user")
+            log_message("⏹️  Demo stopped by user")
+            return False
         except Exception as e:
-            print(f"❌ Demo failed: {e}")
-            logger.error(f"Demo error: {e}")
+            log_message(f"❌ Demo failed: {e}")
+            return False
     
     def status(self):
-        """Show system status using ONLY common utilities."""
-        print(f"\n{'='*50}")
-        print("SYSTEM STATUS")
-        print(f"{'='*50}")
+        """Show comprehensive system status."""
+        log_message(f"\n{'='*50}")
+        log_message("TFT MONITORING SYSTEM STATUS")
+        log_message(f"{'='*50}")
         
-        print(f"Setup: {'✅' if self.setup_complete else '❌'}")
+        # System status
+        log_message(f"Setup: {'✅' if self.setup_complete else '❌'}")
+        log_message(f"Dataset: {'✅' if self.dataset_exists else '❌'}")
+        log_message(f"Model: {'✅' if self.model_trained else '❌'}")
         
-        # Use ONLY common utilities for all checks
-        from common_utils import analyze_existing_datasets, check_models_like_trainer
+        # Dataset info
+        if self.dataset_exists:
+            dataset_path = Path(CONFIG['training_dir']) / 'metrics_dataset.json'
+            stats = get_dataset_stats(dataset_path)
+            
+            log_message(f"\n📊 Dataset Information:")
+            log_message(f"   Samples: {stats.get('total_samples', 0):,}")
+            log_message(f"   Time span: {stats.get('time_span_hours', 0):.1f} hours")
+            log_message(f"   Servers: {stats.get('servers_count', 0)}")
+            log_message(f"   Anomaly ratio: {stats.get('anomaly_ratio', 0)*100:.1f}%")
+            log_message(f"   Format: {'Enhanced' if stats.get('enhanced') else 'Standard'}")
         
-        analysis = analyze_existing_datasets(Path(CONFIG['training_dir']))
-        datasets_exist = analysis['language_dataset']['exists'] and analysis['metrics_dataset']['exists']
-        model_exists = check_models_like_trainer(Path(CONFIG['models_dir']))
+        # Model info
+        if self.model_trained:
+            from common_utils import get_latest_tft_model_path
+            model_path = get_latest_tft_model_path(Path(CONFIG['models_dir']))
+            log_message(f"\n🤖 Model Information:")
+            log_message(f"   Type: Temporal Fusion Transformer")
+            log_message(f"   Path: {model_path}")
+            log_message(f"   Framework: PyTorch Forecasting")
         
-        print(f"Datasets: {'✅' if datasets_exist else '❌'}")
-        print(f"Model: {'✅' if model_exists else '❌'}")
-        print(f"Fallbacks: {'✅' if self.fallback_ready else '❌'}")
+        # System info
+        info = get_system_info()
+        log_message(f"\n🖥️  System Information:")
+        log_message(f"   Environment: {info['environment']}")
+        log_message(f"   Framework: {info['framework']}")
+        if info.get('gpu_name'):
+            log_message(f"   GPU: {info['gpu_name']} ({info['gpu_memory_gb']}GB)")
         
-        # Show progress using generator's method
-        if self.generator:
-            self.generator.show_progress_with_multiplier()
+        log_message(f"\n⚙️  Configuration:")
+        log_message(f"   Epochs: {CONFIG['epochs']}")
+        log_message(f"   Batch size: {CONFIG['batch_size']}")
+        log_message(f"   Context length: {CONFIG['context_length']}")
+        log_message(f"   Prediction horizon: {CONFIG['prediction_horizon']}")
         
-        # File status using ONLY common utilities
-        print(f"\nFiles:")
-        print(f"  Language Dataset: {'✅' if analysis['language_dataset']['exists'] else '❌'}")
-        if analysis['language_dataset']['exists']:
-            print(f"    Samples: {analysis['language_dataset']['samples']}")
-        
-        print(f"  Metrics Dataset: {'✅' if analysis['metrics_dataset']['exists'] else '❌'}")
-        if analysis['metrics_dataset']['exists']:
-            print(f"    Samples: {analysis['metrics_dataset']['samples']}")
-        
-        print(f"  Trained Model: {'✅' if model_exists else '❌'}")
-        
-        print(f"\nEnvironment: {detect_training_environment()}")
-        print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"{'='*50}")
+        log_message(f"\nTime: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        log_message(f"{'='*50}")
     
     def cleanup(self):
-        """Run system cleanup using ONLY common utilities."""
-        from common_utils import periodic_cleanup
-        
-        print("🧹 Running system cleanup...")
+        """Run system cleanup."""
+        log_message("🧹 Running TFT system cleanup...")
         try:
-            periodic_cleanup(CONFIG)
-            print("✅ Cleanup completed successfully")
+            cleanup_tft_artifacts(CONFIG)
+            log_message("✅ Cleanup completed")
         except Exception as e:
-            print(f"❌ Cleanup failed: {e}")
-            logger.error(f"Cleanup error: {e}")
+            log_message(f"❌ Cleanup failed: {e}")
     
-    def show_progress(self):
-        """Show dataset generation progress using generator's method."""
-        if self.generator:
-            self.generator.show_progress_with_multiplier()
-        else:
-            print("❌ Generator not initialized. Run setup() first.")
+    def _create_test_scenarios(self) -> list:
+        """Create test scenarios for TFT inference."""
+        scenarios = []
+        
+        # Scenario 1: Normal operation trend
+        normal_data = []
+        for i in range(30):  # 30 time points (2.5 hours at 5min intervals)
+            normal_data.append({
+                'timestamp': (datetime.now() - timedelta(minutes=5*i)).isoformat(),
+                'cpu_usage': 25 + random.gauss(0, 5),
+                'memory_usage': 45 + random.gauss(0, 8),
+                'disk_usage': 35 + random.gauss(0, 3),
+                'load_average': 1.2 + random.gauss(0, 0.3)
+            })
+        
+        scenarios.append({
+            'name': 'Normal Operation Trend',
+            'data': normal_data
+        })
+        
+        # Scenario 2: Gradual degradation
+        degradation_data = []
+        for i in range(30):
+            base_cpu = 30 + (i * 2)  # Gradually increasing
+            degradation_data.append({
+                'timestamp': (datetime.now() - timedelta(minutes=5*i)).isoformat(),
+                'cpu_usage': base_cpu + random.gauss(0, 3),
+                'memory_usage': 50 + (i * 1.5) + random.gauss(0, 5),
+                'disk_usage': 40 + random.gauss(0, 2),
+                'load_average': 1.5 + (i * 0.1) + random.gauss(0, 0.2)
+            })
+        
+        scenarios.append({
+            'name': 'Gradual Performance Degradation',
+            'data': degradation_data
+        })
+        
+        # Scenario 3: Spike pattern
+        spike_data = []
+        for i in range(30):
+            if 10 <= i <= 15:  # Spike in middle
+                cpu_val = 85 + random.gauss(0, 5)
+                mem_val = 80 + random.gauss(0, 8)
+            else:
+                cpu_val = 25 + random.gauss(0, 5)
+                mem_val = 45 + random.gauss(0, 8)
+            
+            spike_data.append({
+                'timestamp': (datetime.now() - timedelta(minutes=5*i)).isoformat(),
+                'cpu_usage': cpu_val,
+                'memory_usage': mem_val,
+                'disk_usage': 35 + random.gauss(0, 3),
+                'load_average': 1.2 + random.gauss(0, 0.3)
+            })
+        
+        scenarios.append({
+            'name': 'Spike Pattern Detection',
+            'data': spike_data
+        })
+        
+        return scenarios
     
-    def reset_progress(self):
-        """Reset dataset generation progress using generator's method."""
-        if self.generator:
-            self.generator.reset_progress()
-        else:
-            print("❌ Generator not initialized. Run setup() first.")
-    
-    def retry_failed(self):
-        """Retry failed generation items using generator's method."""
-        if self.generator:
-            self.generator.retry_failed()
-        else:
-            print("❌ Generator not initialized. Run setup() first.")
-    
-    def _check_datasets_using_common_utils(self):
-        """Check if datasets exist using common utilities."""
-        analysis = analyze_existing_datasets(Path(CONFIG['training_dir']))
-        return (analysis['language_dataset']['exists'] and 
-                analysis['metrics_dataset']['exists'])
+    def _generate_demo_sequence(self) -> list:
+        """Generate demo data sequence."""
+        import random
+        from datetime import timedelta
+        
+        # Generate 24 time points (2 hours of history)
+        demo_data = []
+        base_time = datetime.now()
+        
+        for i in range(24):
+            # Add some variability and trends
+            phase = i / 24.0  # 0 to 1
+            cpu_trend = 30 + 20 * phase + random.gauss(0, 5)  # Gradual increase
+            mem_trend = 50 + 15 * phase + random.gauss(0, 8)
+            
+            demo_data.append({
+                'timestamp': (base_time - timedelta(minutes=5*i)).isoformat(),
+                'cpu_usage': max(0, min(100, cpu_trend)),
+                'memory_usage': max(0, min(100, mem_trend)),
+                'disk_usage': 35 + random.gauss(0, 3),
+                'load_average': 1.2 + phase * 2 + random.gauss(0, 0.3),
+                'java_heap_usage': 55 + phase * 20 + random.gauss(0, 5),
+                'network_errors': random.poisson(2)
+            })
+        
+        return demo_data
+
 
 # Global system instance
-system = DistilledMonitoringSystem()
+system = TFTMonitoringSystem()
 
-def cleanup():
-    """Run system cleanup."""
-    return system.cleanup()
-
-# Simple interface functions - all use exact same logic as components
-def setup():
-    """Setup environment and fallback system."""
+# Simplified interface functions
+def setup() -> bool:
+    """Setup TFT environment."""
     return system.setup()
 
-def generate_datasets(language_count: int = None, metrics_count: int = None):
-    """Generate training datasets."""
-    return system.generate_datasets(language_count, metrics_count)
+def generate_dataset(hours: int = 168, force_regenerate: bool = False) -> bool:
+    """Generate metrics dataset for TFT training."""
+    return system.generate_dataset(hours, force_regenerate)
 
-def train():
-    """Train the distilled model."""
-    return system.train()
+def train(resume: bool = False) -> bool:
+    """Train TFT model."""
+    return system.train(resume)
 
-def test():
-    """Test model inference."""
+def test() -> bool:
+    """Test TFT model inference."""
     return system.test()
 
-def demo(minutes: int = 5):
-    """Run monitoring demo."""
+def demo(minutes: int = 5) -> bool:
+    """Run TFT monitoring demo."""
     return system.demo(minutes)
 
 def status():
     """Show system status."""
     return system.status()
 
-def show_progress():
-    """Show dataset generation progress."""
-    return system.show_progress()
-
-def reset_progress():
-    """Reset dataset generation progress."""
-    return system.reset_progress()
-
-def retry_failed():
-    """Retry failed generation items."""
-    return system.retry_failed()
+def cleanup():
+    """Run system cleanup."""
+    return system.cleanup()
 
 def quick_start_guide():
-    """Display quick start guide."""
+    """Display TFT quick start guide."""
     print("""
-🚀 DISTILLED MONITORING SYSTEM - QUICK START
-============================================
+🚀 TFT MONITORING SYSTEM - QUICK START
+======================================
 
-WORKFLOW:
-1. setup()                    # Setup environment and fallback system
-2. generate_datasets()        # Generate training datasets
-3. train()                   # Train the distilled model
-4. test()                    # Test model inference
-5. demo(minutes=5)           # Run monitoring demo
+STREAMLINED TFT WORKFLOW:
+✨ Pure PyTorch Forecasting implementation
+✨ Temporal Fusion Transformer architecture
+✨ Multi-horizon time-series prediction
+✨ Attention-based feature importance
+✨ Safetensors secure model storage
 
-PROGRESS MANAGEMENT:
-- show_progress()            # Check dataset generation progress
-- reset_progress()           # Start dataset generation fresh
-- retry_failed()             # Retry failed generation items
+SIMPLE 4-STEP WORKFLOW:
+1. setup()                    # Setup TFT environment
+2. generate_dataset(168)      # Generate 1 week of data
+3. train()                   # Train TFT model
+4. test()                    # Test predictions
+
+DEMO & MONITORING:
+- demo(minutes=5)            # Live prediction demo
+- status()                   # System status
+- cleanup()                  # Clean old files
+
+ADVANCED OPTIONS:
+- generate_dataset(hours=720, force_regenerate=True)  # 30 days, force regen
+- train(resume=True)         # Resume training from checkpoint
 
 CONFIGURATION:
-- Edit YAML files in ./data_config/ for customization
-- System discovers models and YAML files automatically
-- Fallback order: Remote API → Ollama → Local Model → Static
+- Edit CONFIG in config.py for model parameters
+- TFT optimizes automatically for your GPU
+- Uses mixed precision training on CUDA
 
-The system is designed for dynamic environments with automatic discovery.
+WHAT'S INCLUDED:
+📊 Enhanced metrics generator (57 servers, realistic patterns)
+🤖 TFT model (6-step ahead prediction, 24-step context)
+⚡ GPU-optimized training (automatic batch size tuning)
+🔒 Secure model storage (Safetensors format)
+📈 Real-time inference with uncertainty quantification
+🚨 Automated alert generation with thresholds
+
+The system generates realistic server behavior patterns perfect for
+training predictive models that can forecast server failures and
+performance issues before they occur.
 """)
 
 # Display guide on import
-print("🚀 Distilled Monitoring System")
-print("📊 Predictive monitoring with dynamic discovery")
+print("🎯 TFT Monitoring System - Temporal Fusion Transformer")
+print("📈 Multi-horizon time-series prediction for server monitoring")
+print("⚡ PyTorch Forecasting + GPU acceleration")
 print()
 print("Type quick_start_guide() for usage instructions")
 print("Type status() to check system status")
+
+# Missing import for test scenarios
+from datetime import timedelta
+import random

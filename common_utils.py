@@ -1,98 +1,93 @@
 #!/usr/bin/env python3
 """
-common_utils.py - Shared utilities for dataset generation, training, and inference
-Centralizes data format handling and common operations to minimize script modifications
+common_utils.py - Complete TFT-focused utilities
+Streamlined utilities for TFT training, Safetensors model storage, and metrics datasets
+Includes all missing functions for TFT system
 """
-import os, sys
+
+import os
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Optional
 from datetime import datetime
-import torch as tf
+import shutil
 
 logger = logging.getLogger(__name__)
 
-# Standardized dataset formats
-DATASET_FORMATS = {
-    "language_dataset": {
-        "filename": "language_dataset.json",
-        "structure": {
-            "metadata": {
-                "generated_at": "ISO timestamp",
-                "total_samples": "int",
-                "session_id": "string",
-                "models_per_question": "int",
-                "generation_stats": "dict",
-                "sample_distribution": "dict"
-            },
-            "samples": [
-                {
-                    "type": "string",
-                    "prompt": "string", 
-                    "response": "string",
-                    "model": "string",
-                    "session_id": "string",
-                    "timestamp": "ISO timestamp"
-                }
-            ]
-        }
-    },
-    "metrics_dataset": {
-        "filename": "metrics_dataset.json",
-        "structure": {
-            "training_samples": [
-                {
-                    "id": "string",
-                    "timestamp": "ISO timestamp",
-                    "server_name": "string",
-                    "metrics": "dict",
-                    "status": "normal|anomaly",
-                    "explanation": "string"
-                }
-            ],
-            "metadata": {
-                "generated_at": "ISO timestamp",
-                "total_samples": "int",
-                "anomaly_ratio": "float",
-                "session_id": "string"
+# TFT-specific dataset format
+METRICS_DATASET_FORMAT = {
+    "filename": "metrics_dataset.json",
+    "structure": {
+        "training_samples": [
+            {
+                "id": "string",
+                "timestamp": "ISO timestamp",
+                "server_name": "string",
+                "metrics": "dict",
+                "status": "normal|anomaly",
+                "timeframe": "string",
+                "explanation": "string",
+                "severity": "string"
             }
+        ],
+        "metadata": {
+            "generated_at": "ISO timestamp",
+            "total_samples": "int",
+            "time_span_hours": "int", 
+            "servers_count": "int",
+            "poll_interval_seconds": "int",
+            "anomaly_ratio": "float",
+            "format_version": "string"
         }
     }
 }
 
-def load_dataset_file(file_path: Path, expected_format: str = None) -> Dict[str, Any]:
-    """Load dataset file with format validation."""
+def load_metrics_dataset(file_path: Path) -> Dict[str, Any]:
+    """Load metrics dataset for TFT training."""
     try:
         if not file_path.exists():
-            logger.warning(f"Dataset file not found: {file_path}")
+            logger.warning(f"Metrics dataset not found: {file_path}")
             return {}
         
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        logger.info(f"✅ Loaded {file_path.name}")
+        logger.info(f"✅ Loaded metrics dataset: {file_path.name}")
         
-        if expected_format and expected_format in DATASET_FORMATS:
-            _validate_dataset_format(data, expected_format)
+        # Validate structure
+        if "training_samples" not in data:
+            logger.warning("Metrics dataset missing 'training_samples'")
+            return {}
         
         return data
         
     except Exception as e:
-        logger.error(f"Failed to load {file_path}: {e}")
+        logger.error(f"Failed to load metrics dataset {file_path}: {e}")
         return {}
 
-def save_dataset_file(data: Dict[str, Any], file_path: Path, format_type: str = None) -> bool:
-    """Save dataset file with format consistency."""
+def load_dataset_file(file_path: Path) -> Dict[str, Any]:
+    """Load dataset file - alias for load_metrics_dataset."""
+    return load_metrics_dataset(file_path)
+
+def get_dataset_paths(training_dir: Path) -> Dict[str, Path]:
+    """Get paths to dataset files."""
+    return {
+        'metrics_dataset': training_dir / 'metrics_dataset.json',
+        'training_dir': training_dir,
+        'models_dir': training_dir.parent / 'models',
+        'checkpoints_dir': training_dir.parent / 'checkpoints',
+        'logs_dir': training_dir.parent / 'logs'
+    }
+
+def save_metrics_dataset(data: Dict[str, Any], file_path: Path) -> bool:
+    """Save metrics dataset with metadata."""
     try:
-        # Ensure directory exists
         file_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Add metadata if missing
-        if format_type == "language_dataset" and "metadata" not in data:
-            data["metadata"] = _create_language_metadata(data.get("samples", []))
-        elif format_type == "metrics_dataset" and "metadata" not in data:
-            data["metadata"] = _create_metrics_metadata(data.get("training_samples", []))
+        if "metadata" not in data:
+            data["metadata"] = create_metrics_metadata(data.get("training_samples", []))
         
         # Atomic write
         temp_file = file_path.with_suffix('.json.tmp')
@@ -100,56 +95,33 @@ def save_dataset_file(data: Dict[str, Any], file_path: Path, format_type: str = 
             json.dump(data, f, indent=2, ensure_ascii=False)
         
         temp_file.replace(file_path)
-        logger.info(f"💾 Saved {file_path.name}")
+        logger.info(f"💾 Saved metrics dataset: {file_path.name}")
         return True
         
     except Exception as e:
-        logger.error(f"Failed to save {file_path}: {e}")
+        logger.error(f"Failed to save metrics dataset {file_path}: {e}")
         if temp_file.exists():
             temp_file.unlink()
         return False
 
-def _validate_dataset_format(data: Dict, format_type: str) -> bool:
-    """Validate dataset follows expected format."""
-    expected = DATASET_FORMATS.get(format_type, {})
-    structure = expected.get("structure", {})
-    
-    if format_type == "language_dataset":
-        if "samples" not in data:
-            logger.warning("Language dataset missing 'samples' key")
-            return False
-        if not isinstance(data["samples"], list):
-            logger.warning("Language dataset 'samples' is not a list")
-            return False
-            
-    elif format_type == "metrics_dataset":
-        if "training_samples" not in data:
-            logger.warning("Metrics dataset missing 'training_samples' key")
-            return False
-        if not isinstance(data["training_samples"], list):
-            logger.warning("Metrics dataset 'training_samples' is not a list")
-            return False
-    
-    return True
-
-def _create_language_metadata(samples: List[Dict]) -> Dict:
-    """Create metadata for language dataset."""
-    sample_distribution = {}
-    for sample in samples:
-        sample_type = sample.get('type', 'unknown')
-        sample_distribution[sample_type] = sample_distribution.get(sample_type, 0) + 1
-    
-    return {
-        "generated_at": datetime.now().isoformat(),
-        "total_samples": len(samples),
-        "sample_distribution": sample_distribution,
-        "format_version": "1.0"
-    }
-
-def _create_metrics_metadata(samples: List[Dict]) -> Dict:
+def create_metrics_metadata(samples: List[Dict]) -> Dict:
     """Create metadata for metrics dataset."""
     anomaly_count = sum(1 for s in samples if s.get('status') == 'anomaly')
     anomaly_ratio = anomaly_count / len(samples) if samples else 0
+    
+    # Extract time span from samples
+    if samples:
+        timestamps = [datetime.fromisoformat(s['timestamp'].replace('Z', '+00:00')) 
+                     for s in samples if 'timestamp' in s]
+        if timestamps:
+            time_span_hours = (max(timestamps) - min(timestamps)).total_seconds() / 3600
+        else:
+            time_span_hours = 0
+    else:
+        time_span_hours = 0
+    
+    # Count unique servers
+    servers = set(s.get('server_name', 'unknown') for s in samples)
     
     return {
         "generated_at": datetime.now().isoformat(),
@@ -157,91 +129,76 @@ def _create_metrics_metadata(samples: List[Dict]) -> Dict:
         "anomaly_samples": anomaly_count,
         "normal_samples": len(samples) - anomaly_count,
         "anomaly_ratio": anomaly_ratio,
-        "format_version": "1.0"
+        "time_span_hours": time_span_hours,
+        "servers_count": len(servers),
+        "format_version": "2.0",
+        "enhanced": True
     }
 
-def analyze_existing_datasets(training_dir: Path) -> Dict[str, Any]:
-    """Analyze existing datasets using standardized format."""
+def analyze_metrics_dataset(training_dir: Path) -> Dict[str, Any]:
+    """Analyze existing metrics dataset."""
     analysis = {
-        "language_dataset": {"exists": False, "samples": 0, "distribution": {}},
-        "metrics_dataset": {"exists": False, "samples": 0, "anomaly_ratio": 0}
+        "exists": False,
+        "samples": 0,
+        "anomaly_ratio": 0,
+        "metadata": {}
     }
     
-    # Language dataset
-    lang_file = training_dir / DATASET_FORMATS["language_dataset"]["filename"]
-    if lang_file.exists():
-        lang_data = load_dataset_file(lang_file, "language_dataset")
-        if lang_data:
-            samples = lang_data.get("samples", [])
-            analysis["language_dataset"] = {
-                "exists": True,
-                "samples": len(samples),
-                "distribution": _get_sample_distribution(samples),
-                "metadata": lang_data.get("metadata", {})
-            }
-    
-    # Metrics dataset
-    metrics_file = training_dir / DATASET_FORMATS["metrics_dataset"]["filename"]
+    metrics_file = training_dir / METRICS_DATASET_FORMAT["filename"]
     if metrics_file.exists():
-        metrics_data = load_dataset_file(metrics_file, "metrics_dataset")
-        if metrics_data:
-            samples = metrics_data.get("training_samples", [])
+        data = load_metrics_dataset(metrics_file)
+        if data:
+            samples = data.get("training_samples", [])
             anomaly_count = sum(1 for s in samples if s.get('status') == 'anomaly')
-            analysis["metrics_dataset"] = {
+            
+            analysis = {
                 "exists": True,
                 "samples": len(samples),
                 "anomaly_ratio": anomaly_count / len(samples) if samples else 0,
-                "metadata": metrics_data.get("metadata", {})
+                "metadata": data.get("metadata", {}),
+                "enhanced_format": data.get("metadata", {}).get("enhanced", False)
             }
     
     return analysis
 
-def _get_sample_distribution(samples: List[Dict]) -> Dict[str, int]:
-    """Get distribution of sample types."""
-    distribution = {}
-    for sample in samples:
-        sample_type = sample.get('type', 'unknown')
-        distribution[sample_type] = distribution.get(sample_type, 0) + 1
-    return distribution
-
-def check_models_like_trainer(models_dir: Path) -> bool:
-    """Check if trained model exists using exact same logic as trainer."""
+def check_tft_model_exists(models_dir: Path) -> bool:
+    """Check if trained TFT model exists."""
     if not models_dir.exists():
         return False
     
-    # Use EXACT same pattern as distilled_model_trainer.py
-    model_dirs = list(models_dir.glob('distilled_monitoring_*'))
+    # Look for TFT model directories
+    model_dirs = list(models_dir.glob('tft_monitoring_*'))
     if not model_dirs:
         return False
     
-    # Sort by timestamp (newest first) - EXACT same as trainer
+    # Sort by timestamp (newest first)
     model_dirs.sort(reverse=True)
     latest_model = model_dirs[0]
     
-    # Verify using EXACT same files as trainer saves
+    # Verify TFT model files exist
     required_files = ['model.safetensors', 'config.json', 'training_metadata.json']
     return all((latest_model / f).exists() for f in required_files)
 
-def get_latest_model_path(models_dir: Path) -> Optional[str]:
-    """Get path to latest trained model."""
-    if not check_models_like_trainer(models_dir):
+def check_models_like_trainer(models_dir: Path) -> bool:
+    """Check if models exist (alias for backward compatibility)."""
+    return check_tft_model_exists(models_dir)
+
+def get_latest_tft_model_path(models_dir: Path) -> Optional[str]:
+    """Get path to latest trained TFT model."""
+    if not check_tft_model_exists(models_dir):
         return None
     
-    model_dirs = list(models_dir.glob('distilled_monitoring_*'))
+    model_dirs = list(models_dir.glob('tft_monitoring_*'))
     model_dirs.sort(reverse=True)
     return str(model_dirs[0])
 
-def ensure_directory_structure(config: Dict) -> bool:
-    """Ensure all required directories exist."""
+def ensure_tft_directories(config: Dict) -> bool:
+    """Ensure all required TFT directories exist."""
     directories = [
         config.get('training_dir', './training/'),
         config.get('models_dir', './models/'),
         config.get('checkpoints_dir', './checkpoints/'),
         config.get('logs_dir', './logs/'),
-        config.get('hf_cache_dir', './hf_cache/'),
-        config.get('local_model_path', './local_models/'),
-        config.get('pretrained_dir', './pretrained/'),
-        config.get('static_fallback_path', './static_responses/'),
         config.get('data_config_dir', './data_config/')
     ]
     
@@ -253,306 +210,400 @@ def ensure_directory_structure(config: Dict) -> bool:
         logger.error(f"Failed to create directories: {e}")
         return False
 
-def get_cache_status(config: Dict) -> Dict[str, Any]:
-    """Get comprehensive cache status."""
-    status = {
-        "cache_type": "shared" if config.get("shared_cache_enabled") else "local",
-        "directories": {},
-        "total_size_gb": 0,
-        "model_counts": {}
-    }
+def cleanup_tft_artifacts(config: Dict):
+    """Clean up old TFT training artifacts."""
+    if not config.get("cleanup_enabled", True):
+        return
     
-    cache_dirs = {
-        "hf_cache": config["hf_cache_dir"],
-        "models": config["models_dir"],
-        "local_models": config["local_model_path"],
-        "pretrained": config["pretrained_dir"]
-    }
-    
-    for name, directory in cache_dirs.items():
-        dir_path = Path(directory)
-        if dir_path.exists():
-            try:
-                # Calculate size
-                total_size = sum(f.stat().st_size for f in dir_path.rglob('*') if f.is_file())
-                size_gb = total_size / (1024**3)
+    try:
+        # Clean up old checkpoints
+        checkpoints_dir = Path(config.get('checkpoints_dir', './checkpoints/'))
+        if checkpoints_dir.exists():
+            checkpoint_files = list(checkpoints_dir.glob('*.ckpt'))
+            keep_recent = config.get('keep_recent_checkpoints', 3)
+            
+            if len(checkpoint_files) > keep_recent:
+                checkpoint_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+                to_remove = checkpoint_files[keep_recent:]
                 
-                # Count items
-                item_count = len([d for d in dir_path.iterdir() if d.is_dir()])
+                for checkpoint in to_remove:
+                    checkpoint.unlink()
+                    logger.debug(f"Removed old checkpoint: {checkpoint.name}")
                 
-                status["directories"][name] = {
-                    "path": str(directory),
-                    "exists": True,
-                    "size_gb": round(size_gb, 2),
-                    "item_count": item_count
-                }
-                status["total_size_gb"] += size_gb
-                status["model_counts"][name] = item_count
-            except Exception as e:
-                status["directories"][name] = {
-                    "path": str(directory),
-                    "exists": False,
-                    "error": str(e),
-                    "size_gb": 0,
-                    "item_count": 0
-                }
-        else:
-            status["directories"][name] = {
-                "path": str(directory),
-                "exists": False,
-                "size_gb": 0,
-                "item_count": 0
-            }
-    
-    status["total_size_gb"] = round(status["total_size_gb"], 2)
-    return status
-
-# Export standard dataset file paths
-def get_dataset_paths(training_dir: Path) -> Dict[str, Path]:
-    """Get standardized dataset file paths."""
-    return {
-        "language_dataset": training_dir / DATASET_FORMATS["language_dataset"]["filename"],
-        "metrics_dataset": training_dir / DATASET_FORMATS["metrics_dataset"]["filename"]
-    }
-
-# Progress tracking utilities
-def save_generation_progress(progress_data: Dict, progress_file: Path) -> bool:
-    """Save generation progress with error handling."""
-    try:
-        progress_data['last_updated'] = datetime.now().isoformat()
+                logger.info(f"🧹 Cleaned up {len(to_remove)} old checkpoints")
         
-        temp_file = progress_file.with_suffix('.pkl.tmp')
-        import pickle
-        with open(temp_file, 'wb') as f:
-            pickle.dump(progress_data, f)
+        # Clean up old logs
+        logs_dir = Path(config.get('logs_dir', './logs/'))
+        if logs_dir.exists():
+            from datetime import timedelta
+            retention_days = config.get('log_retention_days', 30)
+            cutoff_date = datetime.now() - timedelta(days=retention_days)
+            
+            old_logs = []
+            for log_file in logs_dir.rglob('*.log'):
+                if datetime.fromtimestamp(log_file.stat().st_mtime) < cutoff_date:
+                    old_logs.append(log_file)
+            
+            for log_file in old_logs:
+                log_file.unlink()
+            
+            if old_logs:
+                logger.info(f"🧹 Removed {len(old_logs)} old log files")
         
-        temp_file.replace(progress_file)
-        return True
-    except Exception as e:
-        logger.error(f"Failed to save progress: {e}")
-        return False
-
-def load_generation_progress(progress_file: Path) -> Optional[Dict]:
-    """Load generation progress with error handling."""
-    if not progress_file.exists():
-        return None
-    
-    try:
-        import pickle
-        with open(progress_file, 'rb') as f:
-            return pickle.load(f)
-    except Exception as e:
-        logger.error(f"Failed to load progress: {e}")
-        return None
-
-def load_generation_progress(progress_file: Path) -> Optional[Dict]:
-    """Load generation progress with error handling."""
-    if not progress_file.exists():
-        return None
-    
-    try:
-        import pickle
-        with open(progress_file, 'rb') as f:
-            return pickle.load(f)
-    except Exception as e:
-        logger.error(f"Failed to load progress: {e}")
-        return None
-
-def save_generation_progress(progress_data: Dict, progress_file: Path) -> bool:
-    """Save generation progress with error handling."""
-    try:
-        progress_data['last_updated'] = datetime.now().isoformat()
+        # Clean up temporary files
+        temp_files = list(Path('.').glob('*.tmp')) + list(Path('.').glob('*.pkl.tmp'))
+        for temp_file in temp_files:
+            temp_file.unlink()
+            logger.debug(f"Removed temp file: {temp_file}")
         
-        temp_file = progress_file.with_suffix('.pkl.tmp')
-        import pickle
-        with open(temp_file, 'wb') as f:
-            pickle.dump(progress_data, f)
-        
-        temp_file.replace(progress_file)
-        return True
+        if temp_files:
+            logger.info(f"🧹 Removed {len(temp_files)} temporary files")
+                
     except Exception as e:
-        logger.error(f"Failed to save progress: {e}")
-        return False
+        logger.error(f"Cleanup error: {e}")
+
+def get_optimal_workers() -> int:
+    """Get optimal number of DataLoader workers for TFT training."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return min(4, os.cpu_count() // 4)  # Less workers for GPU training
+        return min(2, os.cpu_count() // 8)  # Minimal workers for CPU
+    except ImportError:
+        return 2
 
 def log_message(message: str, level: str = "INFO"):
-    """Log to both console and file for Spark compatibility."""
+    """Simple logging function for TFT training."""
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    print(f"[{timestamp}] {message}")
+    
     if level == "ERROR":
         logger.error(message)
     elif level == "WARNING":
         logger.warning(message)
     else:
         logger.info(message)
+
+def save_tft_model_safely(model_state: Dict, model_dir: Path, metadata: Dict):
+    """Save TFT model using Safetensors format."""
+    try:
+        from safetensors.torch import save_file
+        
+        model_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save model weights with Safetensors
+        model_path = model_dir / 'model.safetensors'
+        save_file(model_state, str(model_path))
+        logger.info(f"💾 TFT model weights saved: {model_path}")
+        
+        # Save metadata
+        metadata_path = model_dir / 'training_metadata.json'
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f, indent=2, default=str)
+        
+        # Save model config
+        config_path = model_dir / 'config.json'
+        model_config = {
+            'model_type': 'TemporalFusionTransformer',
+            'framework': 'pytorch_forecasting',
+            'saved_at': datetime.now().isoformat(),
+            'safetensors_format': True
+        }
+        
+        with open(config_path, 'w') as f:
+            json.dump(model_config, f, indent=2)
+        
+        logger.info(f"✅ TFT model saved successfully: {model_dir}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to save TFT model: {e}")
+        return False
+
+def load_tft_model_safely(model_dir: Path):
+    """Load TFT model from Safetensors format."""
+    try:
+        from safetensors.torch import load_file
+        
+        model_path = model_dir / 'model.safetensors'
+        if not model_path.exists():
+            raise FileNotFoundError(f"TFT model not found: {model_path}")
+        
+        # Load model state
+        model_state = load_file(str(model_path))
+        logger.info(f"📥 TFT model weights loaded: {model_path}")
+        
+        # Load metadata
+        metadata_path = model_dir / 'training_metadata.json'
+        metadata = {}
+        if metadata_path.exists():
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+        
+        return model_state, metadata
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to load TFT model: {e}")
+        return None, None
+
+def validate_metrics_dataset(dataset_path: Path) -> bool:
+    """Validate metrics dataset format for TFT training."""
+    try:
+        data = load_metrics_dataset(dataset_path)
+        if not data:
+            return False
+        
+        # Check required structure
+        if "training_samples" not in data:
+            logger.error("Missing 'training_samples' in dataset")
+            return False
+        
+        samples = data["training_samples"]
+        if not samples:
+            logger.error("No samples found in dataset")
+            return False
+        
+        # Validate sample structure
+        sample = samples[0]
+        required_fields = ['id', 'timestamp', 'server_name', 'metrics', 'status']
+        missing_fields = [field for field in required_fields if field not in sample]
+        
+        if missing_fields:
+            logger.error(f"Sample missing required fields: {missing_fields}")
+            return False
+        
+        # Validate metrics structure
+        metrics = sample['metrics']
+        if not isinstance(metrics, dict):
+            logger.error("Metrics field must be a dictionary")
+            return False
+        
+        # Check for numeric metrics
+        numeric_metrics = [k for k, v in metrics.items() if isinstance(v, (int, float))]
+        if len(numeric_metrics) < 3:
+            logger.error("Need at least 3 numeric metrics for TFT training")
+            return False
+        
+        logger.info(f"✅ Dataset validation passed: {len(samples)} samples")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Dataset validation failed: {e}")
+        return False
+
+def get_dataset_stats(dataset_path: Path) -> Dict[str, Any]:
+    """Get comprehensive statistics about the metrics dataset."""
+    try:
+        data = load_metrics_dataset(dataset_path)
+        if not data:
+            return {}
+        
+        samples = data.get("training_samples", [])
+        metadata = data.get("metadata", {})
+        
+        if not samples:
+            return {"error": "No samples found"}
+        
+        # Basic stats
+        stats = {
+            "total_samples": len(samples),
+            "time_span_hours": metadata.get("time_span_hours", 0),
+            "servers_count": metadata.get("servers_count", 0),
+            "anomaly_ratio": metadata.get("anomaly_ratio", 0),
+            "format_version": metadata.get("format_version", "unknown"),
+            "enhanced": metadata.get("enhanced", False)
+        }
+        
+        # Status distribution
+        status_counts = {}
+        for sample in samples:
+            status = sample.get("status", "unknown")
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        stats["status_distribution"] = status_counts
+        
+        # Server distribution
+        server_counts = {}
+        for sample in samples:
+            server = sample.get("server_name", "unknown")
+            server_counts[server] = server_counts.get(server, 0) + 1
+        
+        stats["servers_with_most_samples"] = sorted(
+            server_counts.items(), key=lambda x: x[1], reverse=True
+        )[:5]
+        
+        # Metrics analysis
+        if samples:
+            sample_metrics = samples[0].get("metrics", {})
+            numeric_metrics = [k for k, v in sample_metrics.items() if isinstance(v, (int, float))]
+            stats["numeric_metrics_count"] = len(numeric_metrics)
+            stats["sample_metrics"] = list(sample_metrics.keys())
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Failed to get dataset stats: {e}")
+        return {"error": str(e)}
+
+def create_tft_training_summary(model_dir: Path, training_stats: Dict) -> Dict[str, Any]:
+    """Create training summary for TFT model."""
+    summary = {
+        "model_type": "TemporalFusionTransformer",
+        "framework": "pytorch_forecasting",
+        "model_path": str(model_dir),
+        "training_completed": True,
+        "created_at": datetime.now().isoformat(),
+        **training_stats
+    }
+    
+    return summary
+
+def analyze_existing_datasets(training_dir: Path) -> Dict[str, Any]:
+    """
+    Analyze existing datasets in the training directory.
+    
+    Args:
+        training_dir: Path to training directory
+        
+    Returns:
+        Dict containing analysis of available datasets
+    """
+    analysis = {
+        'datasets_found': [],
+        'metrics_dataset': {
+            'exists': False,
+            'path': None,
+            'samples': 0,
+            'size_mb': 0,
+            'anomaly_ratio': 0,
+            'time_span_hours': 0,
+            'servers_count': 0,
+            'format_version': 'unknown',
+            'enhanced': False
+        },
+        'total_datasets': 0,
+        'ready_for_training': False,
+        'recommendations': []
+    }
     
     try:
-        with open(log_file, 'a', encoding='utf-8') as f:
-            log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            f.write(f"[{log_time}] {level}: {message}\n")
-            f.flush()
-    except Exception:
-        pass
-
-def clear_model_discovery_cache():
-    """Clear model discovery cache to force fresh discovery."""
-    cache_file = Path("./model_discovery_cache.pkl")
-    if cache_file.exists():
-        cache_file.unlink()
-        logger.info("🗑️ Model discovery cache cleared")
-
-def get_optimal_workers():
-    """Get optimal number of DataLoader workers."""
-    if tf.cuda.is_available():
-        return min(4, os.cpu_count() // 4)  # Less workers for GPU training
-    return min(2, os.cpu_count() // 8)  # Minimal workers for CPU
-
-def cleanup_generation_artifacts():
-    """Clean up temporary generation artifacts periodically."""
-    import shutil
-    
-    try:
-        # Clean up pickle files after data is transferred
-        progress_file = Path("./generation_progress.pkl")
-        if progress_file.exists():
-            # Check if data has been successfully transferred to datasets
-            from config import CONFIG
-            training_dir = Path(CONFIG.get('training_dir', './training/'))
-            dataset_paths = get_dataset_paths(training_dir)
+        if not training_dir.exists():
+            analysis['recommendations'].append("Training directory does not exist - run setup() first")
+            return analysis
+        
+        # Check for metrics dataset (primary dataset)
+        metrics_path = training_dir / 'metrics_dataset.json'
+        if metrics_path.exists():
+            analysis['datasets_found'].append('metrics_dataset')
+            analysis['metrics_dataset']['exists'] = True
+            analysis['metrics_dataset']['path'] = str(metrics_path)
             
-            # If both datasets exist and have data, we can clean up pickle
-            if (dataset_paths['language_dataset'].exists() and 
-                dataset_paths['metrics_dataset'].exists()):
-                
-                lang_data = load_dataset_file(dataset_paths['language_dataset'])
-                metrics_data = load_dataset_file(dataset_paths['metrics_dataset'])
-                
-                if (lang_data.get('samples') and metrics_data.get('training_samples')):
-                    progress_file.unlink()
-                    logger.info("🗑️ Cleaned up generation progress pickle")
-        
-        # Clean up temporary files
-        temp_files = list(Path('.').glob('*.tmp')) + list(Path('.').glob('*.pkl.tmp'))
-        for temp_file in temp_files:
-            temp_file.unlink()
-            logger.info(f"🗑️ Cleaned up temp file: {temp_file}")
-        
-        # Clean up old discovery cache
-        cache_file = Path("./model_discovery_cache.pkl")
-        if cache_file.exists():
-            from datetime import datetime, timedelta
-            cache_age = datetime.now() - datetime.fromtimestamp(cache_file.stat().st_mtime)
-            if cache_age > timedelta(hours=1):  # Cache older than 1 hour
-                cache_file.unlink()
-                logger.info("🗑️ Cleaned up old model discovery cache")
-        
-    except Exception as e:
-        logger.error(f"Cleanup error: {e}")
-
-def manage_training_checkpoints(checkpoints_dir: Path, models_dir: Path, keep_recent: int = 1, keep_best: int = 1):
-    """Manage training checkpoints - handle both safetensors and pytorch formats."""
-    try:
-        if not checkpoints_dir.exists():
-            return
-        
-        # Get all checkpoint files (both formats)
-        checkpoint_files = (list(checkpoints_dir.glob('checkpoint_*.pt')) + 
-                          list(checkpoints_dir.glob('checkpoint_*_metadata.json')))
-        
-        # Group by checkpoint name (safetensors creates multiple files)
-        checkpoint_groups = {}
-        for f in checkpoint_files:
-            if f.name.endswith('_metadata.json'):
-                base_name = f.name.replace('_metadata.json', '')
-            elif f.name.endswith('.pt'):
-                base_name = f.name.replace('.pt', '')
-            else:
-                continue
-                
-            if base_name not in checkpoint_groups:
-                checkpoint_groups[base_name] = []
-            checkpoint_groups[base_name].append(f)
-        
-        if len(checkpoint_groups) <= (keep_recent + keep_best):
-            return  # Not enough checkpoints to clean up
-        
-        # Sort groups by modification time (newest first)
-        sorted_groups = sorted(checkpoint_groups.items(), 
-                             key=lambda x: max(f.stat().st_mtime for f in x[1]), 
-                             reverse=True)
-        
-        # Keep the most recent ones
-        groups_to_keep = set([name for name, _ in sorted_groups[:keep_recent]])
-        
-        # Find best performing checkpoints by loss
-        best_checkpoints = []
-        for group_name, files in checkpoint_groups.items():
+            # Get file size
+            file_size = metrics_path.stat().st_size
+            analysis['metrics_dataset']['size_mb'] = file_size / (1024 * 1024)
+            
+            # Load and analyze dataset content
             try:
-                # Look for metadata file first (safetensors format)
-                metadata_file = next((f for f in files if f.name.endswith('_metadata.json')), None)
-                
-                if metadata_file:
-                    with open(metadata_file, 'r') as f:
-                        metadata = json.load(f)
-                    loss = metadata.get('training_stats', {}).get('best_loss', float('inf'))
+                dataset_stats = get_dataset_stats(metrics_path)
+                if dataset_stats and 'error' not in dataset_stats:
+                    analysis['metrics_dataset'].update({
+                        'samples': dataset_stats.get('total_samples', 0),
+                        'anomaly_ratio': dataset_stats.get('anomaly_ratio', 0),
+                        'time_span_hours': dataset_stats.get('time_span_hours', 0),
+                        'servers_count': dataset_stats.get('servers_count', 0),
+                        'format_version': dataset_stats.get('format_version', 'unknown'),
+                        'enhanced': dataset_stats.get('enhanced', False)
+                    })
+                    
+                    logger.info(f"✅ Metrics dataset: {analysis['metrics_dataset']['samples']:,} samples")
                 else:
-                    # Try PyTorch format
-                    pt_file = next((f for f in files if f.name.endswith('.pt')), None)
-                    if pt_file:
-                        import torch
-                        checkpoint = torch.load(pt_file, map_location='cpu')
-                        loss = checkpoint.get('training_stats', {}).get('best_loss', float('inf'))
-                    else:
-                        loss = float('inf')
+                    analysis['recommendations'].append("Metrics dataset exists but appears corrupted")
+                    
+            except Exception as e:
+                logger.warning(f"Failed to analyze metrics dataset: {e}")
+                analysis['recommendations'].append("Failed to read metrics dataset - may be corrupted")
+        
+        # Check for other potential dataset files
+        dataset_patterns = [
+            ('language_dataset.json', 'language_dataset'),
+            ('training_data.json', 'training_data'),
+            ('server_logs.json', 'server_logs'),
+            ('enhanced_metrics.json', 'enhanced_metrics')
+        ]
+        
+        for filename, dataset_type in dataset_patterns:
+            file_path = training_dir / filename
+            if file_path.exists():
+                analysis['datasets_found'].append(dataset_type)
+                try:
+                    file_size = file_path.stat().st_size / (1024 * 1024)
+                    logger.info(f"✅ Found {dataset_type}: {file_size:.1f} MB")
+                except Exception:
+                    pass
+        
+        # Count total datasets
+        analysis['total_datasets'] = len(analysis['datasets_found'])
+        
+        # Determine if ready for training
+        metrics_ready = (
+            analysis['metrics_dataset']['exists'] and 
+            analysis['metrics_dataset']['samples'] > 1000  # Need reasonable amount of data
+        )
+        
+        analysis['ready_for_training'] = metrics_ready
+        
+        # Generate recommendations
+        if not analysis['metrics_dataset']['exists']:
+            analysis['recommendations'].append("No metrics dataset found - run generate_dataset() first")
+        elif analysis['metrics_dataset']['samples'] < 1000:
+            analysis['recommendations'].append("Metrics dataset too small - generate more data")
+        elif analysis['metrics_dataset']['samples'] < 10000:
+            analysis['recommendations'].append("Consider generating more training data for better model performance")
+        
+        if analysis['metrics_dataset']['time_span_hours'] < 24:
+            analysis['recommendations'].append("Dataset covers less than 24 hours - consider longer time span")
+        
+        if analysis['metrics_dataset']['anomaly_ratio'] < 0.05:
+            analysis['recommendations'].append("Low anomaly ratio - model may not learn to detect issues well")
+        elif analysis['metrics_dataset']['anomaly_ratio'] > 0.3:
+            analysis['recommendations'].append("High anomaly ratio - may need to balance dataset")
+        
+        if not analysis['metrics_dataset']['enhanced']:
+            analysis['recommendations'].append("Consider regenerating with enhanced format for better features")
+        
+        # Log summary
+        if analysis['ready_for_training']:
+            logger.info("✅ Datasets ready for TFT training")
+        else:
+            logger.warning("⚠️  Datasets not ready for training")
+            
+        if analysis['recommendations']:
+            logger.info("💡 Recommendations:")
+            for rec in analysis['recommendations']:
+                logger.info(f"   - {rec}")
                 
-                best_checkpoints.append((group_name, loss))
-            except Exception:
-                continue
-        
-        # Sort by loss (best first) and keep the best ones
-        best_checkpoints.sort(key=lambda x: x[1])
-        groups_to_keep.update([name for name, _ in best_checkpoints[:keep_best]])
-        
-        # Remove checkpoint groups not in keep list
-        removed_count = 0
-        for group_name, files in checkpoint_groups.items():
-            if group_name not in groups_to_keep:
-                for file in files:
-                    file.unlink()
-                    removed_count += 1
-                logger.info(f"🗑️ Removed checkpoint group: {group_name}")
-        
-        if removed_count > 0:
-            logger.info(f"🧹 Checkpoint cleanup: removed {removed_count} files, kept {len(groups_to_keep)} checkpoint groups")
-        
     except Exception as e:
-        logger.error(f"Checkpoint cleanup error: {e}")
+        logger.error(f"Failed to analyze datasets: {e}")
+        analysis['recommendations'].append(f"Analysis failed: {str(e)}")
+    
+    return analysis
 
-def periodic_cleanup(config: Dict):
-    """Comprehensive periodic cleanup function."""
-    logger.info("🧹 Starting periodic cleanup...")
-    
-    # Clean generation artifacts
-    cleanup_generation_artifacts()
-    
-    # Manage checkpoints
-    checkpoints_dir = Path(config.get('checkpoints_dir', './checkpoints/'))
-    models_dir = Path(config.get('models_dir', './models/'))
-    manage_training_checkpoints(checkpoints_dir, models_dir)
-    
-    # Clean up old log files (keep last 30 days)
-    logs_dir = Path(config.get('logs_dir', './logs/'))
-    if logs_dir.exists():
-        from datetime import datetime, timedelta
-        cutoff_date = datetime.now() - timedelta(days=30)
-        
-        old_logs = []
-        for log_file in logs_dir.glob('*.log'):
-            if datetime.fromtimestamp(log_file.stat().st_mtime) < cutoff_date:
-                old_logs.append(log_file)
-        
-        for log_file in old_logs:
-            log_file.unlink()
-            logger.info(f"🗑️ Cleaned up old log: {log_file.name}")
-        
-        if old_logs:
-            logger.info(f"🧹 Log cleanup: removed {len(old_logs)} old log files")
-    
-    logger.info("✅ Periodic cleanup completed")
+# Export key functions for TFT workflow
+__all__ = [
+    'load_metrics_dataset',
+    'load_dataset_file',
+    'get_dataset_paths',
+    'save_metrics_dataset', 
+    'analyze_metrics_dataset',
+    'check_tft_model_exists',
+    'check_models_like_trainer',
+    'get_latest_tft_model_path',
+    'ensure_tft_directories',
+    'cleanup_tft_artifacts',
+    'validate_metrics_dataset',
+    'get_dataset_stats',
+    'save_tft_model_safely',
+    'load_tft_model_safely',
+    'log_message',
+    'get_optimal_workers'
+]
