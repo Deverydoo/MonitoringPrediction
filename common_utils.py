@@ -525,8 +525,6 @@ def analyze_existing_datasets(training_dir: Path) -> Dict[str, Any]:
         
         # Check for other potential dataset files
         dataset_patterns = [
-            ('language_dataset.json', 'language_dataset'),
-            ('training_data.json', 'training_data'),
             ('server_logs.json', 'server_logs'),
             ('enhanced_metrics.json', 'enhanced_metrics')
         ]
