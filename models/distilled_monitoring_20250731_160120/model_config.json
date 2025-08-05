@@ -1,9 +1,0 @@
-{
-  "model_type": "distilled_monitoring",
-  "num_labels": 8,
-  "num_metrics": 10,
-  "hidden_size": 768,
-  "architecture": "multi_task_transformer",
-  "base_model_name": "bert-base-uncased",
-  "format": "safetensors"
-}

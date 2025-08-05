@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-distilled_model_trainer.py - TFT Model Trainer (Replacement)
-REPLACEMENT for the old BERT-based trainer - now uses Temporal Fusion Transformer
-All duplicate training logic removed - uses new TFT training_core.py exclusively
-Can be used as both importable module and command-line tool
+tft_model_trainer_fixed.py - FIXED TFT Model Trainer 
+UPDATED: Uses unified 'lightning' package instead of 'pytorch-lightning'
+Compatible with pytorch-forecasting==1.0.0 and lightning>=2.0.0
 """
 
 import os
@@ -18,16 +17,17 @@ from datetime import datetime
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 os.environ['NUMEXPR_MAX_THREADS'] = '16'
 
-# Import the NEW TFT training core (replacing old BERT core)
+# Import the UPDATED TFT training core (with fixed Lightning imports)
 try:
     from training_core import create_trainer, validate_training_environment
     from common_utils import log_message, check_models_like_trainer
 except ImportError as e:
     print(f"❌ Failed to import TFT training components: {e}")
-    print("💡 Make sure you have the new training_core.py with TFT support")
+    print("💡 Make sure you have the updated training_core.py with Lightning 2.0+ support")
+    print("💡 Run: python quick_lightning_fix.py")
     sys.exit(1)
 
-# TFT Configuration (replaces old BERT config)
+# UPDATED TFT Configuration (compatible with Lightning 2.0+)
 DEFAULT_TFT_CONFIG = {
     # Model architecture
     'model_type': 'TemporalFusionTransformer',
@@ -53,24 +53,25 @@ DEFAULT_TFT_CONFIG = {
     'checkpoints_dir': './checkpoints/',
     'logs_dir': './logs/',
     
-    # Framework settings
+    # Framework settings (UPDATED for Lightning 2.0+)
     'framework': 'pytorch_forecasting',
+    'lightning_version': '2.0+',  # Indicates unified Lightning package
     'torch_compile': False,  # TFT doesn't support torch.compile yet
 }
 
 
 class DistilledModelTrainer:
-    """TFT trainer - REPLACEMENT for old BERT trainer."""
+    """FIXED TFT trainer - compatible with Lightning 2.0+."""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None, resume_training: bool = False):
         """
-        Initialize TFT trainer (replaces BERT trainer).
+        Initialize FIXED TFT trainer.
         
         Args:
             config: Training configuration dictionary  
             resume_training: Whether to resume from existing checkpoint
         """
-        # Use TFT config instead of old BERT config
+        # Use UPDATED TFT config
         self.config = config or DEFAULT_TFT_CONFIG.copy()
         
         # Merge with defaults
@@ -78,10 +79,10 @@ class DistilledModelTrainer:
             if key not in self.config:
                 self.config[key] = value
         
-        self.framework = 'pytorch_forecasting'  # No more BERT
+        self.framework = 'pytorch_forecasting'  # Still using TFT
         
-        log_message("🎯 TFT Model Trainer Initialized (BERT Replacement)")
-        log_message(f"📊 Using PyTorch Forecasting framework")
+        log_message("🎯 FIXED TFT Model Trainer (Lightning 2.0+ Compatible)")
+        log_message(f"📊 Using PyTorch Forecasting + unified Lightning package")
         log_message(f"🎮 Model: Temporal Fusion Transformer")
         
         if resume_training:
@@ -90,19 +91,50 @@ class DistilledModelTrainer:
                 log_message(f"🔄 Resume training available: {latest_model}")
             else:
                 log_message("🆕 No existing TFT model found, starting fresh")
+        
+        # Check environment compatibility
+        self._check_lightning_compatibility()
+    
+    def _check_lightning_compatibility(self):
+        """Check Lightning package compatibility."""
+        try:
+            import lightning
+            log_message(f"✅ Lightning (unified): {lightning.__version__}")
+        except ImportError:
+            log_message("❌ Lightning package not found")
+            log_message("💡 Run: pip install lightning>=2.0.0")
+            return
+        
+        try:
+            import pytorch_forecasting
+            log_message("✅ PyTorch Forecasting compatible")
+        except ImportError:
+            log_message("❌ PyTorch Forecasting not found")
+            log_message("💡 Run: pip install pytorch-forecasting==1.0.0")
+            return
+        
+        # Test critical imports
+        try:
+            from lightning.pytorch.callbacks import EarlyStopping
+            from pytorch_forecasting import TemporalFusionTransformer
+            log_message("✅ All critical imports working")
+        except ImportError as e:
+            log_message(f"❌ Import issue: {e}")
+            log_message("💡 Run: python quick_lightning_fix.py")
     
     def train(self) -> bool:
         """
-        Train using TFT - NO MORE BERT training logic.
+        Train using FIXED TFT implementation.
         """
-        log_message("🏋️ Starting TFT model training (BERT replacement)")
-        log_message(f"🔧 Framework: PyTorch Forecasting TFT")
-        log_message(f"📊 Training on metrics dataset only (ignoring language dataset)")
+        log_message("🏋️ Starting FIXED TFT model training")
+        log_message(f"🔧 Framework: PyTorch Forecasting + Lightning 2.0+")
+        log_message(f"📊 Training on metrics dataset")
         
         try:
-            # Validate TFT environment (replaces old BERT validation)
+            # Validate FIXED TFT environment
             if not validate_training_environment(self.config):
                 log_message("❌ TFT environment validation failed")
+                log_message("💡 Try running: python quick_lightning_fix.py")
                 return False
             
             # Check for metrics dataset
@@ -112,16 +144,17 @@ class DistilledModelTrainer:
                 log_message("💡 Please run dataset generation first")
                 return False
             
-            # Create TFT trainer and train (replaces old BERT trainer)
+            # Create FIXED TFT trainer and train
             trainer = create_trainer(self.config)
             success = trainer.train()
             
             if success:
-                log_message("🎉 TFT training completed successfully!")
+                log_message("🎉 FIXED TFT training completed successfully!")
                 self._log_training_summary()
                 return True
             else:
                 log_message("❌ TFT training failed")
+                log_message("💡 Check logs above for specific error details")
                 return False
             
         except KeyboardInterrupt:
@@ -130,15 +163,18 @@ class DistilledModelTrainer:
             
         except Exception as e:
             log_message(f"❌ Training failed: {str(e)}")
+            log_message("💡 If this is a Lightning compatibility error:")
+            log_message("   1. Run: python quick_lightning_fix.py")
+            log_message("   2. Restart your Python environment")
             return False
     
     def find_latest_model(self) -> Optional[str]:
-        """Find latest TFT model (replaces BERT model search)."""
+        """Find latest TFT model."""
         models_dir = Path(self.config.get('models_dir', './models/'))
         if not models_dir.exists():
             return None
         
-        # Look for TFT model directories (instead of BERT)
+        # Look for TFT model directories
         model_dirs = list(models_dir.glob('tft_monitoring_*'))
         if not model_dirs:
             return None
@@ -148,7 +184,7 @@ class DistilledModelTrainer:
         latest_model = model_dirs[0]
         
         # Verify TFT model files exist
-        required_files = ['model.safetensors', 'config.json', 'training_metadata.json']
+        required_files = ['model.safetensors', 'model_config.json', 'training_metadata.json']
         if all((latest_model / f).exists() for f in required_files):
             return str(latest_model)
         
@@ -176,9 +212,9 @@ class DistilledModelTrainer:
 
 
 def main():
-    """Command-line interface for TFT training."""
+    """Command-line interface for FIXED TFT training."""
     parser = argparse.ArgumentParser(
-        description="TFT model trainer for server monitoring (BERT replacement)",
+        description="FIXED TFT model trainer (Lightning 2.0+ compatible)",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
@@ -231,6 +267,10 @@ def main():
         '--config-file', type=str, default=None,
         help='Load configuration from JSON file'
     )
+    parser.add_argument(
+        '--check-env', action='store_true',
+        help='Check Lightning environment compatibility'
+    )
     
     args = parser.parse_args()
     
@@ -238,6 +278,36 @@ def main():
     if args.verbose:
         import logging
         logging.getLogger().setLevel(logging.DEBUG)
+    
+    # Check environment if requested
+    if args.check_env:
+        print("🔍 CHECKING LIGHTNING ENVIRONMENT")
+        print("=" * 50)
+        
+        try:
+            import lightning
+            print(f"✅ Lightning (unified): {lightning.__version__}")
+        except ImportError:
+            print("❌ Lightning not found - run: pip install lightning>=2.0.0")
+            return 1
+        
+        try:
+            import pytorch_forecasting
+            print("✅ PyTorch Forecasting: Available")
+        except ImportError:
+            print("❌ PyTorch Forecasting not found - run: pip install pytorch-forecasting==1.0.0")
+            return 1
+        
+        try:
+            from lightning.pytorch.callbacks import EarlyStopping
+            from pytorch_forecasting import TemporalFusionTransformer
+            print("✅ All critical imports working")
+            print("🎉 Environment is compatible!")
+            return 0
+        except ImportError as e:
+            print(f"❌ Import error: {e}")
+            print("💡 Run: python quick_lightning_fix.py")
+            return 1
     
     try:
         # Load config from file if specified
@@ -267,26 +337,33 @@ def main():
         if args.force_cpu:
             config['force_cpu'] = True
         
-        # Create and run trainer
+        # Create and run FIXED trainer
         trainer = DistilledModelTrainer(config=config, resume_training=args.resume)
         success = trainer.train()
         
         if success:
-            log_message("✅ TFT training completed successfully!")
+            log_message("✅ FIXED TFT training completed successfully!")
+            log_message("💡 Model saved with Safetensors format")
+            log_message("💡 Ready for inference with tft_inference.py")
             sys.exit(0)
         else:
             log_message("❌ TFT training failed!")
+            log_message("💡 If Lightning compatibility issues persist:")
+            log_message("   python quick_lightning_fix.py")
             sys.exit(1)
             
     except Exception as e:
         log_message(f"❌ Fatal error: {str(e)}")
+        if "pytorch_lightning" in str(e) or "LightningModule" in str(e):
+            log_message("💡 This looks like a Lightning version conflict")
+            log_message("   Run: python quick_lightning_fix.py")
         sys.exit(1)
 
 
 # Module interface functions for Jupyter notebook usage
 def train_tft_model(config: Optional[Dict[str, Any]] = None, resume: bool = False) -> bool:
     """
-    Train TFT model - designed for Jupyter notebook usage.
+    Train FIXED TFT model - designed for Jupyter notebook usage.
     
     Args:
         config: Optional configuration dictionary
@@ -300,30 +377,34 @@ def train_tft_model(config: Optional[Dict[str, Any]] = None, resume: bool = Fals
 
 
 def get_default_config() -> Dict[str, Any]:
-    """Get default TFT configuration."""
+    """Get default FIXED TFT configuration."""
     return DEFAULT_TFT_CONFIG.copy()
 
 
 def validate_setup() -> bool:
-    """Validate TFT training setup."""
+    """Validate FIXED TFT training setup."""
     return validate_training_environment(DEFAULT_TFT_CONFIG)
 
 
-# Backward compatibility functions (so existing notebooks don't break)
+def check_lightning_environment() -> bool:
+    """Check if Lightning environment is properly configured."""
+    try:
+        import lightning
+        from lightning.pytorch.callbacks import EarlyStopping
+        from pytorch_forecasting import TemporalFusionTransformer
+        print("✅ Lightning environment is compatible")
+        return True
+    except ImportError as e:
+        print(f"❌ Lightning environment issue: {e}")
+        print("💡 Run: python quick_lightning_fix.py")
+        return False
+
+
+# Backward compatibility functions
 def train() -> bool:
     """Legacy function for backward compatibility."""
     log_message("⚠️  Using legacy train() function - consider using train_tft_model()")
     return train_tft_model()
-
-
-class TFTModelTrainer:
-    """Alias for backward compatibility."""
-    def __init__(self, *args, **kwargs):
-        log_message("⚠️  TFTModelTrainer is deprecated, use DistilledModelTrainer")
-        self._trainer = DistilledModelTrainer(*args, **kwargs)
-    
-    def train(self):
-        return self._trainer.train()
 
 
 if __name__ == "__main__":
