@@ -1,0 +1,280 @@
+{
+  "model_type": "TemporalFusionTransformer",
+  "framework": "pytorch_forecasting",
+  "pytorch_version": "2.0.1+cpu",
+  "training_config": {
+    "framework": "pytorch_forecasting",
+    "model_type": "TemporalFusionTransformer",
+    "save_format": "safetensors",
+    "training_dir": "./training/",
+    "models_dir": "./models/",
+    "checkpoints_dir": "./checkpoints/",
+    "logs_dir": "./logs/",
+    "data_config_dir": "./data_config/",
+    "hidden_size": 32,
+    "attention_heads": 4,
+    "dropout": 0.1,
+    "continuous_size": 16,
+    "hidden_continuous_size": 8,
+    "output_size": 7,
+    "loss": "quantile",
+    "epochs": 1,
+    "batch_size": 32,
+    "learning_rate": 0.03,
+    "gradient_clip_val": 0.1,
+    "early_stopping_patience": 10,
+    "reduce_on_plateau_patience": 4,
+    "prediction_horizon": 6,
+    "context_length": 24,
+    "min_encoder_length": 12,
+    "min_prediction_length": 1,
+    "poll_interval_minutes": 5,
+    "poll_interval_seconds": 300,
+    "metrics_samples": 200000,
+    "time_span_hours": 168,
+    "anomaly_ratio": 0.15,
+    "servers_count": 57,
+    "validation_split": 0.2,
+    "normalize_features": true,
+    "handle_missing_data": true,
+    "feature_engineering": true,
+    "use_holiday_features": false,
+    "use_cyclical_encoding": true,
+    "num_workers": 4,
+    "pin_memory": false,
+    "persistent_workers": true,
+    "prefetch_factor": 2,
+    "mixed_precision": false,
+    "model_compression": true,
+    "save_checkpoints": true,
+    "checkpoint_every_n_epochs": 5,
+    "keep_recent_checkpoints": 3,
+    "save_best_only": true,
+    "mongodb_enabled": false,
+    "mongodb_uri": "",
+    "mongodb_database": "monitoring",
+    "mongodb_collection": "server_metrics",
+    "alert_thresholds": {
+      "cpu_usage": {
+        "warning": 80.0,
+        "critical": 95.0
+      },
+      "memory_usage": {
+        "warning": 85.0,
+        "critical": 95.0
+      },
+      "disk_usage": {
+        "warning": 90.0,
+        "critical": 98.0
+      },
+      "load_average": {
+        "warning": 5.0,
+        "critical": 10.0
+      },
+      "java_heap_usage": {
+        "warning": 85.0,
+        "critical": 95.0
+      },
+      "network_errors": {
+        "warning": 100,
+        "critical": 500
+      },
+      "anomaly_score": {
+        "warning": 0.7,
+        "critical": 0.9
+      }
+    },
+    "log_level": "INFO",
+    "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "tensorboard_enabled": true,
+    "wandb_enabled": false,
+    "cleanup_enabled": true,
+    "log_retention_days": 30,
+    "auto_cleanup_on_training": true,
+    "target_metrics": [
+      "cpu_percent",
+      "memory_percent",
+      "disk_percent",
+      "load_average"
+    ],
+    "time_features": [
+      "hour",
+      "day_of_week",
+      "day_of_month",
+      "month"
+    ],
+    "categorical_features": [
+      "server_name",
+      "status",
+      "timeframe"
+    ],
+    "use_attention_visualization": false,
+    "calculate_feature_importance": true,
+    "export_onnx": false,
+    "quantize_model": false,
+    "_comment": "TFT Training Configuration for Server Monitoring",
+    "model_architecture": {
+      "model_type": "TemporalFusionTransformer",
+      "hidden_size": 32,
+      "attention_heads": 4,
+      "dropout": 0.1,
+      "continuous_size": 16
+    },
+    "training_parameters": {
+      "epochs": 50,
+      "batch_size": 64,
+      "learning_rate": 0.03,
+      "early_stopping_patience": 10,
+      "mixed_precision": true
+    },
+    "time_series_parameters": {
+      "prediction_horizon": 12,
+      "context_length": 48,
+      "training_split": 0.8
+    },
+    "directories": {
+      "training_dir": "./training/",
+      "models_dir": "./models/",
+      "checkpoints_dir": "./checkpoints/",
+      "logs_dir": "./logs/"
+    },
+    "hardware_optimization": {
+      "num_workers": 4,
+      "pin_memory": true,
+      "force_cpu": false
+    },
+    "framework_settings": {
+      "framework": "pytorch_forecasting",
+      "torch_compile": false
+    },
+    "monitoring_thresholds": {
+      "cpu_usage": {
+        "warning": 80,
+        "critical": 95
+      },
+      "memory_usage": {
+        "warning": 85,
+        "critical": 95
+      },
+      "disk_usage": {
+        "warning": 85,
+        "critical": 95
+      },
+      "load_average": {
+        "warning": 4.0,
+        "critical": 8.0
+      }
+    },
+    "prediction_settings": {
+      "anomaly_threshold": 3.0,
+      "confidence_level": 0.95,
+      "quantiles": [
+        0.1,
+        0.5,
+        0.9
+      ]
+    },
+    "lightning_version": "2.0+",
+    "torch_compile": false
+  },
+  "timestamp": "20250806_144154",
+  "training_stats": {
+    "start_time": "2025-08-06 14:19:40.200302",
+    "best_loss": Infinity,
+    "total_epochs": 0
+  },
+  "model_hyperparams": {
+    "hidden_size": 32,
+    "lstm_layers": 1,
+    "dropout": 0.1,
+    "output_size": 7,
+    "loss": "QuantileLoss(quantiles=[0.02, 0.1, 0.25, 0.5, 0.75, 0.9, 0.98])",
+    "attention_head_size": 4,
+    "max_encoder_length": 24,
+    "static_categoricals": [],
+    "static_reals": [
+      "encoder_length",
+      "cpu_percent_target_center",
+      "cpu_percent_target_scale"
+    ],
+    "time_varying_categoricals_encoder": [
+      "status"
+    ],
+    "time_varying_categoricals_decoder": [],
+    "categorical_groups": {},
+    "time_varying_reals_encoder": [
+      "hour",
+      "day_of_week",
+      "month",
+      "relative_time_idx",
+      "cpu_percent",
+      "memory_percent",
+      "disk_percent",
+      "load_average",
+      "network_bytes_sent",
+      "network_bytes_recv",
+      "disk_read_bytes",
+      "disk_write_bytes",
+      "java_heap_usage",
+      "java_gc_time"
+    ],
+    "time_varying_reals_decoder": [
+      "hour",
+      "day_of_week",
+      "month",
+      "relative_time_idx"
+    ],
+    "x_reals": [
+      "encoder_length",
+      "cpu_percent_target_center",
+      "cpu_percent_target_scale",
+      "hour",
+      "day_of_week",
+      "month",
+      "relative_time_idx",
+      "cpu_percent",
+      "memory_percent",
+      "disk_percent",
+      "load_average",
+      "network_bytes_sent",
+      "network_bytes_recv",
+      "disk_read_bytes",
+      "disk_write_bytes",
+      "java_heap_usage",
+      "java_gc_time"
+    ],
+    "x_categoricals": [
+      "status"
+    ],
+    "hidden_continuous_size": 16,
+    "hidden_continuous_sizes": {},
+    "embedding_sizes": {
+      "status": [
+        2,
+        1
+      ]
+    },
+    "embedding_paddings": [],
+    "embedding_labels": {
+      "status": {
+        "anomaly": 0,
+        "normal": 1
+      }
+    },
+    "learning_rate": 0.03,
+    "log_interval": 10,
+    "log_val_interval": 10,
+    "log_gradient_flow": false,
+    "reduce_on_plateau_patience": 4,
+    "monotone_constaints": {},
+    "share_single_variable_networks": false,
+    "causal_attention": true,
+    "logging_metrics": "ModuleList(\n  (0): SMAPE()\n  (1): MAE()\n  (2): RMSE()\n  (3): MAPE()\n)",
+    "output_transformer": "GroupNormalizer(\n\tmethod='standard',\n\tgroups=['series_id'],\n\tcenter=True,\n\tscale_by_group=False,\n\ttransformation='softplus',\n\tmethod_kwargs={}\n)",
+    "reduce_on_plateau_reduction": 2.0,
+    "reduce_on_plateau_min_lr": 1e-05,
+    "weight_decay": 0.0,
+    "optimizer_params": null,
+    "optimizer": "Ranger"
+  }
+}

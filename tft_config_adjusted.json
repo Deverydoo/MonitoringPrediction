@@ -1,0 +1,97 @@
+{
+  "framework": "pytorch_forecasting",
+  "model_type": "TemporalFusionTransformer",
+  "save_format": "safetensors",
+  "training_dir": "./training/",
+  "models_dir": "./models/",
+  "checkpoints_dir": "./checkpoints/",
+  "logs_dir": "./logs/",
+  "hidden_size": 16,
+  "attention_heads": 4,
+  "dropout": 0.1,
+  "continuous_size": 8,
+  "hidden_continuous_size": 8,
+  "output_size": 7,
+  "loss": "quantile",
+  "epochs": 10,
+  "batch_size": 16,
+  "learning_rate": 0.03,
+  "gradient_clip_val": 0.1,
+  "early_stopping_patience": 5,
+  "reduce_on_plateau_patience": 3,
+  "prediction_horizon": 3,
+  "context_length": 12,
+  "min_encoder_length": 6,
+  "min_prediction_length": 1,
+  "poll_interval_minutes": 5,
+  "poll_interval_seconds": 300,
+  "time_span_hours": 168,
+  "anomaly_ratio": 0.15,
+  "servers_count": 10,
+  "validation_split": 0.2,
+  "normalize_features": true,
+  "handle_missing_data": true,
+  "feature_engineering": true,
+  "use_cyclical_encoding": true,
+  "num_workers": 0,
+  "pin_memory": false,
+  "persistent_workers": false,
+  "prefetch_factor": 2,
+  "mixed_precision": false,
+  "model_compression": true,
+  "save_checkpoints": true,
+  "checkpoint_every_n_epochs": 5,
+  "keep_recent_checkpoints": 3,
+  "save_best_only": true,
+  "alert_thresholds": {
+    "cpu_usage": {
+      "warning": 80.0,
+      "critical": 95.0
+    },
+    "memory_usage": {
+      "warning": 85.0,
+      "critical": 95.0
+    },
+    "disk_usage": {
+      "warning": 90.0,
+      "critical": 98.0
+    },
+    "load_average": {
+      "warning": 5.0,
+      "critical": 10.0
+    },
+    "java_heap_usage": {
+      "warning": 85.0,
+      "critical": 95.0
+    },
+    "network_errors": {
+      "warning": 100,
+      "critical": 500
+    },
+    "anomaly_score": {
+      "warning": 0.7,
+      "critical": 0.9
+    }
+  },
+  "log_level": "INFO",
+  "tensorboard_enabled": true,
+  "cleanup_enabled": true,
+  "log_retention_days": 30,
+  "target_metrics": [
+    "cpu_percent",
+    "memory_percent",
+    "disk_percent",
+    "load_average"
+  ],
+  "time_features": [
+    "hour",
+    "day_of_week",
+    "day_of_month",
+    "month"
+  ],
+  "categorical_features": [
+    "server_name",
+    "status",
+    "timeframe"
+  ]
+}

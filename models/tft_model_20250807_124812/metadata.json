@@ -1,0 +1,8 @@
+{
+  "training_completed": true,
+  "model_type": "TFT",
+  "framework": "pytorch_forecasting",
+  "created_at": "2025-08-07T12:48:12.911218",
+  "model_path": "models\\tft_model_20250807_124812\\model.safetensors",
+  "safetensors_format": true
+}
