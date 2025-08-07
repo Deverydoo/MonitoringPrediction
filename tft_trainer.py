@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """
-tft_trainer.py - Fixed TFT Model Training Module
-Resolves the "'int' object is not subscriptable" error
+tft_trainer.py - FIXED TFT Trainer
+Works with the actual dataset format from metrics_generator.py
 """
 
-import os
 import json
 import argparse
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
-import torch
 import pandas as pd
-import numpy as np
+import torch
 import lightning as L
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
@@ -22,408 +20,295 @@ from pytorch_forecasting.data import GroupNormalizer
 from pytorch_forecasting.metrics import QuantileLoss
 from safetensors.torch import save_file
 
-from config import CONFIG
-import pandas as pd
-
 
 class TFTTrainer:
-    """Fixed TFT trainer that handles data preparation correctly."""
+    """TFT trainer that works with the actual dataset format."""
     
     def __init__(self, config: Optional[Dict] = None):
-        self.config = config or CONFIG
+        self.config = config or {
+            'epochs': 10,
+            'batch_size': 16,
+            'learning_rate': 0.03,
+            'prediction_horizon': 6,
+            'context_length': 24
+        }
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = None
-        
-    def prepare_data(self) -> Tuple[TimeSeriesDataSet, TimeSeriesDataSet]:
-        """Load and prepare data for TFT training with proper error handling."""
+    
+    def load_and_prepare_data(self, dataset_path: str) -> Tuple[TimeSeriesDataSet, TimeSeriesDataSet]:
+        """Load dataset with CORRECT key mapping."""
         print("📊 Loading dataset...")
-        
-        # Load metrics dataset
-        dataset_path = Path(self.config["training_dir"]) / "metrics_dataset.json"
-        if not dataset_path.exists():
-            raise FileNotFoundError(f"Dataset not found: {dataset_path}")
         
         with open(dataset_path, 'r') as f:
             data = json.load(f)
         
-        samples = data["training_samples"]
-        print(f"✅ Loaded {len(samples):,} samples")
-        
-        # Convert to DataFrame with proper error handling
-        records = []
-        for sample in samples:
-            try:
-                record = {
-                    "timestamp": pd.to_datetime(sample["timestamp"]),
-                    "server_name": sample["server_name"],
-                    "status": sample["status"],
-                    **sample["metrics"]
-                }
-                records.append(record)
-            except Exception as e:
-                print(f"⚠️  Skipping malformed sample: {e}")
-                continue
-        
+        # Use correct key from metrics_generator.py
+        records = data.get('records', [])
         if not records:
-            raise ValueError("No valid records found in dataset")
+            raise ValueError(f"No records found. Available keys: {list(data.keys())}")
+            
+        print(f"✅ Loaded {len(records):,} records")
         
+        # Convert to DataFrame with the ACTUAL structure
         df = pd.DataFrame(records)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
         
-        # CRITICAL FIX: Ensure continuous time series per server
-        print("📊 Creating proper time series structure...")
-        df = df.sort_values(["server_name", "timestamp"])
+        # CRITICAL FIX: Use 'server_id' (actual key) not 'server_name'
+        print(f"📊 Available columns: {list(df.columns)}")
+        print(f"📊 Sample record keys: {list(records[0].keys())}")
         
-        # Create proper time index for each server
-        server_dfs = []
-        min_required = self.config["context_length"] + self.config["prediction_horizon"] + 5
+        # Verify required columns exist
+        required_cols = ['server_id', 'timestamp', 'cpu_percent', 'memory_percent', 'disk_percent', 'load_average']
+        missing = [col for col in required_cols if col not in df.columns]
+        if missing:
+            raise ValueError(f"Missing columns: {missing}")
         
-        for server in df["server_name"].unique():
-            server_df = df[df["server_name"] == server].copy()
-            server_df = server_df.sort_values("timestamp").reset_index(drop=True)
-            
-            # Create continuous time index
-            server_df["time_idx"] = range(len(server_df))
-            server_df["series_id"] = server
-            
-            if len(server_df) >= min_required:
-                server_dfs.append(server_df)
-            else:
-                print(f"⚠️  Skipping {server}: only {len(server_df)} points (need {min_required})")
+        # Sort by server and time (using correct column name)
+        df = df.sort_values(['server_id', 'timestamp']).reset_index(drop=True)
         
-        if not server_dfs:
-            raise ValueError(f"No servers have enough data points! Need at least {min_required}")
+        # Create time_idx for each server group
+        df['time_idx'] = df.groupby('server_id').cumcount()
         
-        # Combine all valid servers
-        df = pd.concat(server_dfs, ignore_index=True)
-        print(f"✅ Using {len(server_dfs)} servers with sufficient data")
+        # Verify data quality
+        series_lengths = df.groupby('server_id')['time_idx'].count()
+        min_length = series_lengths.min()
+        max_length = series_lengths.max()
+        
+        print(f"📊 Series lengths - Min: {min_length}, Max: {max_length}")
+        print(f"📊 Unique servers: {df['server_id'].nunique()}")
+        
+        if min_length < 50:
+            raise ValueError(f"Need longer time series. Min length: {min_length}, need at least 50")
+        
+        # Adjust parameters based on actual data
+        max_prediction_length = min(self.config['prediction_horizon'], min_length // 10)
+        max_encoder_length = min(self.config['context_length'], min_length // 3)
+        
+        # Ensure we have enough data for train/val split
+        training_cutoff = int(min_length * 0.8)
+        
+        print(f"📊 Using encoder length: {max_encoder_length}, prediction length: {max_prediction_length}")
+        print(f"📊 Training cutoff: {training_cutoff}")
+        
+        # Define features that actually exist in the data
+        time_varying_unknown_reals = ['cpu_percent', 'memory_percent', 'disk_percent', 'load_average']
         
         # Add time features
-        df["hour"] = df["timestamp"].dt.hour
-        df["day_of_week"] = df["timestamp"].dt.dayofweek
-        df["month"] = df["timestamp"].dt.month
+        df['hour'] = df['timestamp'].dt.hour
+        df['day_of_week'] = df['timestamp'].dt.dayofweek
+        time_varying_known_reals = ['hour', 'day_of_week']
         
-        # CRITICAL FIX: Much more conservative length adjustment
-        max_time_per_server = df.groupby("series_id")["time_idx"].max()
-        min_max_time = max_time_per_server.min()
+        # Use status as categorical (exists in the data)
+        time_varying_unknown_categoricals = ['status']
         
-        # Very conservative settings to ensure data remains
-        max_prediction_length = min(3, min_max_time // 10)  # Very small prediction horizon
-        max_encoder_length = min(12, min_max_time // 3)     # Smaller encoder length
+        # Create training dataset with CORRECT group_ids
+        training = TimeSeriesDataSet(
+            df[df['time_idx'] <= training_cutoff],
+            time_idx='time_idx',
+            target='cpu_percent',  # Primary target
+            group_ids=['server_id'],  # FIXED: Use actual column name
+            max_encoder_length=max_encoder_length,
+            max_prediction_length=max_prediction_length,
+            min_encoder_length=max_encoder_length // 2,
+            min_prediction_length=1,
+            time_varying_known_reals=time_varying_known_reals,
+            time_varying_unknown_reals=time_varying_unknown_reals,
+            time_varying_unknown_categoricals=time_varying_unknown_categoricals,
+            target_normalizer=GroupNormalizer(groups=['server_id']),
+            allow_missing_timesteps=True,
+            add_relative_time_idx=True,
+            add_target_scales=True,
+            add_encoder_length=True,
+        )
         
-        # Ensure minimum values
-        max_prediction_length = max(1, max_prediction_length)
-        max_encoder_length = max(6, max_encoder_length)
+        # Create validation dataset
+        validation = TimeSeriesDataSet.from_dataset(
+            training,
+            df[df['time_idx'] > training_cutoff],
+            predict=True,
+            stop_randomization=True
+        )
         
-        print(f"📊 Conservative lengths - Encoder: {max_encoder_length}, Prediction: {max_prediction_length}")
-        print(f"📊 Min samples per server: {min_max_time}, Required: {max_encoder_length + max_prediction_length}")
+        print(f"✅ Training samples: {len(training)}")
+        print(f"✅ Validation samples: {len(validation)}")
         
-        # Create training/validation split - much more conservative
-        training_cutoff = min_max_time - max_prediction_length - 5
+        # Verify we have meaningful data
+        if len(training) == 0:
+            raise ValueError("No training samples created! Check data preprocessing.")
+        if len(validation) == 0:
+            print("⚠️ No validation samples - using training data for validation")
+            validation = training
         
-        # Define features
-        target = "cpu_percent"  # Primary target
-        
-        # Only use features that exist
-        available_cols = set(df.columns)
-        time_varying_unknown_reals = []
-        for col in ["cpu_percent", "memory_percent", "disk_percent", "load_average"]:
-            if col in available_cols:
-                time_varying_unknown_reals.append(col)
-        
-        time_varying_known_reals = ["time_idx", "hour", "day_of_week", "month"]
-        
-        print(f"🎯 Target: {target}")
-        print(f"📊 Features: {len(time_varying_unknown_reals)} numeric columns")
-        
-        try:
-            # Create training dataset with very conservative settings
-            training = TimeSeriesDataSet(
-                df[df["time_idx"] <= training_cutoff],
-                time_idx="time_idx",
-                target=target,
-                group_ids=["series_id"],
-                max_encoder_length=max_encoder_length,
-                max_prediction_length=max_prediction_length,
-                min_encoder_length=max_encoder_length // 3,  # Much smaller minimum
-                min_prediction_length=1,
-                time_varying_known_reals=["time_idx"],  # Only time_idx for now
-                time_varying_unknown_reals=time_varying_unknown_reals,
-                target_normalizer=GroupNormalizer(groups=["series_id"], transformation="softplus"),
-                add_relative_time_idx=False,  # Disable to reduce complexity
-                add_target_scales=False,      # Disable to reduce complexity
-                add_encoder_length=False,     # Disable to reduce complexity
-                allow_missing_timesteps=True
-            )
-            
-            # Create validation dataset
-            validation = TimeSeriesDataSet.from_dataset(
-                training,
-                df[df["time_idx"] > training_cutoff],
-                predict=True,
-                stop_randomization=True
-            )
-            
-            print(f"✅ Training set: {len(training)} sequences")
-            print(f"✅ Validation set: {len(validation)} sequences")
-            
-            if len(training) == 0:
-                raise ValueError("Training dataset is empty! Check data filtering.")
-            
-            return training, validation
-            
-        except Exception as e:
-            print(f"❌ Dataset creation failed: {e}")
-            self._debug_data(df, training_cutoff)
-            raise
+        return training, validation
     
-    def _debug_data(self, df, training_cutoff):
-        """Debug data issues."""
-        print(f"🔍 Debug Info:")
-        print(f"   Total rows: {len(df)}")
-        print(f"   Unique servers: {df['series_id'].nunique()}")
-        print(f"   Training cutoff: {training_cutoff}")
-        print(f"   Max time_idx: {df['time_idx'].max()}")
-        print(f"   Min time_idx: {df['time_idx'].min()}")
-        print(f"   Training rows: {len(df[df['time_idx'] <= training_cutoff])}")
-        print(f"   Validation rows: {len(df[df['time_idx'] > training_cutoff])}")
-        print(f"   Sample time_idx values: {sorted(df['time_idx'].unique())[:10]}...")
-    
-    def train(self, epochs: Optional[int] = None) -> str:
-        """Train TFT model with better error handling."""
+    def train(self, dataset_path: str = "./training/metrics_dataset.json") -> Optional[str]:
+        """Train the TFT model with proper data handling."""
         print("🏋️ Starting TFT training...")
-        start_time = datetime.now()
         
         try:
-            # Prepare data
-            training_dataset, validation_dataset = self.prepare_data()
+            # Load and prepare data
+            training_dataset, validation_dataset = self.load_and_prepare_data(dataset_path)
             
-            # Create data loaders with conservative settings
-            batch_size = min(self.config["batch_size"], 16)  # Smaller batches
+            # Create data loaders with reduced batch size for small datasets
+            actual_batch_size = min(self.config['batch_size'], len(training_dataset))
+            print(f"📊 Using batch size: {actual_batch_size}")
             
             train_dataloader = training_dataset.to_dataloader(
                 train=True,
-                batch_size=batch_size,
+                batch_size=actual_batch_size,
                 num_workers=0,  # Avoid multiprocessing issues
-                pin_memory=False,
-                shuffle=True
+                pin_memory=False  # Avoid memory issues
             )
             
             val_dataloader = validation_dataset.to_dataloader(
                 train=False,
-                batch_size=batch_size,
+                batch_size=actual_batch_size,
                 num_workers=0,
                 pin_memory=False
             )
             
-            # Create model with conservative settings
-            print("🤖 Creating TFT model...")
+            print(f"📊 Train batches: {len(train_dataloader)}")
+            print(f"📊 Val batches: {len(val_dataloader)}")
+            
+            # Create model
             self.model = TemporalFusionTransformer.from_dataset(
                 training_dataset,
-                learning_rate=0.03,
-                hidden_size=16,  # Smaller for stability
-                attention_head_size=4,
+                learning_rate=self.config['learning_rate'],
+                hidden_size=16,  # Small model for test data
+                attention_head_size=2,
                 dropout=0.1,
                 hidden_continuous_size=8,
                 loss=QuantileLoss(),
-                log_interval=10,
-                reduce_on_plateau_patience=4
+                reduce_on_plateau_patience=3
             )
             
-            param_count = sum(p.numel() for p in self.model.parameters())
-            print(f"✅ Model created: {param_count:,} parameters")
+            print(f"✅ Model created with {sum(p.numel() for p in self.model.parameters()):,} parameters")
             
-            # Setup trainer with minimal config
-            max_epochs = epochs or min(self.config["epochs"], 10)  # Limit epochs
-            
+            # Setup trainer with minimal configuration
             trainer = Trainer(
-                max_epochs=max_epochs,
+                max_epochs=self.config['epochs'],
                 gradient_clip_val=0.1,
-                enable_progress_bar=True,
-                accelerator="gpu" if torch.cuda.is_available() else "cpu",
+                accelerator='gpu' if torch.cuda.is_available() else 'cpu',
                 devices=1,
-                precision="32",  # Use full precision for stability
-                callbacks=[
-                    EarlyStopping(
-                        monitor="val_loss",
-                        patience=5,
-                        mode="min"
-                    )
-                ],
-                enable_checkpointing=False
+                enable_checkpointing=False,  # Disable to avoid issues
+                logger=False,  # Disable to avoid issues
+                enable_progress_bar=True,
+                num_sanity_val_steps=0,  # Skip validation sanity check
+                callbacks=[]  # No callbacks to avoid conflicts
             )
-            # Train model
-            print(f"🚀 Training for {max_epochs} epochs...")
-            trainer.fit(
-                self.model,
-                train_dataloaders=train_dataloader,
-                val_dataloaders=val_dataloader
-            )
+            
+            # Train the model
+            print(f"🚀 Training for {self.config['epochs']} epochs...")
+            trainer.fit(self.model, train_dataloader, val_dataloader)
+            
+            print("✅ Training completed successfully!")
             
             # Save model
             model_dir = self._save_model()
-            
-            training_time = datetime.now() - start_time
-            print(f"🎉 Training completed in {training_time}")
-            print(f"💾 Model saved to: {model_dir}")
+            print(f"✅ Model saved to: {model_dir}")
             
             return str(model_dir)
             
         except Exception as e:
             print(f"❌ Training failed: {e}")
-            print("\n💡 Common fixes:")
-            print("   1. Generate more data: generate_dataset(hours=720)")
-            print("   2. Check data quality in the dataset")
-            print("   3. Reduce batch size or model complexity")
-            raise
+            import traceback
+            traceback.print_exc()
+            return None
     
     def _save_model(self) -> Path:
-        """Save trained model with proper handling of shared tensors."""
+        """Save trained model with Safetensors."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        model_dir = Path(self.config["models_dir"]) / f"tft_model_{timestamp}"
+        model_dir = Path(f"./models/tft_model_{timestamp}")
         model_dir.mkdir(parents=True, exist_ok=True)
         
         try:
-            # Method 1: Create independent tensor copies (recommended)
+            # Save with Safetensors
+            model_path = model_dir / "model.safetensors"
             state_dict = self.model.state_dict()
-            clean_state_dict = {}
             
+            # Clean state dict for Safetensors
+            clean_state_dict = {}
             for key, tensor in state_dict.items():
-                # Create independent copy to avoid shared memory
                 if tensor.is_cuda:
                     clean_state_dict[key] = tensor.detach().cpu().clone()
                 else:
                     clean_state_dict[key] = tensor.detach().clone()
             
-            # Save with Safetensors using clean state dict
-            model_path = model_dir / "model.safetensors"
             save_file(clean_state_dict, str(model_path))
-            print(f"✅ Model weights saved: {model_path}")
+            print(f"💾 Safetensors model saved: {model_path}")
             
-            # Save configuration
+            # Save config
             config_path = model_dir / "config.json"
-            with open(config_path, "w") as f:
+            with open(config_path, 'w') as f:
                 json.dump({
-                    "model_type": "TemporalFusionTransformer",
-                    "framework": "pytorch_forecasting", 
-                    "created_at": timestamp,
-                    "training_config": self.config
+                    'model_type': 'TemporalFusionTransformer',
+                    'created_at': timestamp,
+                    'training_config': self.config
                 }, f, indent=2)
             
             # Save metadata
-            metadata_path = model_dir / "metadata.json"
-            with open(metadata_path, "w") as f:
+            metadata_path = model_dir / "training_metadata.json"
+            with open(metadata_path, 'w') as f:
                 json.dump({
-                    "training_completed": True,
-                    "model_type": "TFT",
-                    "framework": "pytorch_forecasting",
-                    "created_at": datetime.now().isoformat(),
-                    "model_path": str(model_path),
-                    "safetensors_format": True
+                    'training_completed': True,
+                    'model_type': 'TFT',
+                    'framework': 'pytorch_forecasting',
+                    'created_at': datetime.now().isoformat(),
+                    'safetensors_format': True
                 }, f, indent=2)
             
-            print(f"✅ Model saved successfully: {model_dir}")
             return model_dir
             
         except Exception as e:
             print(f"❌ Safetensors save failed: {e}")
-            # Fallback: Save as regular PyTorch checkpoint
-            return self._fallback_save_model(model_dir)
-    
-    def _fallback_save_model(self, model_dir: Path) -> Path:
-        """Fallback: Save as regular PyTorch checkpoint."""
-        try:
-            print("🔄 Using PyTorch checkpoint fallback...")
-            
-            # Save as regular PyTorch checkpoint
-            checkpoint_path = model_dir / "model.ckpt" 
+            # Fallback to PyTorch format
+            torch_path = model_dir / "model.pth"
             torch.save({
                 'model_state_dict': self.model.state_dict(),
-                'config': self.config,
-                'model_class': 'TemporalFusionTransformer'
-            }, checkpoint_path)
-            
-            print(f"✅ Fallback model saved: {checkpoint_path}")
+                'config': self.config
+            }, torch_path)
+            print(f"💾 Fallback PyTorch save: {torch_path}")
             return model_dir
-            
-        except Exception as e:
-            print(f"❌ Fallback save also failed: {e}")
-            return None
 
 
-def train_model(epochs: Optional[int] = None) -> str:
-    """Train TFT model - module interface."""
-    trainer = TFTTrainer()
-    return trainer.train(epochs)
-
-
-def diagnose_dataset():
-    """Diagnose dataset issues."""
-    print("\n🔍 Dataset Diagnosis")
-    print("=" * 50)
-    
-    dataset_path = Path(CONFIG["training_dir"]) / "metrics_dataset.json"
-    
-    if not dataset_path.exists():
-        print("❌ No dataset found!")
-        return
-    
-    try:
-        with open(dataset_path, 'r') as f:
-            data = json.load(f)
-        
-        samples = data["training_samples"]
-        metadata = data.get("metadata", {})
-        
-        print(f"📊 Total samples: {len(samples):,}")
-        print(f"🖥️  Servers: {metadata.get('servers_count', 'unknown')}")
-        print(f"⏱️  Time span: {metadata.get('time_span_hours', 'unknown')} hours")
-        
-        # Analyze server distribution
-        if samples:
-            df = pd.DataFrame(samples)
-            server_counts = df['server_name'].value_counts()
-            print(f"\n📈 Samples per server:")
-            print(f"   Min: {server_counts.min()}")
-            print(f"   Max: {server_counts.max()}")
-            print(f"   Mean: {server_counts.mean():.1f}")
-            
-            # Check minimum requirements
-            min_required = CONFIG["context_length"] + CONFIG["prediction_horizon"] + 5
-            insufficient = server_counts[server_counts < min_required]
-            
-            if len(insufficient) > 0:
-                print(f"\n⚠️  {len(insufficient)} servers have insufficient data")
-                print(f"   Required: {min_required} samples minimum")
-                print("\n💡 Solutions:")
-                print("   1. Generate more data: generate_dataset(hours=720)")
-                print("   2. Reduce context_length in config.py")
-                print("   3. Reduce prediction_horizon in config.py")
-            else:
-                print("\n✅ All servers have sufficient data for training")
-        
-    except Exception as e:
-        print(f"❌ Error analyzing dataset: {e}")
+def train_model(dataset_path: str = "./training/metrics_dataset.json", 
+               epochs: Optional[int] = None) -> Optional[str]:
+    """Module interface for training."""
+    config = {
+        'epochs': epochs or 10,
+        'batch_size': 16,
+        'learning_rate': 0.03,
+        'prediction_horizon': 6,
+        'context_length': 24
+    }
+    trainer = TFTTrainer(config)
+    return trainer.train(dataset_path)
 
 
 def main():
-    """Command-line interface."""
+    """Command line interface."""
     parser = argparse.ArgumentParser(description="Train TFT model")
-    parser.add_argument("--epochs", type=int, help="Training epochs")
-    parser.add_argument("--diagnose", action="store_true", help="Diagnose dataset")
+    parser.add_argument("--dataset", type=str, default="./training/metrics_dataset.json",
+                       help="Path to dataset file")
+    parser.add_argument("--epochs", type=int, default=10, help="Training epochs")
+    parser.add_argument("--batch-size", type=int, default=16, help="Batch size")
     
     args = parser.parse_args()
     
-    if args.diagnose:
-        diagnose_dataset()
-        return 0
+    config = {
+        'epochs': args.epochs,
+        'batch_size': args.batch_size,
+        'learning_rate': 0.03
+    }
     
-    try:
-        model_dir = train_model(args.epochs)
-        print(f"✅ Model saved to: {model_dir}")
+    trainer = TFTTrainer(config)
+    model_path = trainer.train(args.dataset)
+    
+    if model_path:
+        print(f"✅ Training successful: {model_path}")
         return 0
-    except Exception as e:
-        print(f"❌ Training failed: {e}")
-        print("\n💡 Run diagnosis: python tft_trainer.py --diagnose")
+    else:
+        print("❌ Training failed")
         return 1
 
 

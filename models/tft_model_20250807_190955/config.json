@@ -1,0 +1,11 @@
+{
+  "model_type": "TemporalFusionTransformer",
+  "created_at": "20250807_190955",
+  "training_config": {
+    "epochs": 10,
+    "batch_size": 16,
+    "learning_rate": 0.03,
+    "prediction_horizon": 6,
+    "context_length": 24
+  }
+}
