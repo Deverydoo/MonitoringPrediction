@@ -1,0 +1,18 @@
+{
+  "generated_at": "2025-10-10T16:38:16.457654+00:00",
+  "total_samples": 432000,
+  "time_span_hours": 24,
+  "start_time": "2025-10-09T16:33:54.663072+00:00",
+  "end_time": "2025-10-10T16:33:49.663072+00:00",
+  "servers_count": 25,
+  "problem_children_pct": 0.1,
+  "tick_interval_seconds": 5,
+  "profiles": {
+    "production": 172800,
+    "compute": 86400,
+    "service": 86400,
+    "staging": 51840,
+    "container": 34560
+  },
+  "format_version": "3.0_fleet"
+}

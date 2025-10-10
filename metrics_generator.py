@@ -69,7 +69,7 @@ class Config:
     
     # Output settings
     out_dir: str = "./training"
-    output_format: str = "both"  # "csv", "parquet", or "both"
+    output_format: str = "parquet"  # "csv", "parquet", or "both" (default: parquet only)
     
     def __post_init__(self):
         """Validate configuration."""
@@ -198,15 +198,21 @@ def make_server_fleet(config: Config) -> pd.DataFrame:
     return fleet_df.reset_index(drop=True)
 
 def generate_schedule(config: Config) -> pd.DatetimeIndex:
-    """Generate 5-second interval timestamp schedule."""
+    """
+    Generate 5-second interval timestamp schedule.
+
+    By default, creates timestamps ending at current time and starting X hours in the past,
+    where X is config.hours. This ensures data appears recent and realistic.
+    """
     if config.start_time is None:
-        # Auto-calculate start time: current time minus duration
+        # Auto-calculate: end at current time, start X hours in the past
         end_time = datetime.now(timezone.utc)
         start = end_time - timedelta(hours=config.hours)
     else:
+        # Use explicit start time if provided
         start = pd.Timestamp(config.start_time).tz_convert('UTC')
         end_time = start + pd.Timedelta(hours=config.hours)
-    
+
     return pd.date_range(start=start, end=end_time, freq=f'{config.tick_seconds}S', inclusive='left')
 
 def diurnal_multiplier(hour: int, profile: ServerProfile, state: ServerState) -> float:
@@ -444,52 +450,58 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
     return df
 
 def write_outputs(df: pd.DataFrame, config: Config) -> None:
-    """Write outputs in CSV and/or Parquet format with date partitioning."""
+    """Write outputs in Parquet (default), CSV, or both formats."""
     out_dir = Path(config.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Add UTC date for partitioning
-    df['date'] = df['timestamp'].dt.date
-    
+
     # Sort by timestamp and server name for proper ordering
     df = df.sort_values(['timestamp', 'server_name']).reset_index(drop=True)
-    
+
+    # Show time range
+    start_time = df['timestamp'].min()
+    end_time = df['timestamp'].max()
+    duration = end_time - start_time
+    print(f"\n⏰ Time Range:")
+    print(f"   Start: {start_time}")
+    print(f"   End:   {end_time}")
+    print(f"   Duration: {duration}")
+    print(f"   (Data ends at current time, starts {config.hours} hours ago)\n")
+
     if config.output_format in ["csv", "both"]:
         # Write CSV (single file)
         csv_path = out_dir / "server_metrics.csv"
-        output_df = df.drop('date', axis=1)  # Remove partition column
-        output_df.to_csv(csv_path, index=False)
-        print(f"📄 CSV written: {csv_path} ({len(output_df):,} rows)")
-    
+        df.to_csv(csv_path, index=False)
+        print(f"📄 CSV written: {csv_path} ({len(df):,} rows)")
+
     if config.output_format in ["parquet", "both"]:
-        # Write Parquet with date partitioning
+        # Write Parquet file (single consolidated file for fast loading)
         try:
             import pyarrow as pa
             import pyarrow.parquet as pq
-            
-            parquet_dir = out_dir / "server_metrics_parquet"
-            parquet_dir.mkdir(exist_ok=True)
-            
-            # Group by date and write partitions
-            for date, date_df in df.groupby('date'):
-                date_str = date.strftime('%Y-%m-%d')
-                partition_dir = parquet_dir / f"date={date_str}"
-                partition_dir.mkdir(exist_ok=True)
-                
-                output_df = date_df.drop('date', axis=1)
-                output_path = partition_dir / "data.parquet"
-                output_df.to_parquet(output_path, compression='snappy', index=False)
-            
-            print(f"📦 Parquet written: {parquet_dir} (partitioned by date)")
-            
+
+            parquet_path = out_dir / "server_metrics.parquet"
+            df.to_parquet(parquet_path, compression='snappy', index=False)
+
+            # Get file size for reporting
+            size_mb = parquet_path.stat().st_size / (1024 * 1024)
+            print(f"📊 Parquet written: {parquet_path} ({len(df):,} rows, {size_mb:.1f} MB)")
+
         except ImportError:
-            print("⚠️  PyArrow not available, skipping Parquet output")
+            print("⚠️  PyArrow not available - install with: pip install pyarrow")
+            print("   Falling back to CSV output...")
+            # Fallback to CSV if parquet fails
+            if config.output_format == "parquet":
+                csv_path = out_dir / "server_metrics.csv"
+                df.to_csv(csv_path, index=False)
+                print(f"📄 CSV written: {csv_path} ({len(df):,} rows)")
     
-    # Create metadata file for backward compatibility  
+    # Create metadata file for backward compatibility
     metadata = {
         'generated_at': datetime.now(timezone.utc).isoformat(),
         'total_samples': len(df),
         'time_span_hours': config.hours,
+        'start_time': df['timestamp'].min().isoformat(),
+        'end_time': df['timestamp'].max().isoformat(),
         'servers_count': len(df['server_name'].unique()),
         'problem_children_pct': config.problem_child_pct,
         'tick_interval_seconds': config.tick_seconds,
@@ -573,13 +585,25 @@ def main():
                        help="Random seed for reproducibility")
     
     # Output
-    parser.add_argument("--out_dir", default="./training", 
+    parser.add_argument("--out_dir", default="./training",
                        help="Output directory")
-    parser.add_argument("--format", choices=["csv", "parquet", "both"], default="both",
-                       help="Output format")
+    parser.add_argument("--format", choices=["csv", "parquet", "both"], default="parquet",
+                       help="Output format (default: parquet for speed)")
+    parser.add_argument("--csv", action="store_true",
+                       help="Also output CSV format (slower)")
+    parser.add_argument("--json", action="store_true",
+                       help="Also output JSON format (slowest, legacy)")
     
     args = parser.parse_args()
-    
+
+    # Determine output format based on flags
+    output_format = args.format
+    if args.csv and args.json:
+        output_format = "both"  # Legacy: output all formats
+    elif args.csv:
+        output_format = "both"  # Parquet + CSV
+    # args.json is handled separately below
+
     # Create configuration
     config = Config(
         start_time=args.start,
@@ -594,7 +618,7 @@ def main():
         offline_fill=args.offline_fill,
         seed=args.seed,
         out_dir=args.out_dir,
-        output_format=args.format
+        output_format=output_format
     )
     
     print("🚀 Enhanced Fleet Telemetry Generator")
@@ -619,7 +643,24 @@ def main():
     # Write outputs
     print("💾 Writing output files...")
     write_outputs(final_df, config)
-    
+
+    # Optional JSON output (if --json flag used)
+    if args.json:
+        print("📝 Writing JSON output (legacy format)...")
+        json_path = Path(config.out_dir) / 'metrics_dataset.json'
+        records = final_df.to_dict('records')
+        metadata = {
+            'generated_at': datetime.now(timezone.utc).isoformat(),
+            'total_samples': len(records),
+            'time_span_hours': config.hours,
+            'servers_count': len(fleet),
+            'problem_children_pct': config.problem_child_pct,
+            'format_version': "3.0_fleet"
+        }
+        with open(json_path, 'w') as f:
+            json.dump({'records': records, 'metadata': metadata}, f, indent=2, default=str)
+        print(f"📊 JSON written: {json_path} ({len(records):,} records)")
+
     # Validate
     validate_output(final_df, config)
     

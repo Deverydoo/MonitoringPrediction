@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"C:\\Users\\craig\\miniconda3\\envs\\py310\\python.exe\" -c \"\nimport pandas as pd\ndf = pd.read_parquet(''''training/server_metrics.parquet'''')\nunique_states = sorted(df[''''state''''].unique())\nprint(f''''Unique states: {len(unique_states)}'''')\nprint(f''''States: {unique_states}'''')\n\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

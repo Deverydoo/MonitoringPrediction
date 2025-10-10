@@ -25,12 +25,23 @@ CONFIG = {
   "hidden_continuous_size": 16,
   "output_size": 7,
   "loss": "quantile",
+  "random_seed": 42,
   "epochs": 20,
   "batch_size": 32,
   "learning_rate": 0.01,
   "gradient_clip_val": 0.1,
   "early_stopping_patience": 8,
   "reduce_on_plateau_patience": 4,
+
+  # Phase 2: Enhanced features
+  "auto_lr_find": False,  # Set to True to automatically find learning rate
+  "lr_monitor_interval": "step",  # Log LR every step
+  "log_every_n_steps": 50,  # Log metrics every N steps
+
+  # Phase 3: Advanced optimizations
+  "precision": "32-true",  # Options: "32-true", "16-mixed", "bf16-mixed"
+  "accumulate_grad_batches": 1,  # Gradient accumulation (1 = disabled)
+  "multi_target": False,  # Set to True for multi-target prediction
   
   "prediction_horizon": 96,
   "context_length": 288,
