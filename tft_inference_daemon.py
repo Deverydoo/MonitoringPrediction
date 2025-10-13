@@ -18,6 +18,9 @@ No dependencies on the messy old tft_inference.py file.
 import asyncio
 import json
 import warnings
+import signal
+import pickle
+import atexit
 from datetime import datetime
 from collections import deque
 from pathlib import Path
@@ -42,6 +45,8 @@ warnings.filterwarnings('ignore', category=UserWarning, module='lightning.pytorc
 warnings.filterwarnings('ignore', message='.*is an instance of.*nn.Module.*')
 warnings.filterwarnings('ignore', message='.*dataloader.*does not have many workers.*')
 warnings.filterwarnings('ignore', message='.*Tensor Cores.*')
+warnings.filterwarnings('ignore', message='.*Min encoder length.*not present in the dataset index.*')
+warnings.filterwarnings('ignore', message='.*min_prediction_idx.*removed groups.*')
 
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -344,7 +349,18 @@ class TFTInference:
     def _predict_with_tft(self, df: pd.DataFrame, horizon: int) -> Dict:
         """Use TFT model for predictions."""
         try:
+            # Keep only the most recent N timesteps per server to ensure consecutive sequences
+            MAX_LOOKBACK = 300  # Keep last 300 timesteps per server (~25 minutes at 5s intervals)
+
+            if 'server_name' in df.columns:
+                # Sort by timestamp and keep last N per server
+                df = df.sort_values(['server_name', 'timestamp'])
+                df = df.groupby('server_name').tail(MAX_LOOKBACK).reset_index(drop=True)
+
             prediction_df = self._prepare_data_for_tft(df)
+
+            print(f"[DEBUG] Input data: {len(df)} records, {df['server_name'].nunique() if 'server_name' in df.columns else 'N/A'} unique servers")
+            print(f"[DEBUG] Prepared data: {len(prediction_df)} records, {prediction_df['server_id'].nunique()} unique server_ids")
 
             from pytorch_forecasting import TimeSeriesDataSet
 
@@ -355,8 +371,11 @@ class TFTInference:
                 stop_randomization=True
             )
 
+            print(f"[DEBUG] Prediction dataset created with {len(prediction_dataset)} samples")
+
             batch_size = self.gpu.get_batch_size('inference') if self.gpu else 64
-            num_workers = min(self.gpu.get_num_workers(), 4) if self.gpu else 0
+            # IMPORTANT: num_workers=0 on Windows to avoid multiprocessing issues
+            num_workers = 0
 
             prediction_dataloader = prediction_dataset.to_dataloader(
                 train=False,
@@ -364,12 +383,16 @@ class TFTInference:
                 num_workers=num_workers
             )
 
+            print(f"[DEBUG] Running TFT model prediction...")
+            print(f"[DEBUG] Batch size: {batch_size}, Dataloader batches: {len(prediction_dataloader)}")
             with torch.no_grad():
                 raw_predictions = self.model.predict(
                     prediction_dataloader,
                     mode="raw",
                     return_x=True
                 )
+            print(f"[DEBUG] TFT model prediction complete")
+            print(f"[DEBUG] raw_predictions type after predict: {type(raw_predictions)}")
 
             predictions = self._format_tft_predictions(raw_predictions, prediction_df, horizon)
             print(f"[OK] TFT predictions generated for {len(predictions)} servers")
@@ -391,6 +414,19 @@ class TFTInference:
     def _prepare_data_for_tft(self, df: pd.DataFrame) -> pd.DataFrame:
         """Prepare input data for TFT prediction."""
         prediction_df = df.copy()
+
+        # Map DATA_CONTRACT names to internal model names
+        column_mapping = {
+            'cpu_pct': 'cpu_percent',
+            'mem_pct': 'memory_percent',
+            'disk_io_mb_s': 'disk_percent',
+            'latency_ms': 'load_average'
+        }
+
+        # Apply column name mapping
+        for contract_name, model_name in column_mapping.items():
+            if contract_name in prediction_df.columns and model_name not in prediction_df.columns:
+                prediction_df[model_name] = prediction_df[contract_name]
 
         required_cols = ['server_name', 'timestamp', 'cpu_percent', 'memory_percent',
                         'disk_percent', 'load_average']
@@ -441,17 +477,75 @@ class TFTInference:
         """Format TFT raw predictions into standard format."""
         predictions = {}
 
-        if hasattr(raw_predictions, 'prediction'):
-            pred_tensor = raw_predictions.prediction
-        elif hasattr(raw_predictions, 'output'):
+        # TFT model.predict() with return_x=True returns a tuple: (predictions, x)
+        # where predictions is a dictionary with keys like 'prediction', 'attention', etc.
+        # We need to extract just the prediction tensor
+
+        print(f"[DEBUG] raw_predictions type: {type(raw_predictions)}")
+
+        # Check if it's a Prediction object (has 'output' attribute) FIRST
+        if hasattr(raw_predictions, 'output'):
             pred_tensor = raw_predictions.output
+            print(f"[DEBUG] Extracted .output from Prediction object")
+        elif hasattr(raw_predictions, 'prediction'):
+            pred_tensor = raw_predictions.prediction
+            print(f"[DEBUG] Extracted .prediction attribute")
+        elif isinstance(raw_predictions, dict) and 'prediction' in raw_predictions:
+            pred_tensor = raw_predictions['prediction']
+            print(f"[DEBUG] Extracted from dict['prediction']")
+        elif isinstance(raw_predictions, tuple):
+            # Fallback: unpack tuple if needed
+            pred_output, x_data = raw_predictions
+            if isinstance(pred_output, dict) and 'prediction' in pred_output:
+                pred_tensor = pred_output['prediction']
+            else:
+                pred_tensor = pred_output
+            print(f"[DEBUG] Unpacked from tuple")
         else:
             pred_tensor = raw_predictions
+            print(f"[DEBUG] Using raw_predictions directly")
 
         servers = input_df['server_id'].unique()
 
+        print(f"[DEBUG] Formatting predictions: {len(servers)} servers")
+        print(f"[DEBUG] pred_tensor type: {type(pred_tensor)}")
+        print(f"[DEBUG] pred_tensor has .shape: {hasattr(pred_tensor, 'shape')}")
+        if hasattr(pred_tensor, 'shape'):
+            print(f"[DEBUG] pred_tensor.shape: {pred_tensor.shape}")
+        print(f"[DEBUG] pred_tensor has __len__: {hasattr(pred_tensor, '__len__')}")
+        if hasattr(pred_tensor, '__len__'):
+            print(f"[DEBUG] len(pred_tensor): {len(pred_tensor)}")
+        print(f"[DEBUG] pred_tensor has __getitem__: {hasattr(pred_tensor, '__getitem__')}")
+
+        # Introspect Output object attributes
+        if hasattr(pred_tensor, '__dict__'):
+            print(f"[DEBUG] pred_tensor.__dict__ keys: {list(pred_tensor.__dict__.keys())}")
+        else:
+            print(f"[DEBUG] pred_tensor dir(): {[x for x in dir(pred_tensor) if not x.startswith('_')]}")
+
+        # Try to access the actual prediction data
+        if hasattr(pred_tensor, 'prediction'):
+            print(f"[DEBUG] pred_tensor.prediction exists, type: {type(pred_tensor.prediction)}")
+            if hasattr(pred_tensor.prediction, 'shape'):
+                print(f"[DEBUG] pred_tensor.prediction.shape: {pred_tensor.prediction.shape}")
+
+        # Check if it's a namedtuple or similar
+        if hasattr(pred_tensor, '_fields'):
+            print(f"[DEBUG] pred_tensor is namedtuple with fields: {pred_tensor._fields}")
+
+        # CRITICAL FIX: If pred_tensor is an Output namedtuple, extract the actual prediction tensor
+        if hasattr(pred_tensor, 'prediction'):
+            actual_predictions = pred_tensor.prediction
+            print(f"[FIX] Using pred_tensor.prediction (shape: {actual_predictions.shape})")
+        else:
+            actual_predictions = pred_tensor
+            print(f"[FIX] Using pred_tensor directly")
+
         for idx, server_id in enumerate(servers):
-            if idx >= len(pred_tensor):
+            # Check against the actual prediction tensor, not the namedtuple length
+            if idx >= len(actual_predictions):
+                print(f"[WARNING] Pred tensor too small: idx={idx}, tensor_len={len(actual_predictions)}, stopping early")
+                print(f"[WARNING] This indicates a batching or prediction dataset issue")
                 break
 
             if self.server_encoder:
@@ -461,18 +555,59 @@ class TFTInference:
 
             server_preds = {}
 
-            if hasattr(pred_tensor, 'dim') and pred_tensor.dim() >= 2:
-                pred_values = pred_tensor[idx].cpu().numpy()
+            if hasattr(actual_predictions, 'dim') and actual_predictions.dim() >= 2:
+                pred_values = actual_predictions[idx].cpu().numpy()
 
-                if pred_values.shape[-1] >= 3:
-                    p10_values = pred_values[:horizon, 0, 0].tolist()
-                    p50_values = pred_values[:horizon, 0, 1].tolist()
-                    p90_values = pred_values[:horizon, 0, 2].tolist()
+                # Debug shape
+                print(f"[DEBUG] Server {idx} pred_values.shape: {pred_values.shape}")
+
+                # TFT outputs shape: [timesteps, quantiles]
+                # Quantiles are typically 7: [0.02, 0.1, 0.25, 0.5, 0.75, 0.9, 0.98]
+                # We want: p10 (index 1), p50 (index 3), p90 (index 5)
+
+                if pred_values.ndim == 2:
+                    # Shape is [timesteps, quantiles]
+                    if pred_values.shape[-1] >= 7:
+                        # Full quantile set: use indices 1, 3, 5 for p10, p50, p90
+                        p10_values = pred_values[:horizon, 1].tolist()  # 0.1 quantile
+                        p50_values = pred_values[:horizon, 3].tolist()  # 0.5 quantile (median)
+                        p90_values = pred_values[:horizon, 5].tolist()  # 0.9 quantile
+
+                        # CRITICAL: Clamp CPU predictions to valid range [0, 100]
+                        p10_values = [max(0.0, min(100.0, v)) for v in p10_values]
+                        p50_values = [max(0.0, min(100.0, v)) for v in p50_values]
+                        p90_values = [max(0.0, min(100.0, v)) for v in p90_values]
+                    elif pred_values.shape[-1] == 3:
+                        # Only 3 quantiles: [p10, p50, p90]
+                        p10_values = pred_values[:horizon, 0].tolist()
+                        p50_values = pred_values[:horizon, 1].tolist()
+                        p90_values = pred_values[:horizon, 2].tolist()
+
+                        # Clamp to valid range [0, 100]
+                        p10_values = [max(0.0, min(100.0, v)) for v in p10_values]
+                        p50_values = [max(0.0, min(100.0, v)) for v in p50_values]
+                        p90_values = [max(0.0, min(100.0, v)) for v in p90_values]
+                    else:
+                        # Fallback: use median + std dev
+                        p50_values = pred_values[:horizon, 0].tolist()
+                        std_dev = np.std(p50_values) if len(p50_values) > 1 else 5.0
+                        p10_values = [max(0, v - std_dev) for v in p50_values]
+                        p90_values = [min(100, v + std_dev) for v in p50_values]
+                elif pred_values.ndim == 3:
+                    # Old format: [timesteps, features, quantiles]
+                    if pred_values.shape[-1] >= 3:
+                        p10_values = pred_values[:horizon, 0, 0].tolist()
+                        p50_values = pred_values[:horizon, 0, 1].tolist()
+                        p90_values = pred_values[:horizon, 0, 2].tolist()
+                    else:
+                        p50_values = pred_values[:horizon, 0, 0].tolist()
+                        std_dev = np.std(p50_values) if len(p50_values) > 1 else 5.0
+                        p10_values = [max(0, v - std_dev) for v in p50_values]
+                        p90_values = [min(100, v + std_dev) for v in p50_values]
                 else:
-                    p50_values = pred_values[:horizon, 0, 0].tolist()
-                    std_dev = np.std(p50_values) if len(p50_values) > 1 else 5.0
-                    p10_values = [max(0, v - std_dev) for v in p50_values]
-                    p90_values = [min(100, v + std_dev) for v in p50_values]
+                    # Unknown format
+                    print(f"[WARNING] Unexpected pred_values shape: {pred_values.shape}")
+                    continue
 
                 server_data = input_df[input_df['server_id'] == server_id]
                 current_cpu = server_data['cpu_percent'].iloc[-1] if len(server_data) > 0 else 50.0
@@ -661,15 +796,27 @@ class TFTInference:
                 p50 = forecast.get('p50', [])
                 p90 = forecast.get('p90', [])
 
+                # 30-minute risk: only flag if p50 > 90 OR p90 > 98 (severe conditions)
                 if len(p50) >= 6:
-                    if max(p50[:6]) > 80 or max(p90[:6]) > 90:
-                        risk_30m += 0.3
+                    max_p50 = max(p50[:6])
+                    max_p90 = max(p90[:6]) if len(p90) >= 6 else 0
 
+                    if max_p50 > 90 or max_p90 > 98:
+                        risk_30m += 0.35
+                    elif max_p50 > 85 or max_p90 > 95:
+                        risk_30m += 0.15
+
+                # 8-hour risk: only flag if p50 > 88 OR p90 > 96
                 if len(p50) >= 96:
-                    if max(p50) > 85 or max(p90) > 95:
-                        risk_8h += 0.2
+                    max_p50 = max(p50)
+                    max_p90 = max(p90) if len(p90) >= 96 else 0
 
-            if risk_30m > 0.5:
+                    if max_p50 > 88 or max_p90 > 96:
+                        risk_8h += 0.25
+                    elif max_p50 > 82 or max_p90 > 92:
+                        risk_8h += 0.10
+
+            if risk_30m > 0.6:
                 high_risk_count += 1
 
             prob_30m += min(1.0, risk_30m)
@@ -680,8 +827,10 @@ class TFTInference:
             prob_8h = prob_8h / total_servers
 
         return {
-            'incident_probability_30m': float(min(1.0, prob_30m)),
-            'incident_probability_8h': float(min(1.0, prob_8h)),
+            'prob_30m': float(min(1.0, prob_30m)),
+            'prob_8h': float(min(1.0, prob_8h)),
+            'incident_probability_30m': float(min(1.0, prob_30m)),  # Backwards compatibility
+            'incident_probability_8h': float(min(1.0, prob_8h)),    # Backwards compatibility
             'high_risk_servers': high_risk_count,
             'total_servers': total_servers,
             'fleet_health': 'critical' if prob_30m > 0.7 else 'warning' if prob_30m > 0.4 else 'healthy'
@@ -713,6 +862,8 @@ class TFTInference:
 WARMUP_THRESHOLD = 150  # Timesteps needed per server before TFT predictions work
 WINDOW_SIZE = 6000      # Keep last 6000 records (~8 hours at 5-second intervals for 25 servers)
 PORT = 8000
+PERSISTENCE_FILE = "inference_rolling_window.pkl"  # File to persist rolling window
+AUTOSAVE_INTERVAL = 100  # Save every 100 ticks (~8 minutes at 5s intervals)
 
 # =============================================================================
 # DATA MODELS
@@ -742,6 +893,8 @@ class CleanInferenceDaemon:
         self.rolling_window = deque(maxlen=WINDOW_SIZE)
         self.tick_count = 0
         self.start_time = datetime.now()
+        self.persistence_file = Path(PERSISTENCE_FILE)
+        self.last_save_tick = 0
 
         # Load TFT model
         print(f"[INIT] Loading TFT model...")
@@ -750,6 +903,14 @@ class CleanInferenceDaemon:
 
         # Track per-server data counts for warmup
         self.server_timesteps = {}
+
+        # Try to load persisted state
+        self._load_state()
+
+        # Register shutdown handlers for graceful persistence
+        atexit.register(self._save_state)
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
 
     def feed_data(self, records: List[Dict]) -> Dict[str, Any]:
         """
@@ -778,6 +939,9 @@ class CleanInferenceDaemon:
         servers_ready = sum(1 for count in self.server_timesteps.values() if count >= WARMUP_THRESHOLD)
         total_servers = len(self.server_timesteps)
         is_warmed_up = servers_ready == total_servers and total_servers > 0
+
+        # Auto-save check (every 100 ticks ≈ 8 minutes)
+        self._autosave_check()
 
         return {
             "status": "accepted",
@@ -821,6 +985,9 @@ class CleanInferenceDaemon:
         total_servers = len(self.server_timesteps)
         is_warmed_up = servers_ready == total_servers and total_servers > 0
 
+        # Calculate average data points across all servers
+        avg_datapoints = int(sum(self.server_timesteps.values()) / total_servers) if total_servers > 0 else 0
+
         if is_warmed_up:
             warmup_msg = "Model ready - using TFT predictions"
             warmup_pct = 100
@@ -839,9 +1006,90 @@ class CleanInferenceDaemon:
                 "is_warmed_up": is_warmed_up,
                 "progress_percent": warmup_pct,
                 "threshold": WARMUP_THRESHOLD,
+                "current_size": avg_datapoints,
+                "required_size": WARMUP_THRESHOLD,
                 "message": warmup_msg
             }
         }
+
+    def _load_state(self):
+        """Load persisted rolling window from disk."""
+        if not self.persistence_file.exists():
+            print(f"[INFO] No persisted state found - starting fresh")
+            return
+
+        try:
+            # Check file age
+            file_age_minutes = (datetime.now().timestamp() - self.persistence_file.stat().st_mtime) / 60
+
+            if file_age_minutes > 30:
+                print(f"[WARNING] Persisted state is {file_age_minutes:.1f} minutes old - may be stale")
+
+            print(f"[INFO] Loading persisted rolling window from {self.persistence_file}...")
+            with open(self.persistence_file, 'rb') as f:
+                state = pickle.load(f)
+
+            # Restore state
+            self.rolling_window = deque(state['rolling_window'], maxlen=WINDOW_SIZE)
+            self.tick_count = state['tick_count']
+            self.server_timesteps = state['server_timesteps']
+
+            servers_ready = sum(1 for count in self.server_timesteps.values() if count >= WARMUP_THRESHOLD)
+            total_servers = len(self.server_timesteps)
+
+            print(f"[OK] Loaded {len(self.rolling_window)} records from disk")
+            print(f"[OK] Warmup status: {servers_ready}/{total_servers} servers ready")
+
+            # Check if warmed up
+            if servers_ready == total_servers and total_servers > 0:
+                print(f"[SUCCESS] Model is WARMED UP - ready for predictions immediately!")
+            else:
+                print(f"[INFO] Model needs {WARMUP_THRESHOLD - min(self.server_timesteps.values() if self.server_timesteps else [0])} more datapoints per server")
+
+        except Exception as e:
+            print(f"[ERROR] Failed to load persisted state: {e}")
+            print(f"[INFO] Starting with empty rolling window")
+            self.rolling_window = deque(maxlen=WINDOW_SIZE)
+            self.tick_count = 0
+            self.server_timesteps = {}
+
+    def _save_state(self):
+        """Save rolling window to disk."""
+        try:
+            # Create state dict
+            state = {
+                'rolling_window': list(self.rolling_window),
+                'tick_count': self.tick_count,
+                'server_timesteps': self.server_timesteps,
+                'timestamp': datetime.now().isoformat()
+            }
+
+            # Atomic write (temp file + rename)
+            temp_file = self.persistence_file.with_suffix('.tmp')
+            with open(temp_file, 'wb') as f:
+                pickle.dump(state, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+            # Rename to final location (atomic on POSIX, best-effort on Windows)
+            temp_file.replace(self.persistence_file)
+
+            print(f"[SAVE] Rolling window persisted: {len(self.rolling_window)} records, tick {self.tick_count}")
+
+        except Exception as e:
+            print(f"[ERROR] Failed to save state: {e}")
+
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals gracefully."""
+        print(f"\n[SHUTDOWN] Received signal {signum}, saving state...")
+        self._save_state()
+        print(f"[SHUTDOWN] State saved, exiting")
+        import sys
+        sys.exit(0)
+
+    def _autosave_check(self):
+        """Check if it's time to auto-save."""
+        if self.tick_count - self.last_save_tick >= AUTOSAVE_INTERVAL:
+            self._save_state()
+            self.last_save_tick = self.tick_count
 
 # =============================================================================
 # FASTAPI APPLICATION

@@ -183,70 +183,75 @@ class Config:
 # Realistic values for financial ML platform with Spectrum Conductor
 PROFILE_BASELINES = {
     ServerProfile.ML_COMPUTE: {
-        # High CPU/Memory during training, moderate I/O, low network
-        "cpu": (0.78, 0.12), "mem": (0.82, 0.10), "disk_io_mb_s": (45.0, 15.0),
+        # Low CPU/Memory during normal operation (healthy baseline = 15-30%)
+        "cpu": (0.20, 0.08), "mem": (0.28, 0.08), "disk_io_mb_s": (45.0, 15.0),
         "net_in_mb_s": (8.5, 3.0), "net_out_mb_s": (5.2, 2.0),
         "latency_ms": (22.0, 5.0), "error_rate": (0.002, 0.001), "gc_pause_ms": (15.0, 8.0)
     },
     ServerProfile.DATABASE: {
-        # Moderate CPU, high memory (caching), very high I/O, moderate network
-        "cpu": (0.55, 0.15), "mem": (0.87, 0.08), "disk_io_mb_s": (180.0, 45.0),
+        # Low CPU/Memory (healthy baseline = 12-28%)
+        "cpu": (0.18, 0.07), "mem": (0.30, 0.08), "disk_io_mb_s": (180.0, 45.0),
         "net_in_mb_s": (35.0, 12.0), "net_out_mb_s": (28.0, 10.0),
         "latency_ms": (8.5, 3.0), "error_rate": (0.001, 0.0005), "gc_pause_ms": (5.0, 2.0)
     },
     ServerProfile.WEB_API: {
-        # Low CPU, moderate memory, low I/O, high network (user traffic)
-        "cpu": (0.28, 0.08), "mem": (0.55, 0.12), "disk_io_mb_s": (12.0, 4.0),
+        # Low CPU, low memory (healthy baseline = 10-24%)
+        "cpu": (0.15, 0.06), "mem": (0.22, 0.08), "disk_io_mb_s": (12.0, 4.0),
         "net_in_mb_s": (85.0, 25.0), "net_out_mb_s": (120.0, 35.0),
         "latency_ms": (45.0, 15.0), "error_rate": (0.004, 0.002), "gc_pause_ms": (8.0, 3.0)
     },
     ServerProfile.CONDUCTOR_MGMT: {
-        # Low CPU (scheduling), high memory (job queue), low I/O, moderate network
-        "cpu": (0.28, 0.08), "mem": (0.75, 0.10), "disk_io_mb_s": (18.0, 6.0),
+        # Low CPU, low memory (healthy baseline = 10-25%)
+        "cpu": (0.15, 0.06), "mem": (0.25, 0.08), "disk_io_mb_s": (18.0, 6.0),
         "net_in_mb_s": (22.0, 8.0), "net_out_mb_s": (18.0, 6.0),
         "latency_ms": (15.0, 4.0), "error_rate": (0.001, 0.0005), "gc_pause_ms": (10.0, 4.0)
     },
     ServerProfile.DATA_INGEST: {
-        # Moderate CPU (transforms), high memory (buffering), very high I/O, high network
-        "cpu": (0.60, 0.15), "mem": (0.78, 0.12), "disk_io_mb_s": (220.0, 60.0),
+        # Low CPU/Memory (healthy baseline = 15-32%)
+        "cpu": (0.20, 0.08), "mem": (0.30, 0.10), "disk_io_mb_s": (220.0, 60.0),
         "net_in_mb_s": (150.0, 45.0), "net_out_mb_s": (95.0, 30.0),
         "latency_ms": (12.0, 5.0), "error_rate": (0.003, 0.001), "gc_pause_ms": (18.0, 8.0)
     },
     ServerProfile.RISK_ANALYTICS: {
-        # High CPU (Monte Carlo), high memory (matrices), moderate I/O, low network
-        "cpu": (0.82, 0.10), "mem": (0.88, 0.08), "disk_io_mb_s": (38.0, 12.0),
+        # Low CPU/Memory (healthy baseline = 18-35%)
+        "cpu": (0.24, 0.08), "mem": (0.32, 0.08), "disk_io_mb_s": (38.0, 12.0),
         "net_in_mb_s": (12.0, 4.0), "net_out_mb_s": (8.0, 3.0),
         "latency_ms": (18.0, 6.0), "error_rate": (0.002, 0.001), "gc_pause_ms": (25.0, 12.0)
     },
     ServerProfile.GENERIC: {
-        # Balanced baseline for unknown servers
-        "cpu": (0.35, 0.10), "mem": (0.50, 0.12), "disk_io_mb_s": (25.0, 10.0),
+        # Balanced baseline (healthy baseline = 12-28%)
+        "cpu": (0.18, 0.07), "mem": (0.25, 0.08), "disk_io_mb_s": (25.0, 10.0),
         "net_in_mb_s": (15.0, 8.0), "net_out_mb_s": (12.0, 6.0),
         "latency_ms": (30.0, 10.0), "error_rate": (0.003, 0.001), "gc_pause_ms": (10.0, 5.0)
     }
 }
 
 # State multipliers for baseline adjustment
+# IMPORTANT: These are multiplied with baselines AND diurnal patterns
+# Keep moderate to avoid 100% CPU/memory in healthy scenarios
 STATE_MULTIPLIERS = {
     ServerState.IDLE: {
-        "cpu": 0.6, "mem": 0.9, "disk_io_mb_s": 0.4, "net_in_mb_s": 0.3, "net_out_mb_s": 0.3,
-        "latency_ms": 0.8, "error_rate": 0.5, "gc_pause_ms": 0.2
+        "cpu": 0.5, "mem": 0.8, "disk_io_mb_s": 0.3, "net_in_mb_s": 0.2, "net_out_mb_s": 0.2,
+        "latency_ms": 0.7, "error_rate": 0.3, "gc_pause_ms": 0.1
     },
     ServerState.HEALTHY: {
         "cpu": 1.0, "mem": 1.0, "disk_io_mb_s": 1.0, "net_in_mb_s": 1.0, "net_out_mb_s": 1.0,
         "latency_ms": 1.0, "error_rate": 1.0, "gc_pause_ms": 1.0
     },
     ServerState.MORNING_SPIKE: {
-        "cpu": 1.7, "mem": 1.3, "disk_io_mb_s": 1.8, "net_in_mb_s": 2.2, "net_out_mb_s": 1.9,
-        "latency_ms": 1.5, "error_rate": 1.8, "gc_pause_ms": 2.1
+        # Moderate spike - realistic morning load (was 1.7/1.3, now 1.2/1.1)
+        "cpu": 1.2, "mem": 1.1, "disk_io_mb_s": 1.3, "net_in_mb_s": 1.5, "net_out_mb_s": 1.4,
+        "latency_ms": 1.2, "error_rate": 1.3, "gc_pause_ms": 1.4
     },
     ServerState.HEAVY_LOAD: {
-        "cpu": 1.9, "mem": 1.4, "disk_io_mb_s": 1.6, "net_in_mb_s": 1.8, "net_out_mb_s": 1.7,
-        "latency_ms": 1.6, "error_rate": 1.6, "gc_pause_ms": 1.8
+        # Heavy but not critical - still sub-80% CPU/mem (was 1.9/1.4, now 1.3/1.2)
+        "cpu": 1.3, "mem": 1.2, "disk_io_mb_s": 1.4, "net_in_mb_s": 1.5, "net_out_mb_s": 1.4,
+        "latency_ms": 1.4, "error_rate": 1.4, "gc_pause_ms": 1.5
     },
     ServerState.CRITICAL_ISSUE: {
-        "cpu": 2.4, "mem": 1.7, "disk_io_mb_s": 0.8, "net_in_mb_s": 0.6, "net_out_mb_s": 0.4,
-        "latency_ms": 2.8, "error_rate": 4.5, "gc_pause_ms": 3.2
+        # This is actual incident territory - 90-100% CPU/Mem for critical scenarios
+        "cpu": 3.5, "mem": 3.0, "disk_io_mb_s": 0.6, "net_in_mb_s": 0.4, "net_out_mb_s": 0.3,
+        "latency_ms": 2.5, "error_rate": 4.0, "gc_pause_ms": 3.0
     },
     ServerState.MAINTENANCE: {
         "cpu": 0.4, "mem": 0.8, "disk_io_mb_s": 1.5, "net_in_mb_s": 0.2, "net_out_mb_s": 0.2,
@@ -416,46 +421,48 @@ def diurnal_multiplier(hour: int, profile: ServerProfile, state: ServerState) ->
     - Pre-market: 7am-9:30am (analytics, prep)
     - After-hours: 4pm-8pm (EOD processing, risk calculations)
     - Overnight: 8pm-7am (batch jobs, ML training)
-    """
-    # Base diurnal curve (simplified - Eastern Time assumed)
-    if 7 <= hour <= 9:  # Pre-market preparation
-        base = 1.3
-    elif 9 <= hour <= 16:  # Market hours (peak)
-        base = 1.5
-    elif 16 <= hour <= 19:  # After-hours (EOD processing)
-        base = 1.6  # Often busiest time
-    elif 19 <= hour <= 23:  # Evening batch/ML training
-        base = 1.2
-    else:  # Overnight (0-7am)
-        base = 0.6
 
-    # Profile-specific adjustments (financial platform patterns)
+    IMPORTANT: Keep multipliers moderate - they compound with state multipliers!
+    """
+    # Base diurnal curve - REDUCED from previous (was 1.3-1.6, now 1.0-1.2)
+    if 7 <= hour <= 9:  # Pre-market preparation
+        base = 1.0
+    elif 9 <= hour <= 16:  # Market hours (peak)
+        base = 1.1
+    elif 16 <= hour <= 19:  # After-hours (EOD processing)
+        base = 1.2  # Moderate peak (was 1.6)
+    elif 19 <= hour <= 23:  # Evening batch/ML training
+        base = 1.0
+    else:  # Overnight (0-7am)
+        base = 0.8
+
+    # Profile-specific adjustments - REDUCED multipliers (was 1.2-2.0, now 1.05-1.3)
     if profile == ServerProfile.ML_COMPUTE:
         # ML training runs overnight and evenings
         if 19 <= hour <= 6:
-            base *= 1.4
+            base *= 1.15  # Was 1.4
     elif profile == ServerProfile.DATABASE:
         # Databases busy during market hours, EOD reports
         if 9 <= hour <= 16:
-            base *= 1.2
+            base *= 1.1  # Was 1.2
         if 16 <= hour <= 19:
-            base *= 1.4  # EOD queries spike
+            base *= 1.2  # Was 1.4
     elif profile == ServerProfile.WEB_API:
         # User traffic follows market hours
         if 9 <= hour <= 16:
-            base *= 1.3
+            base *= 1.15  # Was 1.3
         elif hour < 7 or hour > 20:
-            base *= 0.5  # Low usage overnight
+            base *= 0.6  # Was 0.5
     elif profile == ServerProfile.RISK_ANALYTICS:
         # Risk calculations at market close
         if 16 <= hour <= 19:
-            base *= 2.0  # EOD risk window is critical
+            base *= 1.3  # Was 2.0 (way too high!)
     elif profile == ServerProfile.DATA_INGEST:
         # Streaming data heaviest during market hours
         if 9 <= hour <= 16:
-            base *= 1.5
+            base *= 1.2  # Was 1.5
 
-    return max(0.3, min(2.5, base))
+    return max(0.5, min(1.5, base))
 
 def ar1_series(base: np.ndarray, phi: float = 0.85, sigma: float = 0.03, seed: Optional[int] = None) -> np.ndarray:
     """Generate AR(1) autocorrelated series for smoothing."""

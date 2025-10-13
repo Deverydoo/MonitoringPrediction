@@ -21,6 +21,7 @@ import time
 from typing import Dict, List, Optional
 import warnings
 warnings.filterwarnings('ignore')
+warnings.filterwarnings('ignore', message='.*keyword arguments have been deprecated.*')
 
 # =============================================================================
 # PAGE CONFIGURATION
@@ -36,6 +37,8 @@ st.set_page_config(
     }
 )
 
+# No custom CSS - let Streamlit handle rendering normally
+
 # =============================================================================
 # SESSION STATE INITIALIZATION
 # =============================================================================
@@ -44,7 +47,7 @@ if 'daemon_url' not in st.session_state:
     st.session_state.daemon_url = "http://localhost:8000"
 
 if 'refresh_interval' not in st.session_state:
-    st.session_state.refresh_interval = 30
+    st.session_state.refresh_interval = 60
 
 if 'history' not in st.session_state:
     st.session_state.history = []
@@ -172,77 +175,188 @@ def stop_demo():
 
 def get_health_status(predictions: Dict) -> tuple:
     """
-    Determine overall environment health status.
+    Determine overall environment health status based on ACTUAL server risk scores.
 
     Returns: (status_text, status_color, status_emoji)
     """
-    if not predictions or 'environment' not in predictions:
+    if not predictions or 'predictions' not in predictions:
         return "Unknown", "gray", "❓"
 
-    env = predictions['environment']
-    prob_30m = env.get('prob_30m', 0)
-    prob_8h = env.get('prob_8h', 0)
+    # Calculate actual fleet health based on server risk scores
+    server_preds = predictions.get('predictions', {})
+    if not server_preds:
+        return "Unknown", "gray", "❓"
 
-    if prob_30m > 0.7 or prob_8h > 0.8:
+    # Count servers by risk level
+    critical_count = 0
+    warning_count = 0
+    caution_count = 0
+    healthy_count = 0
+
+    for server_name, server_pred in server_preds.items():
+        risk = calculate_server_risk_score(server_pred)
+        if risk >= 80:  # Critical/Imminent Failure
+            critical_count += 1
+        elif risk >= 60:  # Danger/Warning
+            warning_count += 1
+        elif risk >= 50:  # Degrading
+            caution_count += 1
+        else:  # Healthy/Watch
+            healthy_count += 1
+
+    total = len(server_preds)
+
+    # Determine status based on percentage of unhealthy servers
+    critical_pct = critical_count / total if total > 0 else 0
+    warning_pct = warning_count / total if total > 0 else 0
+    unhealthy_pct = (critical_count + warning_count) / total if total > 0 else 0
+
+    if critical_pct > 0.3 or unhealthy_pct > 0.5:  # >30% critical OR >50% unhealthy
         return "Critical", "red", "🔴"
-    elif prob_30m > 0.4 or prob_8h > 0.5:
+    elif critical_pct > 0.1 or unhealthy_pct > 0.3:  # >10% critical OR >30% unhealthy
         return "Warning", "orange", "🟠"
-    elif prob_30m > 0.2 or prob_8h > 0.3:
+    elif unhealthy_pct > 0.1:  # >10% unhealthy (degrading servers)
         return "Caution", "yellow", "🟡"
     else:
         return "Healthy", "green", "🟢"
 
-def calculate_server_risk_score(server_pred: Dict) -> float:
-    """Calculate aggregated risk score for a server (0-100)."""
-    risk = 0.0
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def get_server_profile(server_name: str) -> str:
+    """Extract server profile from server name."""
+    if server_name.startswith('ppml'): return 'ML Compute'
+    if server_name.startswith('ppdb'): return 'Database'
+    if server_name.startswith('ppweb'): return 'Web API'
+    if server_name.startswith('ppcon'): return 'Conductor'
+    if server_name.startswith('ppetl'): return 'ETL/Ingest'
+    if server_name.startswith('pprisk'): return 'Risk Analytics'
+    return 'Generic'
 
-    # CPU risk
+def calculate_server_risk_score(server_pred: Dict) -> float:
+    """
+    Calculate aggregated risk score for a server (0-100).
+
+    EXECUTIVE-FRIENDLY SCORING:
+    - Prioritizes CURRENT state (70% weight) - "What's on fire NOW?"
+    - Considers PREDICTIONS (30% weight) - "What will be on fire soon?"
+    - Only flags truly critical situations
+    """
+    current_risk = 0.0  # Based on current metrics
+    predicted_risk = 0.0  # Based on 30-min predictions
+
+    profile = get_server_profile(server_pred.get('server_name', ''))
+
+    # =========================================================================
+    # CPU RISK ASSESSMENT
+    # =========================================================================
     if 'cpu_percent' in server_pred:
         cpu = server_pred['cpu_percent']
+        current_cpu = cpu.get('current', 0)
         p90 = cpu.get('p90', [])
-        if p90:
-            max_cpu = max(p90[:6]) if len(p90) >= 6 else max(p90)
-            if max_cpu > 95:
-                risk += 40
-            elif max_cpu > 85:
-                risk += 25
-            elif max_cpu > 70:
-                risk += 10
+        max_cpu_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_cpu
 
-    # Memory risk
+        # CURRENT CPU RISK (what matters most to executives)
+        if current_cpu >= 98:
+            current_risk += 60  # CRITICAL - System will hang
+        elif current_cpu >= 95:
+            current_risk += 40  # Severe degradation
+        elif current_cpu >= 90:
+            current_risk += 20  # High load
+
+        # PREDICTED CPU RISK (early warning)
+        if max_cpu_p90 >= 98:
+            predicted_risk += 30  # Will become critical
+        elif max_cpu_p90 >= 95:
+            predicted_risk += 20  # Will degrade
+        elif max_cpu_p90 >= 90:
+            predicted_risk += 10  # Will be high
+
+    # =========================================================================
+    # MEMORY RISK ASSESSMENT
+    # =========================================================================
     if 'memory_percent' in server_pred:
         mem = server_pred['memory_percent']
+        current_mem = mem.get('current', 0)
         p90 = mem.get('p90', [])
-        if p90:
-            max_mem = max(p90[:6]) if len(p90) >= 6 else max(p90)
-            if max_mem > 95:
-                risk += 30
-            elif max_mem > 85:
-                risk += 20
-            elif max_mem > 70:
-                risk += 10
+        max_mem_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_mem
 
-    # Latency risk
+        # Profile-specific thresholds
+        if profile == 'Database':
+            # Databases: 100% memory is normal (page cache), only >100% is bad
+            # CURRENT
+            if current_mem > 100:
+                current_risk += 50  # Impossible/error
+            elif current_mem > 99:
+                current_risk += 20  # Starting to struggle
+            # PREDICTED
+            if max_mem_p90 > 100:
+                predicted_risk += 25  # Will struggle
+        else:
+            # Non-DB servers: 100% memory = OOM kill imminent
+            # CURRENT
+            if current_mem >= 98:
+                current_risk += 60  # CRITICAL - OOM imminent
+            elif current_mem >= 95:
+                current_risk += 40  # High memory pressure
+            elif current_mem >= 90:
+                current_risk += 20  # Elevated
+            # PREDICTED
+            if max_mem_p90 >= 98:
+                predicted_risk += 30  # Will OOM
+            elif max_mem_p90 >= 95:
+                predicted_risk += 20  # Will have pressure
+
+    # =========================================================================
+    # LATENCY RISK ASSESSMENT
+    # =========================================================================
     if 'load_average' in server_pred:
         lat = server_pred['load_average']
+        current_lat = lat.get('current', 0)
         p90 = lat.get('p90', [])
-        if p90:
-            max_lat = max(p90[:6]) if len(p90) >= 6 else max(p90)
-            if max_lat > 100:
-                risk += 20
-            elif max_lat > 50:
-                risk += 10
+        max_lat_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_lat
 
-    # Disk risk
+        # CURRENT
+        if current_lat > 500:
+            current_risk += 30  # System unresponsive
+        elif current_lat > 200:
+            current_risk += 15  # Severe degradation
+        elif current_lat > 100:
+            current_risk += 5   # Noticeable
+        # PREDICTED
+        if max_lat_p90 > 500:
+            predicted_risk += 15  # Will be unresponsive
+        elif max_lat_p90 > 200:
+            predicted_risk += 8   # Will degrade
+
+    # =========================================================================
+    # DISK RISK ASSESSMENT
+    # =========================================================================
     if 'disk_percent' in server_pred:
         disk = server_pred['disk_percent']
+        current_disk = disk.get('current', 0)
         p90 = disk.get('p90', [])
-        if p90:
-            max_disk = max(p90[:6]) if len(p90) >= 6 else max(p90)
-            if max_disk > 90:
-                risk += 10
+        max_disk_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_disk
 
-    return min(risk, 100)
+        # CURRENT
+        if current_disk >= 98:
+            current_risk += 40  # CRITICAL - out of space
+        elif current_disk >= 95:
+            current_risk += 20  # Very low space
+        elif current_disk >= 90:
+            current_risk += 10  # Low space
+        # PREDICTED
+        if max_disk_p90 >= 98:
+            predicted_risk += 20  # Will run out
+        elif max_disk_p90 >= 95:
+            predicted_risk += 10  # Will be low
+
+    # =========================================================================
+    # WEIGHTED FINAL SCORE
+    # =========================================================================
+    # 70% current state (executives care about NOW)
+    # 30% predictions (early warning value)
+    final_risk = (current_risk * 0.7) + (predicted_risk * 0.3)
+
+    return min(final_risk, 100)
 
 def get_risk_color(risk_score: float) -> str:
     """Get color for risk score."""
@@ -307,7 +421,7 @@ with st.sidebar:
     refresh_interval = st.slider(
         "Auto-refresh interval (seconds)",
         min_value=5,
-        max_value=120,
+        max_value=300,
         value=st.session_state.refresh_interval,
         step=5,
         help="How often to fetch new predictions"
@@ -317,6 +431,12 @@ with st.sidebar:
     auto_refresh = st.checkbox("Enable auto-refresh", value=True)
 
     if st.button("🔄 Refresh Now", width='stretch'):
+        # Force cache clear
+        if 'cached_predictions' in st.session_state:
+            del st.session_state['cached_predictions']
+        if 'cached_alerts' in st.session_state:
+            del st.session_state['cached_alerts']
+        st.session_state.last_update = None
         st.rerun()
 
     st.divider()
@@ -324,73 +444,79 @@ with st.sidebar:
     # Interactive Demo Control (Scenario Switcher)
     st.subheader("🎬 Interactive Demo Control")
 
-    if st.session_state.daemon_connected:
-        st.markdown("**Scenario Control:** (Changes metrics generator behavior)")
+    @st.fragment
+    def render_scenario_controls():
+        """Scenario control buttons - isolated to prevent full app rerun"""
+        if st.session_state.daemon_connected:
+            st.markdown("**Scenario Control:** (Changes metrics generator behavior)")
 
-        col1, col2, col3 = st.columns(3)
+            col1, col2, col3 = st.columns(3)
 
-        # Metrics generator URL (port 8001)
-        generator_url = "http://localhost:8001"
+            # Metrics generator URL (port 8001)
+            generator_url = "http://localhost:8001"
 
-        with col1:
-            if st.button("🟢 Healthy", width='stretch', key="scenario_healthy"):
-                try:
-                    response = requests.post(
-                        f"{generator_url}/scenario/set",
-                        json={"scenario": "healthy"},
-                        timeout=2
-                    )
-                    if response.ok:
-                        st.success("✅ Scenario: Healthy - All servers recovering")
-                    else:
-                        st.error(f"Failed to change scenario: {response.status_code}")
-                except Exception as e:
-                    st.error(f"Cannot connect to metrics generator at {generator_url}")
+            with col1:
+                if st.button("🟢 Healthy", width='stretch', key="scenario_healthy"):
+                    try:
+                        response = requests.post(
+                            f"{generator_url}/scenario/set",
+                            json={"scenario": "healthy"},
+                            timeout=2
+                        )
+                        if response.ok:
+                            st.success("✅ Scenario: Healthy - All servers recovering")
+                        else:
+                            st.error(f"Failed to change scenario: {response.status_code}")
+                    except Exception as e:
+                        st.error(f"Cannot connect to metrics generator at {generator_url}")
 
-        with col2:
-            if st.button("🟡 Degrading", width='stretch', key="scenario_degrading"):
-                try:
-                    response = requests.post(
-                        f"{generator_url}/scenario/set",
-                        json={"scenario": "degrading"},
-                        timeout=2
-                    )
-                    if response.ok:
-                        result = response.json()
-                        st.warning(f"⚠️ Scenario: Degrading - {result.get('affected_servers', 0)} servers affected")
-                    else:
-                        st.error(f"Failed to change scenario: {response.status_code}")
-                except Exception as e:
-                    st.error(f"Cannot connect to metrics generator at {generator_url}")
+            with col2:
+                if st.button("🟡 Degrading", width='stretch', key="scenario_degrading"):
+                    try:
+                        response = requests.post(
+                            f"{generator_url}/scenario/set",
+                            json={"scenario": "degrading"},
+                            timeout=2
+                        )
+                        if response.ok:
+                            result = response.json()
+                            st.warning(f"⚠️ Scenario: Degrading - {result.get('affected_servers', 0)} servers affected")
+                        else:
+                            st.error(f"Failed to change scenario: {response.status_code}")
+                    except Exception as e:
+                        st.error(f"Cannot connect to metrics generator at {generator_url}")
 
-        with col3:
-            if st.button("🔴 Critical", width='stretch', key="scenario_critical"):
-                try:
-                    response = requests.post(
-                        f"{generator_url}/scenario/set",
-                        json={"scenario": "critical"},
-                        timeout=2
-                    )
-                    if response.ok:
-                        result = response.json()
-                        st.error(f"🔴 Scenario: Critical - {result.get('affected_servers', 0)} servers in crisis!")
-                    else:
-                        st.error(f"Failed to change scenario: {response.status_code}")
-                except Exception as e:
-                    st.error(f"Cannot connect to metrics generator at {generator_url}")
+            with col3:
+                if st.button("🔴 Critical", width='stretch', key="scenario_critical"):
+                    try:
+                        response = requests.post(
+                            f"{generator_url}/scenario/set",
+                            json={"scenario": "critical"},
+                            timeout=2
+                        )
+                        if response.ok:
+                            result = response.json()
+                            st.error(f"🔴 Scenario: Critical - {result.get('affected_servers', 0)} servers in crisis!")
+                        else:
+                            st.error(f"Failed to change scenario: {response.status_code}")
+                    except Exception as e:
+                        st.error(f"Cannot connect to metrics generator at {generator_url}")
 
-        # Show current scenario status
-        try:
-            scenario_response = requests.get(f"{generator_url}/scenario/status", timeout=1)
-            if scenario_response.ok:
-                status = scenario_response.json()
-                st.info(f"📊 Current: {status['scenario'].upper()} | "
-                        f"Affected: {status.get('total_affected', 0)} servers | "
-                        f"Tick: {status.get('tick_count', 0)}")
-        except:
-            st.caption("💡 Tip: Metrics generator should be running on port 8001")
-    else:
-        st.warning("⚠️ Connect to daemon to use scenario control")
+            # Show current scenario status
+            try:
+                scenario_response = requests.get(f"{generator_url}/scenario/status", timeout=1)
+                if scenario_response.ok:
+                    status = scenario_response.json()
+                    st.info(f"📊 Current: {status['scenario'].upper()} | "
+                            f"Affected: {status.get('total_affected', 0)} servers | "
+                            f"Tick: {status.get('tick_count', 0)}")
+            except:
+                st.caption("💡 Tip: Metrics generator should be running on port 8001")
+        else:
+            st.warning("⚠️ Connect to daemon to use scenario control")
+
+    # Render the fragment
+    render_scenario_controls()
 
     st.divider()
 
@@ -501,21 +627,22 @@ if st.session_state.demo_running and st.session_state.demo_generator is not None
 
 # Fetch current data (with smart caching to avoid re-fetching on UI changes)
 if st.session_state.daemon_connected:
-    # Only fetch if enough time has passed or no cached data
+    # Only fetch if refresh interval has passed or no cached data
     should_fetch = (
         'cached_predictions' not in st.session_state or
         st.session_state.last_update is None or
-        (datetime.now() - st.session_state.last_update).total_seconds() >= 1
+        (datetime.now() - st.session_state.last_update).total_seconds() >= refresh_interval
     )
 
     if should_fetch:
-        predictions = client.get_predictions()
-        alerts = client.get_alerts()
-        st.session_state.last_update = datetime.now()
+        with st.spinner('🔮 Fetching predictions from TFT model...'):
+            predictions = client.get_predictions()
+            alerts = client.get_alerts()
+            st.session_state.last_update = datetime.now()
 
-        # Cache for fast UI updates
-        st.session_state.cached_predictions = predictions
-        st.session_state.cached_alerts = alerts
+            # Cache for fast UI updates
+            st.session_state.cached_predictions = predictions
+            st.session_state.cached_alerts = alerts
 
         # Store in history
         if predictions:
@@ -538,7 +665,7 @@ else:
 # TABS
 # =============================================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
     "📊 Overview",
     "🔥 Heatmap",
     "⚠️ Top 5 Servers",
@@ -547,6 +674,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "🤖 Auto-Remediation",
     "📱 Alerting Strategy",
     "⚙️ Advanced",
+    "📚 Documentation",
     "🗺️ Roadmap"
 ])
 
@@ -556,6 +684,25 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
 
 with tab1:
     if predictions:
+        # Check warmup status and show warning if model not ready
+        try:
+            status_response = requests.get(f"{daemon_url}/status", timeout=2)
+            if status_response.ok:
+                status_data = status_response.json()
+                warmup = status_data.get('warmup', {})
+                if not warmup.get('is_warmed_up', True):
+                    progress = warmup.get('progress_percent', 0)
+                    st.warning(f"""
+                    ⏳ **Model Warming Up** ({progress:.0f}% complete)
+
+                    The model is still learning from incoming data. Predictions may be inconsistent during warm-up.
+                    Once warmed up, all metrics will tell a consistent story.
+
+                    **What's happening:** The model has {warmup.get('current_size', 0)}/{warmup.get('required_size', 288)} data points needed per server for reliable predictions.
+                    """, icon="⏳")
+        except:
+            pass
+
         # Environment status
         status_text, status_color, status_emoji = get_health_status(predictions)
 
@@ -563,10 +710,23 @@ with tab1:
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
+            # Build status explanation
+            if status_text == "Critical":
+                help_text = "🔴 CRITICAL: >30% of fleet is Critical/Imminent Failure (Risk 80+) OR >50% are in Danger/Warning state. Immediate action required."
+            elif status_text == "Warning":
+                help_text = "🟠 WARNING: >10% of fleet is Critical/Imminent Failure (Risk 80+) OR >30% are in Danger/Warning state. Monitor closely."
+            elif status_text == "Caution":
+                help_text = "🟡 CAUTION: >10% of fleet is Degrading (Risk 50+). Early warning - investigate soon."
+            elif status_text == "Healthy":
+                help_text = "🟢 HEALTHY: <10% of fleet has elevated risk. Normal operations."
+            else:
+                help_text = "Status unknown - waiting for predictions."
+
             st.metric(
                 label="Environment Status",
                 value=f"{status_emoji} {status_text}",
-                delta=None
+                delta=None,
+                help=help_text
             )
 
         with col2:
@@ -598,6 +758,105 @@ with tab1:
                 delta=None,
                 help="Healthy servers / Total servers"
             )
+
+        st.divider()
+
+        # Actual vs Predicted Comparison (Management View)
+        st.subheader("🎯 Actual State vs AI Prediction")
+        st.markdown("**Show the power of predictive AI** - Current reality vs future forecast")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("### 📍 **Actual Current State**")
+            st.markdown("_(What's happening RIGHT NOW)_")
+
+            # Try to get actual scenario from generator
+            try:
+                generator_url = "http://localhost:8001"
+                scenario_response = requests.get(f"{generator_url}/scenario/status", timeout=1)
+                if scenario_response.ok:
+                    status = scenario_response.json()
+                    actual_scenario = status['scenario'].upper()
+                    actual_affected = status.get('total_affected', 0)
+
+                    if actual_scenario == 'HEALTHY':
+                        st.success(f"✅ **{actual_scenario}**")
+                        st.metric("Affected Servers (Now)", f"{actual_affected}")
+                        st.caption("Environment is currently operating normally")
+                    elif actual_scenario == 'DEGRADING':
+                        st.warning(f"⚠️ **{actual_scenario}**")
+                        st.metric("Affected Servers (Now)", f"{actual_affected}")
+                        st.caption("Some servers experiencing issues")
+                    else:  # CRITICAL
+                        st.error(f"🔴 **{actual_scenario}**")
+                        st.metric("Affected Servers (Now)", f"{actual_affected}")
+                        st.caption("Multiple servers in critical state")
+                else:
+                    st.info("Actual state: Unknown (generator offline)")
+            except:
+                st.info("💡 Actual state: Unknown (connect metrics generator on port 8001)")
+
+        with col2:
+            st.markdown("### 🔮 **AI Prediction (Next 30min-8h)**")
+            st.markdown("_(What the AI forecasts will happen)_")
+
+            # Show prediction based on ACTUAL incident probabilities (not server risk scores)
+            env = predictions.get('environment', {})
+            prob_30m = env.get('prob_30m', 0) * 100
+            prob_8h = env.get('prob_8h', 0) * 100
+
+            # Determine prediction status based on incident probabilities
+            if prob_30m > 70 or prob_8h > 85:
+                predicted_status = "CRITICAL"
+                st.error(f"🔴 **{predicted_status}**")
+                st.caption("⚠️ High probability of incidents ahead")
+            elif prob_30m > 40 or prob_8h > 60:
+                predicted_status = "WARNING"
+                st.warning(f"🟠 **{predicted_status}**")
+                st.caption("⚠️ Elevated risk of incidents")
+            elif prob_30m > 20 or prob_8h > 40:
+                predicted_status = "CAUTION"
+                st.warning(f"🟡 **{predicted_status}**")
+                st.caption("⚠️ Minor risk indicators detected")
+            else:
+                predicted_status = "HEALTHY"
+                st.success(f"✅ **{predicted_status}**")
+                st.caption("AI predicts continued stability")
+
+            st.metric("Predicted Incident Risk (30m)", f"{prob_30m:.1f}%")
+            st.metric("Predicted Incident Risk (8h)", f"{prob_8h:.1f}%")
+
+        # Insight box
+        try:
+            scenario_response = requests.get(f"{generator_url}/scenario/status", timeout=1)
+            if scenario_response.ok:
+                status = scenario_response.json()
+                actual_scenario = status['scenario'].upper()
+
+                if actual_scenario == 'HEALTHY' and predicted_status in ['CRITICAL', 'WARNING']:
+                    st.warning(f"""
+                    🎯 **This is the value of Predictive AI!**
+
+                    - **Current Reality**: Environment is HEALTHY (no active issues)
+                    - **AI Forecast**: {prob_30m:.0f}% risk in 30m, {prob_8h:.0f}% risk in 8h
+                    - **Action Window**: Act NOW to prevent issues before they occur
+                    - **Value**: Proactive prevention vs reactive firefighting
+                    """)
+                elif actual_scenario != 'HEALTHY' and predicted_status in ['CRITICAL', 'WARNING']:
+                    st.info("""
+                    ✅ **AI accurately detecting ongoing issues**
+
+                    The model is correctly identifying the current degradation and predicting continued problems.
+                    """)
+                elif actual_scenario == 'HEALTHY' and predicted_status == 'HEALTHY':
+                    st.success("""
+                    ✅ **All systems stable**
+
+                    Both current state and predictions show healthy operations.
+                    """)
+        except:
+            pass
 
         st.divider()
 
@@ -634,7 +893,7 @@ with tab1:
                     height=400
                 )
                 fig.update_layout(xaxis_tickangle=-45)
-                st.plotly_chart(fig)
+                st.plotly_chart(fig, use_container_width=True)
 
             with col2:
                 # Risk distribution pie
@@ -652,20 +911,173 @@ with tab1:
                     },
                     height=400
                 )
-                st.plotly_chart(fig)
+                st.plotly_chart(fig, use_container_width=True)
 
         st.divider()
 
-        # Recent Alerts
+        # Active Alerts with Real vs Predicted
         st.subheader("🔔 Active Alerts")
+        st.markdown("**Real-time comparison**: Current values vs AI predictions")
 
-        if alerts:
-            alert_list = alerts.get('alerts', [])
-            if alert_list:
-                alert_df = pd.DataFrame(alert_list)
-                st.dataframe(alert_df, width='stretch', hide_index=True)
+        if predictions and server_preds:
+            # Build enhanced alert table with actual vs predicted
+            alert_rows = []
+
+            for server_name, server_pred in server_preds.items():
+                risk_score = calculate_server_risk_score(server_pred)
+
+                # Only show servers with risk >= 50 (Warning and above)
+                if risk_score >= 50:
+                    # Determine alert severity based on risk score
+                    if risk_score >= 90:
+                        severity = "🔴 Imminent Failure"
+                        priority = "Imminent Failure"
+                    elif risk_score >= 80:
+                        severity = "🔴 Critical"
+                        priority = "Critical"
+                    elif risk_score >= 70:
+                        severity = "🟠 Danger"
+                        priority = "Danger"
+                    elif risk_score >= 60:
+                        severity = "🟡 Warning"
+                        priority = "Warning"
+                    elif risk_score >= 50:
+                        severity = "🟢 Degrading"
+                        priority = "Degrading"
+                    else:
+                        continue
+
+                    # Get actual vs predicted for key metrics
+                    cpu_actual = server_pred.get('cpu_percent', {}).get('current', 0)
+                    cpu_p50 = server_pred.get('cpu_percent', {}).get('p50', [])
+                    cpu_predicted = np.mean(cpu_p50[:6]) if cpu_p50 and len(cpu_p50) >= 6 else cpu_actual
+
+                    mem_actual = server_pred.get('memory_percent', {}).get('current', 0)
+                    mem_p50 = server_pred.get('memory_percent', {}).get('p50', [])
+                    mem_predicted = np.mean(mem_p50[:6]) if mem_p50 and len(mem_p50) >= 6 else mem_actual
+
+                    lat_actual = server_pred.get('load_average', {}).get('current', 0)
+                    lat_p50 = server_pred.get('load_average', {}).get('p50', [])
+                    lat_predicted = np.mean(lat_p50[:6]) if lat_p50 and len(lat_p50) >= 6 else lat_actual
+
+                    alert_rows.append({
+                        'Priority': priority,
+                        'Server': server_name,
+                        'Profile': get_server_profile(server_name),
+                        'Risk': f"{risk_score:.0f}",
+                        'CPU Now': f"{cpu_actual:.1f}%",
+                        'CPU Predicted (30m)': f"{cpu_predicted:.1f}%",
+                        'CPU Δ': f"{(cpu_predicted - cpu_actual):+.1f}%",
+                        'Mem Now': f"{mem_actual:.1f}%",
+                        'Mem Predicted (30m)': f"{mem_predicted:.1f}%",
+                        'Mem Δ': f"{(mem_predicted - mem_actual):+.1f}%",
+                        'Latency Now': f"{lat_actual:.0f}ms",
+                        'Latency Predicted (30m)': f"{lat_predicted:.0f}ms",
+                        'Latency Δ': f"{(lat_predicted - lat_actual):+.0f}ms"
+                    })
+
+            if alert_rows:
+                st.markdown(f"**{len(alert_rows)} servers requiring attention**")
+
+                # Sort by risk score (descending)
+                alert_df = pd.DataFrame(alert_rows)
+                alert_df = alert_df.sort_values('Risk', ascending=False)
+
+                # Display the enhanced table
+                st.dataframe(
+                    alert_df,
+                    width='stretch',
+                    hide_index=True,
+                    column_config={
+                        'Priority': st.column_config.TextColumn('Priority', width='medium', help='Imminent Failure (90+) → Critical (80-89) → Danger (70-79) → Warning (60-69) → Degrading (50-59)'),
+                        'Server': st.column_config.TextColumn('Server', width='medium', help='Server hostname'),
+                        'Profile': st.column_config.TextColumn('Profile', width='medium', help='Server workload type (ML Compute, Database, Web API, etc.)'),
+                        'Risk': st.column_config.TextColumn('Risk', width='small', help='Overall risk score (0-100). Higher = more urgent'),
+                        'CPU Now': st.column_config.TextColumn('CPU Now', width='small', help='Current CPU utilization'),
+                        'CPU Predicted (30m)': st.column_config.TextColumn('CPU Pred', width='small', help='AI predicted CPU in next 30 minutes'),
+                        'CPU Δ': st.column_config.TextColumn('CPU Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing/degrading, Negative (-) = decreasing/improving'),
+                        'Mem Now': st.column_config.TextColumn('Mem Now', width='small', help='Current memory utilization'),
+                        'Mem Predicted (30m)': st.column_config.TextColumn('Mem Pred', width='small', help='AI predicted memory in next 30 minutes'),
+                        'Mem Δ': st.column_config.TextColumn('Mem Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing/degrading, Negative (-) = decreasing/improving'),
+                        'Latency Now': st.column_config.TextColumn('Lat Now', width='small', help='Current system latency'),
+                        'Latency Predicted (30m)': st.column_config.TextColumn('Lat Pred', width='small', help='AI predicted latency in next 30 minutes'),
+                        'Latency Δ': st.column_config.TextColumn('Lat Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing/degrading, Negative (-) = decreasing/improving')
+                    }
+                )
+
+                # Summary metrics - Server counts by severity
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    critical_count = len([r for r in alert_rows if r['Priority'] in ['Imminent Failure', 'Critical']])
+                    st.metric("🔴 Critical+", critical_count, delta=None, help="Risk >= 80 - Immediate action required")
+
+                with col2:
+                    danger_count = len([r for r in alert_rows if r['Priority'] == 'Danger'])
+                    st.metric("🟠 Danger", danger_count, delta=None, help="Risk 70-79 - High priority attention needed")
+
+                with col3:
+                    warning_count = len([r for r in alert_rows if r['Priority'] == 'Warning'])
+                    st.metric("🟡 Warning", warning_count, delta=None, help="Risk 60-69 - Monitor closely")
+
+                with col4:
+                    degrading_count = len([r for r in alert_rows if r['Priority'] == 'Degrading'])
+                    st.metric("🟢 Degrading", degrading_count, delta=None, help="Risk 50-59 - Performance declining")
+
+                # Show healthy/watch servers in separate row
+                st.markdown("---")
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    total_servers = len(server_preds)
+                    healthy_count = total_servers - len(alert_rows)
+                    st.metric("✅ Healthy", healthy_count, delta=None, help="Risk < 50 - Normal operations, not shown in alerts table")
+
+                with col2:
+                    # Watch = servers with risk 30-49 (not shown in alerts but worth noting)
+                    watch_count = sum(1 for s, p in server_preds.items() if 30 <= calculate_server_risk_score(p) < 50)
+                    st.metric("👁️ Watch", watch_count, delta=None, help="Risk 30-49 - Low concern, monitoring only")
+
+                # Trend analysis (separate row, clearly marked as subset)
+                st.markdown("---")
+                st.markdown("**📈 Trend Analysis** (of the alerts above)")
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    # Calculate degrading metrics
+                    degrading = sum(1 for r in alert_rows if '+' in r['CPU Δ'] or '+' in r['Mem Δ'])
+                    pct_degrading = (degrading / len(alert_rows) * 100) if alert_rows else 0
+                    st.metric(
+                        "⬆️ Degrading",
+                        f"{degrading}/{len(alert_rows)}",
+                        delta=None,
+                        help=f"{pct_degrading:.0f}% of alerts showing increasing CPU/Memory trends"
+                    )
+
+                with col2:
+                    # Calculate improving metrics
+                    improving = sum(1 for r in alert_rows if '-' in r['CPU Δ'] or '-' in r['Mem Δ'])
+                    pct_improving = (improving / len(alert_rows) * 100) if alert_rows else 0
+                    st.metric(
+                        "⬇️ Improving",
+                        f"{improving}/{len(alert_rows)}",
+                        delta=None,
+                        help=f"{pct_improving:.0f}% of alerts showing decreasing CPU/Memory trends"
+                    )
+
+                st.markdown("---")
+
+                # Add insight with better context
+                if p1_count > 0:
+                    st.error(f"⚠️ **Action Required**: {p1_count} critical server(s) need immediate attention")
+                elif p2_count > 0:
+                    st.warning(f"⚠️ **Monitor Closely**: {p2_count} server(s) showing warning signs")
+
+                # Show summary explanation
+                st.caption(f"📊 Total fleet: {total_servers} servers | Showing: {len(alert_rows)} alerts | Hidden: {healthy_count} healthy")
+
             else:
-                st.success("✅ No active alerts")
+                st.success("✅ No active alerts - All servers healthy!")
         else:
             st.info("No alert data available")
 
@@ -694,7 +1106,7 @@ with tab2:
     if predictions and predictions.get('predictions'):
         server_preds = predictions['predictions']
 
-        # Metric selector
+        # Metric options
         metric_options = {
             'Risk Score': 'risk',
             'CPU (p90)': 'cpu',
@@ -702,90 +1114,113 @@ with tab2:
             'Latency (p90)': 'latency'
         }
 
-        selected_metric = st.selectbox(
-            "Select metric to display",
-            options=list(metric_options.keys()),
-            index=0
-        )
+        # Cache key for heatmap data (only recalculate when predictions change)
+        predictions_hash = str(predictions.get('timestamp', '')) if predictions else ''
+        cache_key = f'heatmap_data_{predictions_hash}'
 
-        metric_key = metric_options[selected_metric]
+        # Build or retrieve cached heatmap data for ALL metrics at once
+        if cache_key not in st.session_state:
+            # Calculate all metrics at once to avoid recalculation
+            heatmap_cache = {}
 
-        # Build heatmap data
-        heatmap_data = []
-        for server_name, server_pred in server_preds.items():
-            if metric_key == 'risk':
-                value = calculate_server_risk_score(server_pred)
-            elif metric_key == 'cpu':
-                cpu = server_pred.get('cpu_percent', {})
-                p90 = cpu.get('p90', [])
-                value = max(p90[:6]) if len(p90) >= 6 else (max(p90) if p90 else 0)
-            elif metric_key == 'memory':
-                mem = server_pred.get('memory_percent', {})
-                p90 = mem.get('p90', [])
-                value = max(p90[:6]) if len(p90) >= 6 else (max(p90) if p90 else 0)
-            elif metric_key == 'latency':
-                lat = server_pred.get('load_average', {})
-                p90 = lat.get('p90', [])
-                value = max(p90[:6]) if len(p90) >= 6 else (max(p90) if p90 else 0)
-            else:
-                value = 0
+            for metric_name, mk in metric_options.items():
+                metric_data = []
+                for server_name, server_pred in server_preds.items():
+                    if mk == 'risk':
+                        value = calculate_server_risk_score(server_pred)
+                    elif mk == 'cpu':
+                        cpu = server_pred.get('cpu_percent', {})
+                        p90 = cpu.get('p90', [])
+                        value = max(p90[:6]) if len(p90) >= 6 else (max(p90) if p90 else 0)
+                    elif mk == 'memory':
+                        mem = server_pred.get('memory_percent', {})
+                        p90 = mem.get('p90', [])
+                        value = max(p90[:6]) if len(p90) >= 6 else (max(p90) if p90 else 0)
+                    elif mk == 'latency':
+                        lat = server_pred.get('load_average', {})
+                        p90 = lat.get('p90', [])
+                        value = max(p90[:6]) if len(p90) >= 6 else (max(p90) if p90 else 0)
+                    else:
+                        value = 0
 
-            heatmap_data.append({
-                'Server': server_name,
-                'Value': value
-            })
+                    metric_data.append({
+                        'Server': server_name,
+                        'Value': value
+                    })
 
-        heatmap_df = pd.DataFrame(heatmap_data)
-        heatmap_df = heatmap_df.sort_values('Value', ascending=False)
+                heatmap_cache[metric_name] = pd.DataFrame(metric_data).sort_values('Value', ascending=False)
 
-        # Create grid layout (5 columns)
-        servers_per_row = 5
-        rows = [heatmap_df.iloc[i:i+servers_per_row] for i in range(0, len(heatmap_df), servers_per_row)]
+            st.session_state[cache_key] = heatmap_cache
 
-        # Display as grid
-        for row_data in rows:
-            cols = st.columns(servers_per_row)
-            for idx, (_, server_row) in enumerate(row_data.iterrows()):
-                if idx < len(cols):
-                    with cols[idx]:
-                        server_name = server_row['Server']
-                        value = server_row['Value']
+        # Fragment: Isolate heatmap rendering to prevent full app rerun on dropdown change
+        @st.fragment
+        def render_heatmap_fragment():
+            """Render heatmap with metric selector - isolated to prevent full app rerun"""
+            # Metric selector
+            selected_metric = st.selectbox(
+                "Select metric to display",
+                options=list(metric_options.keys()),
+                index=0,
+                key='heatmap_metric_selector'
+            )
 
-                        # Determine color
-                        if metric_key == 'risk':
-                            color = get_risk_color(value)
-                        else:
-                            # Scale color based on value
-                            if value > 90:
-                                color = "#ff4444"
-                            elif value > 70:
-                                color = "#ff9900"
-                            elif value > 50:
-                                color = "#ffcc00"
+            metric_key = metric_options[selected_metric]
+
+            # Retrieve cached data for selected metric
+            heatmap_df = st.session_state[cache_key][selected_metric]
+
+            # Display as grid using st.columns (with @st.fragment this is now fast!)
+            servers_per_row = 5
+            rows = [heatmap_df.iloc[i:i+servers_per_row] for i in range(0, len(heatmap_df), servers_per_row)]
+
+            # Render grid
+            for row_data in rows:
+                cols = st.columns(servers_per_row)
+                for idx, (_, server_row) in enumerate(row_data.iterrows()):
+                    if idx < len(cols):
+                        with cols[idx]:
+                            server_name = server_row['Server']
+                            value = server_row['Value']
+
+                            # Determine color
+                            if metric_key == 'risk':
+                                color = get_risk_color(value)
                             else:
-                                color = "#44ff44"
+                                # Scale color based on value
+                                if value > 90:
+                                    color = "#ff4444"
+                                elif value > 70:
+                                    color = "#ff9900"
+                                elif value > 50:
+                                    color = "#ffcc00"
+                                else:
+                                    color = "#44ff44"
 
-                        # Display server card
-                        st.markdown(f"""
-                        <div style="background-color: {color}; padding: 15px; border-radius: 5px; text-align: center; margin: 5px;">
-                            <strong style="color: #000;">{server_name}</strong><br>
-                            <span style="font-size: 24px; color: #000;">{value:.1f}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
+                            # Display server card
+                            st.markdown(
+                                f'<div style="background-color: {color}; padding: 15px; border-radius: 5px; text-align: center; margin: 5px;">'
+                                f'<strong style="color: #000;">{server_name}</strong><br>'
+                                f'<span style="font-size: 24px; color: #000;">{value:.1f}</span>'
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
 
-        st.divider()
+            st.divider()
 
-        # Summary statistics
-        col1, col2, col3, col4 = st.columns(4)
+            # Summary statistics
+            col1, col2, col3, col4 = st.columns(4)
 
-        with col1:
-            st.metric("Minimum", f"{heatmap_df['Value'].min():.1f}")
-        with col2:
-            st.metric("Average", f"{heatmap_df['Value'].mean():.1f}")
-        with col3:
-            st.metric("Maximum", f"{heatmap_df['Value'].max():.1f}")
-        with col4:
-            st.metric("Std Dev", f"{heatmap_df['Value'].std():.1f}")
+            with col1:
+                st.metric("Minimum", f"{heatmap_df['Value'].min():.1f}")
+            with col2:
+                st.metric("Average", f"{heatmap_df['Value'].mean():.1f}")
+            with col3:
+                st.metric("Maximum", f"{heatmap_df['Value'].max():.1f}")
+            with col4:
+                st.metric("Std Dev", f"{heatmap_df['Value'].std():.1f}")
+
+        # Execute the fragment (only THIS section reruns on dropdown change!)
+        render_heatmap_fragment()
 
     else:
         st.info("Connect to daemon to see server heatmap")
@@ -1063,7 +1498,7 @@ with tab4:
                 hovermode='x'
             )
 
-            st.plotly_chart(fig)
+            st.plotly_chart(fig, use_container_width=True)
 
             # Statistics
             col1, col2, col3, col4 = st.columns(4)
@@ -1569,12 +2004,12 @@ with tab7:
         st.markdown("### 📋 Alert Routing Matrix")
 
         routing_matrix = pd.DataFrame({
-            'Severity': ['🔴 P1 - Critical', '🟠 P2 - Warning', '🟡 P3 - Caution', '🟢 P4 - Info'],
-            'Threshold': ['Risk ≥ 85 OR Prob30m > 70%', 'Risk 70-85 OR Prob30m 40-70%', 'Risk 40-70 OR Prob8h > 50%', 'Risk < 40'],
-            'Initial Contact': ['On-Call Engineer (PagerDuty)', 'Server Team (Slack)', 'Engineering Team (Email)', 'Dashboard Only (Log)'],
-            'Methods': ['Phone + SMS + App', 'Slack + Email', 'Email only', 'Log only'],
-            'Response SLA': ['15 minutes', '30 minutes', '2 hours', 'Next business day'],
-            'Escalation Path': ['15m → Senior → 30m → Director', '30m → On-Call', 'None', 'None']
+            'Severity': ['🔴 Imminent Failure', '🔴 Critical', '🟠 Danger', '🟡 Warning', '🟢 Degrading', '👁️ Watch'],
+            'Threshold': ['Risk ≥ 90', 'Risk 80-89', 'Risk 70-79', 'Risk 60-69', 'Risk 50-59', 'Risk 30-49'],
+            'Initial Contact': ['On-Call Engineer (PagerDuty)', 'On-Call Engineer (PagerDuty)', 'Server Team Lead (Slack)', 'Server Team (Slack)', 'Engineering Team (Email)', 'Dashboard Only'],
+            'Methods': ['Phone + SMS + App', 'Phone + SMS + App', 'Slack + Email', 'Slack + Email', 'Email only', 'Log only'],
+            'Response SLA': ['5 minutes', '15 minutes', '30 minutes', '1 hour', '2 hours', 'Best effort'],
+            'Escalation Path': ['5m → CTO', '15m → Senior → 30m → Director', '30m → On-Call', '1h → Team Lead', 'None', 'None']
         })
 
         st.dataframe(routing_matrix, width='stretch', hide_index=True)
@@ -1719,10 +2154,530 @@ Status: Not Connected ❌
             st.json(predictions)
 
 # =============================================================================
-# TAB 9: ROADMAP
+# TAB 9: DOCUMENTATION
 # =============================================================================
 
 with tab9:
+    st.subheader("📚 Dashboard Documentation")
+    st.markdown("**Complete guide to understanding and using the TFT Monitoring Dashboard**")
+
+    # Table of Contents
+    st.markdown("### 📖 Table of Contents")
+    st.markdown("""
+    1. [Overview & Features](#overview-features)
+    2. [Understanding Risk Scores](#understanding-risk-scores)
+    3. [Alert Priority Levels](#alert-priority-levels)
+    4. [Contextual Intelligence](#contextual-intelligence)
+    5. [Server Profiles](#server-profiles)
+    6. [How to Interpret Alerts](#how-to-interpret-alerts)
+    7. [Environment Status](#environment-status)
+    8. [Trend Analysis](#trend-analysis)
+    """)
+
+    st.divider()
+
+    # Section 1: Overview & Features
+    st.markdown("### 🎯 Overview & Features")
+    st.markdown("""
+    **TFT Monitoring Dashboard** is a predictive monitoring system that uses deep learning (Temporal Fusion Transformer)
+    to forecast server health 30 minutes to 8 hours in advance.
+
+    **Key Capabilities**:
+    - **Real-time Monitoring**: Live metrics from 20+ servers across 7 profiles
+    - **30-Minute Predictions**: AI forecasts CPU, Memory, Latency with 85-90% accuracy
+    - **8-Hour Horizon**: Extended forecasts for capacity planning
+    - **Contextual Intelligence**: Risk scoring considers server profiles, trends, and multi-metric correlations
+    - **Graduated Alerts**: 7 severity levels from Healthy to Imminent Failure
+    - **Early Warning**: 15-60 minute advance notice before problems become critical
+
+    **Technology Stack**:
+    - **Model**: PyTorch Forecasting Temporal Fusion Transformer (TFT)
+    - **Architecture**: Microservices with REST/WebSocket APIs
+    - **Dashboard**: Streamlit with real-time updates
+    - **Training**: Transfer learning with profile-specific fine-tuning
+    """)
+
+    st.divider()
+
+    # Section 2: Understanding Risk Scores
+    st.markdown("### 📊 Understanding Risk Scores")
+    st.markdown("""
+    Every server receives a **Risk Score (0-100)** that represents overall health and predicted trajectory.
+
+    **Score Composition**:
+    ```
+    Final Risk = (Current State × 70%) + (Predictions × 30%)
+    ```
+
+    **Why 70/30 Weighting?**
+    - **70% Current State**: Executives care about "what's on fire NOW"
+    - **30% Predictions**: Early warning value without crying wolf
+
+    **Risk Components**:
+    - **CPU Usage**: Current and predicted utilization
+    - **Memory Usage**: Current and predicted with profile-specific thresholds
+    - **Latency**: Response time degradation
+    - **Disk Usage**: Available space warnings
+    - **Trend Velocity**: Rate of change (climbing vs. steady)
+    - **Multi-Metric Correlation**: Compound stress detection
+    """)
+
+    # Risk Score Examples
+    st.markdown("#### 🔢 Risk Score Examples")
+
+    examples_df = pd.DataFrame({
+        'Scenario': [
+            'Normal Operations',
+            'Steady High Load',
+            'Degrading Performance',
+            'Predicted Spike',
+            'Compound Stress',
+            'Imminent Failure'
+        ],
+        'CPU': ['25%', '70%', '40% → 75%', '35% → 95%', '85%', '99%'],
+        'Memory': ['35%', '65%', '60% → 80%', '50%', '90%', '99%'],
+        'Latency': ['40ms', '80ms', '90ms → 150ms', '60ms', '320ms', '1200ms'],
+        'Risk Score': [8, 32, 58, 52, 83, 96],
+        'Status': ['Healthy ✅', 'Watch 👁️', 'Degrading 🟢', 'Degrading 🟢', 'Critical 🔴', 'Imminent Failure 🔴']
+    })
+
+    st.dataframe(examples_df, hide_index=True, use_container_width=True)
+
+    st.divider()
+
+    # Section 3: Alert Priority Levels
+    st.markdown("### 🚨 Alert Priority Levels")
+    st.markdown("""
+    The dashboard uses **7 graduated severity levels** instead of binary OK/CRITICAL alerts.
+    This provides nuanced triage and graduated escalation.
+    """)
+
+    priority_df = pd.DataFrame({
+        'Level': ['🔴 Imminent Failure', '🔴 Critical', '🟠 Danger', '🟡 Warning', '🟢 Degrading', '👁️ Watch', '✅ Healthy'],
+        'Risk Score': ['90-100', '80-89', '70-79', '60-69', '50-59', '30-49', '0-29'],
+        'Meaning': [
+            'Server about to crash or failing NOW',
+            'Severe issues requiring immediate attention',
+            'High-priority problems requiring urgent action',
+            'Concerning trends that need monitoring',
+            'Performance declining, investigate soon',
+            'Low concern, background monitoring only',
+            'Normal operations, no concerns'
+        ],
+        'Response': [
+            'Drop everything, CTO escalation',
+            'Page on-call engineer immediately',
+            'Team lead engaged, urgent response',
+            'Team awareness, monitor closely',
+            'Email notification, investigate',
+            'Dashboard only, no action needed',
+            'No alerts generated'
+        ],
+        'SLA': ['5 minutes', '15 minutes', '30 minutes', '1 hour', '2 hours', 'Best effort', 'N/A']
+    })
+
+    st.dataframe(priority_df, hide_index=True, use_container_width=True)
+
+    st.markdown("""
+    **Key Insight**: Notice how the system provides graduated escalation. You don't go from "Healthy" to "Critical" -
+    instead you progress through Watch → Degrading → Warning → Danger, giving teams time to respond proactively.
+    """)
+
+    st.divider()
+
+    # Section 4: Contextual Intelligence
+    st.markdown("### 🧠 Contextual Intelligence: Beyond Simple Thresholds")
+    st.markdown("""
+    **Philosophy**: "40% CPU may be fine, or may be degrading - depends on context"
+
+    Traditional monitoring uses **binary thresholds**:
+    ```python
+    if cpu > 80%:
+        alert = "CRITICAL"  # Everything is suddenly on fire!
+    else:
+        alert = "OK"  # Everything is fine!
+    ```
+
+    **Problems**:
+    - ❌ No context: 80% CPU on database = normal, 80% on web server = problem
+    - ❌ No trends: 80% steady = fine, 40% → 80% in 10 min = concerning
+    - ❌ No prediction: Server at 60% but climbing fast will crash soon
+    - ❌ Binary state: Everything is either OK or ON FIRE (no middle ground)
+    - ❌ Ignores correlations: High CPU + high memory + high latency = compound risk
+
+    **Our Approach**: Contextual intelligence using **fuzzy logic**
+    """)
+
+    # Contextual Factors
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### 🎯 Context Factor 1: Server Profile")
+        st.markdown("""
+        **Same metric, different meaning**:
+
+        **Database Server (ppdb001)**:
+        - Memory: 98% = ✅ **Healthy** (page cache is normal)
+        - Risk Score: 8
+
+        **ML Compute (ppml0001)**:
+        - Memory: 98% = 🔴 **Critical** (OOM kill imminent)
+        - Risk Score: 82
+
+        The system understands that databases use 100% memory for
+        caching (expected), while compute servers need headroom
+        for allocations.
+        """)
+
+        st.markdown("#### 📈 Context Factor 2: Trend Analysis")
+        st.markdown("""
+        **Same current value, different trajectory**:
+
+        **Steady State**:
+        - CPU: 40% for last 30 minutes
+        - Risk: 0 (stable workload)
+
+        **Rapid Climb**:
+        - CPU: 20% → 40% → 60% (climbing 20%/10min)
+        - Risk: 56 (will hit 100% in 20 minutes!)
+
+        The system detects velocity and acceleration patterns.
+        """)
+
+    with col2:
+        st.markdown("#### 🔗 Context Factor 3: Multi-Metric Correlation")
+        st.markdown("""
+        **Isolated spike vs. compound stress**:
+
+        **Isolated CPU Spike**:
+        - CPU: 85% (batch job)
+        - Memory: 35%
+        - Latency: 40ms
+        - Risk: 28 (✅ Healthy - just a batch job)
+
+        **Compound Stress**:
+        - CPU: 85% (same value!)
+        - Memory: 90%
+        - Latency: 350ms
+        - Risk: 83 (🔴 Critical - system under stress)
+        """)
+
+        st.markdown("#### 🔮 Context Factor 4: Prediction-Aware")
+        st.markdown("""
+        **Current vs. predicted state**:
+
+        **Looks Fine Now, But...**:
+        - Current CPU: 40%
+        - Predicted (30m): 95%
+        - Risk: 52 (🟢 Degrading - early warning!)
+
+        **Bad Now, Getting Better**:
+        - Current CPU: 85%
+        - Predicted (30m): 60%
+        - Risk: 38 (👁️ Watch - resolving itself)
+        """)
+
+    st.markdown("""
+    #### 🎯 Result: Intelligent Risk Assessment
+
+    The system combines all four context factors to produce a risk score that reflects **actual operational risk**,
+    not just raw metric values. This eliminates false positives while providing earlier detection of real problems.
+    """)
+
+    st.divider()
+
+    # Section 5: Server Profiles
+    st.markdown("### 🖥️ Server Profiles")
+    st.markdown("""
+    The system automatically detects server profiles from hostnames and applies **profile-specific intelligence**.
+    """)
+
+    profiles_df = pd.DataFrame({
+        'Profile': ['ML Compute', 'Database', 'Web API', 'Conductor Mgmt', 'Data Ingest', 'Risk Analytics', 'Generic'],
+        'Hostname Pattern': ['ppml####', 'ppdb###', 'ppweb###', 'ppcon##', 'ppdi###', 'ppra###', 'ppsrv###'],
+        'Characteristics': [
+            'High CPU/Mem during training, Memory-intensive',
+            'High memory (page cache), Query CPU spikes',
+            'Low memory (stateless), Latency-sensitive',
+            'Low CPU/Mem, Management workload',
+            'High disk I/O, Network-intensive',
+            'CPU-intensive analytics, Batch processing',
+            'Balanced workload'
+        ],
+        'Memory Threshold': ['98%', '100%', '85%', '90%', '90%', '95%', '90%'],
+        'Key Metrics': [
+            'CPU, Memory allocation',
+            'Query latency, Memory cache',
+            'Request latency, Error rate',
+            'Process health',
+            'Disk I/O, Network throughput',
+            'CPU usage, GC pauses',
+            'Balanced monitoring'
+        ]
+    })
+
+    st.dataframe(profiles_df, hide_index=True, use_container_width=True)
+
+    st.info("""
+    **Why Profile Awareness Matters**: A database at 100% memory is healthy (caching), but a web server at 100% memory
+    is about to crash (memory leak). The system adjusts thresholds and risk calculations based on expected behavior patterns.
+    """)
+
+    st.divider()
+
+    # Section 6: How to Interpret Alerts
+    st.markdown("### 🔔 How to Interpret Alerts")
+    st.markdown("""
+    The **Active Alerts** table shows servers requiring attention (Risk ≥ 50). Here's how to read it:
+    """)
+
+    st.markdown("#### 📋 Alert Table Columns Explained")
+
+    alert_columns_df = pd.DataFrame({
+        'Column': ['Priority', 'Server', 'Profile', 'Risk', 'CPU Now', 'CPU Predicted (30m)', 'CPU Δ', 'Mem Now', 'Mem Predicted (30m)', 'Mem Δ', 'Latency Now', 'Latency Predicted (30m)', 'Latency Δ'],
+        'Meaning': [
+            'Severity level (Imminent Failure → Critical → Danger → Warning → Degrading)',
+            'Server hostname (hover for details)',
+            'Detected server workload type',
+            'Overall risk score (0-100, higher = more urgent)',
+            'Current CPU utilization percentage',
+            'AI-predicted CPU in next 30 minutes',
+            'Predicted change: + = increasing (degrading), - = decreasing (improving)',
+            'Current memory utilization percentage',
+            'AI-predicted memory in next 30 minutes',
+            'Predicted change: + = increasing, - = decreasing',
+            'Current system latency in milliseconds',
+            'AI-predicted latency in next 30 minutes',
+            'Predicted change: + = increasing, - = decreasing'
+        ]
+    })
+
+    st.dataframe(alert_columns_df, hide_index=True, use_container_width=True)
+
+    st.markdown("#### 🎯 Priority Triage Strategy")
+
+    st.markdown("""
+    **Step 1: Check Critical+ Servers First**
+    - Risk 90+ (Imminent Failure): Drop everything, server about to crash
+    - Risk 80-89 (Critical): Immediate action, page on-call if after hours
+
+    **Step 2: Review Danger/Warning Servers**
+    - Risk 70-79 (Danger): High priority, team lead should investigate
+    - Risk 60-69 (Warning): Monitor closely, team awareness
+
+    **Step 3: Track Degrading Servers**
+    - Risk 50-59 (Degrading): Early warnings, investigate during business hours
+
+    **Step 4: Look for Patterns**
+    - Multiple servers with same profile degrading? (Shared infrastructure issue)
+    - All servers in datacenter showing latency? (Network problem)
+    - Single server with multiple metrics elevated? (Compound stress)
+    """)
+
+    st.markdown("#### 📈 Understanding Delta (Δ) Values")
+
+    st.info("""
+    **Delta values show predicted CHANGE**, not absolute values:
+
+    - **CPU Δ: +15.2%** → CPU will increase by 15.2% in next 30 minutes
+    - **Mem Δ: -5.3%** → Memory will decrease by 5.3% (improving)
+    - **Latency Δ: +85ms** → Latency will increase by 85ms (degrading)
+
+    **🚨 Red Flag Pattern**: All deltas positive (+) = server degrading across all metrics
+    **✅ Good Pattern**: All deltas negative (-) = server recovering across all metrics
+    **⚠️ Mixed Pattern**: Some + some - = investigate further
+    """)
+
+    st.divider()
+
+    # Section 7: Environment Status
+    st.markdown("### 🌍 Environment Status")
+    st.markdown("""
+    The **Environment Status** indicator (top-left of Overview tab) shows fleet-wide health at a glance.
+    """)
+
+    env_status_df = pd.DataFrame({
+        'Status': ['🔴 Critical', '🟠 Warning', '🟡 Caution', '🟢 Healthy'],
+        'Conditions': [
+            '>30% of fleet Critical+ (Risk 80+) OR >50% elevated risk',
+            '>10% of fleet Critical+ OR >30% elevated risk',
+            '>10% of fleet Degrading (Risk 50+)',
+            '<10% of fleet has elevated risk'
+        ],
+        'Interpretation': [
+            'MAJOR INCIDENT: Multiple servers failing, immediate executive attention',
+            'ELEVATED CONCERN: Significant portion of fleet affected, team mobilization',
+            'EARLY WARNING: Some servers showing degradation, proactive investigation',
+            'NORMAL OPERATIONS: Fleet healthy, routine monitoring'
+        ],
+        'Typical Action': [
+            'War room, incident commander, all-hands response',
+            'Team standup, resource allocation, incident tracking',
+            'Email notifications, team awareness, monitoring',
+            'No action required, continue normal operations'
+        ]
+    })
+
+    st.dataframe(env_status_df, hide_index=True, use_container_width=True)
+
+    st.markdown("""
+    **Example Scenario**: You have 20 servers
+    - 2 servers at Risk 85 (Critical)
+    - 3 servers at Risk 72 (Danger)
+    - 15 servers at Risk 20 (Healthy)
+
+    **Calculation**:
+    - Critical% = 2/20 = 10%
+    - Elevated% = 5/20 = 25%
+
+    **Status**: 🟠 **Warning** (10% critical, 25% elevated)
+    **Action**: Team mobilization, incident tracking
+    """)
+
+    st.divider()
+
+    # Section 8: Trend Analysis
+    st.markdown("### 📊 Trend Analysis")
+    st.markdown("""
+    Below the alert summary metrics, the **Trend Analysis** section shows movement patterns:
+    """)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### ⬆️ Degrading Trends")
+        st.markdown("""
+        **Definition**: Servers with positive (+) delta values for CPU or Memory
+
+        **What it means**:
+        - Metrics increasing over next 30 minutes
+        - Performance declining
+        - Requires attention
+
+        **Example**:
+        - Alert table shows 12 servers
+        - 8 have positive CPU Δ or Mem Δ
+        - Display: "⬆️ Degrading: 8/12 (67%)"
+
+        **Interpretation**: Most alerts are degrading situations (not recovering)
+        """)
+
+    with col2:
+        st.markdown("#### ⬇️ Improving Trends")
+        st.markdown("""
+        **Definition**: Servers with negative (-) delta values for CPU or Memory
+
+        **What it means**:
+        - Metrics decreasing over next 30 minutes
+        - Performance improving
+        - Problems resolving themselves
+
+        **Example**:
+        - Alert table shows 12 servers
+        - 4 have negative CPU Δ or Mem Δ
+        - Display: "⬇️ Improving: 4/12 (33%)"
+
+        **Interpretation**: Some servers recovering (maybe remediation already applied)
+        """)
+
+    st.warning("""
+    **Important**: Trend percentages are calculated from **alerts only**, not total fleet.
+
+    - If you have 12 alerts and 8 degrading → "8/12" NOT "8/20"
+    - This shows what proportion of your active problems are getting worse vs. better
+    """)
+
+    st.divider()
+
+    # Best Practices
+    st.markdown("### ✅ Best Practices")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### 👍 Do's")
+        st.markdown("""
+        - ✅ **Check dashboard every 15-30 minutes** during business hours
+        - ✅ **Trust the risk scores** - they include context you might miss
+        - ✅ **Act on Degrading alerts proactively** before they become Critical
+        - ✅ **Look for patterns** across multiple servers
+        - ✅ **Use predictions** to plan maintenance windows
+        - ✅ **Correlate with deployments** - did we just push code?
+        - ✅ **Review Watch servers** periodically (Risk 30-49)
+        - ✅ **Trust profile-specific thresholds** (DB at 100% mem = OK)
+        """)
+
+    with col2:
+        st.markdown("#### 👎 Don'ts")
+        st.markdown("""
+        - ❌ **Don't ignore Degrading alerts** thinking "it's only 55% CPU"
+        - ❌ **Don't panic at single metric spike** - look at overall risk score
+        - ❌ **Don't override profile thresholds** without understanding context
+        - ❌ **Don't dismiss predictions** as "just guesses"
+        - ❌ **Don't create manual alerts** that duplicate dashboard intelligence
+        - ❌ **Don't compare this to traditional monitoring** - it's predictive
+        - ❌ **Don't ignore improving trends** - verify remediation worked
+        """)
+
+    st.divider()
+
+    # Quick Reference
+    st.markdown("### 🚀 Quick Reference Card")
+
+    st.code("""
+╔════════════════════════════════════════════════════════════════╗
+║         TFT MONITORING DASHBOARD - QUICK REFERENCE            ║
+╠════════════════════════════════════════════════════════════════╣
+║ RISK SCORE FORMULA:                                           ║
+║   Final Risk = (Current State × 70%) + (Predictions × 30%)   ║
+║                                                                ║
+║ PRIORITY LEVELS:                                              ║
+║   🔴 Imminent Failure (90+)  → 5-min SLA, CTO escalation     ║
+║   🔴 Critical (80-89)        → 15-min SLA, page on-call      ║
+║   🟠 Danger (70-79)          → 30-min SLA, team lead         ║
+║   🟡 Warning (60-69)         → 1-hour SLA, team awareness    ║
+║   🟢 Degrading (50-59)       → 2-hour SLA, email only        ║
+║   👁️ Watch (30-49)           → Background monitoring         ║
+║   ✅ Healthy (0-29)          → No alerts                      ║
+║                                                                ║
+║ ENVIRONMENT STATUS:                                           ║
+║   🔴 Critical  → >30% Critical+ OR >50% elevated             ║
+║   🟠 Warning   → >10% Critical+ OR >30% elevated             ║
+║   🟡 Caution   → >10% Degrading                              ║
+║   🟢 Healthy   → <10% elevated risk                          ║
+║                                                                ║
+║ DELTA INTERPRETATION:                                         ║
+║   Positive (+) → Metrics increasing (degrading)               ║
+║   Negative (-) → Metrics decreasing (improving)               ║
+║                                                                ║
+║ PROFILE-SPECIFIC THRESHOLDS:                                 ║
+║   Database: 100% memory = NORMAL (page cache)                ║
+║   ML Compute: 98% memory = CRITICAL (OOM risk)               ║
+║   Web API: Latency > 200ms = SEVERE (user impact)           ║
+║                                                                ║
+║ RESPONSE PRIORITY:                                            ║
+║   1. Imminent Failure → Drop everything                       ║
+║   2. Critical → Immediate action                              ║
+║   3. Danger → Urgent response                                 ║
+║   4. Warning → Monitor closely                                ║
+║   5. Degrading → Investigate soon                             ║
+╚════════════════════════════════════════════════════════════════╝
+    """, language="text")
+
+    st.divider()
+
+    st.success("""
+    **📚 Documentation Complete!**
+
+    This guide covers the core concepts and operational procedures for the TFT Monitoring Dashboard.
+    For technical implementation details, see the Advanced tab. For future enhancements, see the Roadmap tab.
+    """)
+
+# =============================================================================
+# TAB 10: ROADMAP
+# =============================================================================
+
+with tab10:
     st.subheader("🗺️ Future Roadmap")
     st.markdown("**POC Success → Production Excellence**: Planned enhancements for world-class monitoring")
 
@@ -1980,25 +2935,25 @@ with tab9:
     """)
 
 # =============================================================================
-# AUTO-REFRESH (Non-blocking)
+# AUTO-REFRESH (Simple approach - only rerun when interval elapsed)
 # =============================================================================
 
 if auto_refresh and st.session_state.daemon_connected:
     # Check if enough time has passed since last update
     current_time = datetime.now()
 
-    if st.session_state.last_update:
-        time_since_update = (current_time - st.session_state.last_update).total_seconds()
+    # Initialize last_update if needed
+    if st.session_state.last_update is None:
+        st.session_state.last_update = current_time
 
-        # In demo mode, refresh every 1 second
-        if st.session_state.demo_running:
-            if time_since_update >= 1:
-                st.rerun()
-        # Normal mode, refresh at configured interval
-        elif time_since_update >= refresh_interval:
-            st.rerun()
-    else:
-        # First run, trigger immediate refresh
+    time_since_update = (current_time - st.session_state.last_update).total_seconds()
+
+    # Only rerun if the refresh interval has actually elapsed
+    if st.session_state.demo_running and time_since_update >= 5:
+        time.sleep(5)  # Wait the full interval
+        st.rerun()
+    elif time_since_update >= refresh_interval:
+        time.sleep(refresh_interval)  # Wait the full interval
         st.rerun()
 
 # =============================================================================

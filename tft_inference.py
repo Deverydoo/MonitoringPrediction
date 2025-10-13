@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 """
+⚠️ DEPRECATED - Use tft_inference_daemon.py instead ⚠️
+
+This file is deprecated as of 2025-10-13.
+Use tft_inference_daemon.py for all inference operations.
+
+The new daemon is cleaner, faster, and better maintained.
+This file is kept only for backwards compatibility.
+
+Migration:
+  OLD: python tft_inference.py --daemon --port 8000
+  NEW: python tft_inference_daemon.py --port 8000
+
 tft_inference.py - TFT Model Inference with Daemon Mode
 Supports: CLI mode, Daemon mode with REST/WebSocket API, Real TFT predictions
 """

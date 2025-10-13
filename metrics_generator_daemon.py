@@ -71,10 +71,28 @@ class MetricsGeneratorDaemon:
 
         # Current scenario mode
         self.scenario = "healthy"
-        self.scenario_multipliers = {
-            'healthy': 1.0,      # Normal operations
-            'degrading': 1.15,   # Subtle increase (15%) - early warning signs
-            'critical': 1.6      # Significant issues (60%) - clear problems
+
+        # Scenario-based state forcing (replaces simple multipliers)
+        self.scenario_config = {
+            'healthy': {
+                'force_states': False,  # Natural state transitions
+                'affected_pct': 0.0,    # No servers forced
+                'description': 'Normal operations - natural state transitions'
+            },
+            'degrading': {
+                'force_states': True,
+                'target_states': [ServerState.HEAVY_LOAD],  # Force into HEAVY_LOAD
+                'force_probability': 0.7,  # 70% of affected servers forced
+                'affected_pct': 0.25,      # 25% of fleet affected
+                'description': 'Early warning signs - 25% of fleet under heavy load'
+            },
+            'critical': {
+                'force_states': True,
+                'target_states': [ServerState.CRITICAL_ISSUE],  # Force into CRITICAL
+                'force_probability': 0.9,  # 90% of affected servers forced
+                'affected_pct': 0.50,      # 50% of fleet affected (major incident)
+                'description': 'Active incidents - 50% of fleet in critical state'
+            }
         }
 
         # Create fleet (matches training data exactly)
@@ -94,17 +112,27 @@ class MetricsGeneratorDaemon:
 
     def update_affected_servers(self):
         """Update which servers are affected by current scenario."""
-        if self.scenario == 'healthy':
+        scenario_conf = self.scenario_config[self.scenario]
+        affected_pct = scenario_conf['affected_pct']
+
+        if affected_pct == 0.0:
             self.affected_servers = set()
+            print(f"[SCENARIO] {self.scenario.upper()}: All servers healthy, natural transitions")
         else:
-            # Affect 25% of fleet for degrading/critical
-            num_affected = max(1, int(len(self.fleet) * 0.25))
+            # Select affected servers based on scenario config
+            num_affected = max(1, int(len(self.fleet) * affected_pct))
             self.affected_servers = set(np.random.choice(
                 self.fleet['server_name'],
                 num_affected,
                 replace=False
             ))
+
+            target_states = scenario_conf.get('target_states', [])
+            force_prob = scenario_conf.get('force_probability', 0.0)
+
             print(f"[SCENARIO] {self.scenario.upper()}: {num_affected} servers affected")
+            print(f"           Forcing {int(force_prob*100)}% into states: {[s.value for s in target_states]}")
+            print(f"           Description: {scenario_conf['description']}")
 
     def set_scenario(self, scenario: str) -> Dict[str, Any]:
         """
@@ -152,13 +180,13 @@ class MetricsGeneratorDaemon:
     def generate_tick(self) -> List[Dict]:
         """
         Generate one tick of data for entire fleet.
-        Uses the SAME awesome logic from metrics_generator.py!
+        Uses state-based forcing instead of multipliers for realistic scenarios.
         """
         self.tick_count += 1
         current_time = datetime.now()
         hour = current_time.hour
 
-        scenario_mult = self.scenario_multipliers[self.scenario]
+        scenario_conf = self.scenario_config[self.scenario]
         batch = []
 
         for _, server in self.fleet.iterrows():
@@ -167,19 +195,37 @@ class MetricsGeneratorDaemon:
             is_problem_child = server['problem_child']
             is_affected = server_name in self.affected_servers
 
-            # State transitions (using metrics_generator logic)
+            # State transitions - WITH SCENARIO-BASED FORCING
             current_state = self.server_states[server_name]
-            probs = get_state_transition_probs(current_state, hour, is_problem_child)
-            states = list(probs.keys())
-            probabilities = list(probs.values())
-            next_state = np.random.choice(states, p=probabilities)
+
+            if is_affected and scenario_conf['force_states']:
+                # Scenario forces affected servers into specific states
+                force_probability = scenario_conf['force_probability']
+                target_states = scenario_conf['target_states']
+
+                if np.random.random() < force_probability:
+                    # Force into one of the target states
+                    next_state = np.random.choice(target_states)
+                else:
+                    # Allow natural transition
+                    probs = get_state_transition_probs(current_state, hour, is_problem_child)
+                    states = list(probs.keys())
+                    probabilities = list(probs.values())
+                    next_state = np.random.choice(states, p=probabilities)
+            else:
+                # Natural state transitions (healthy scenario or unaffected servers)
+                probs = get_state_transition_probs(current_state, hour, is_problem_child)
+                states = list(probs.keys())
+                probabilities = list(probs.values())
+                next_state = np.random.choice(states, p=probabilities)
+
             self.server_states[server_name] = next_state
 
             # Skip offline servers (sparse mode for streaming)
             if next_state == ServerState.OFFLINE:
                 continue
 
-            # Generate metrics using profile baselines
+            # Generate metrics using profile baselines + state multipliers + diurnal
             profile_enum = ServerProfile(profile)
             baselines = PROFILE_BASELINES[profile_enum]
 
@@ -190,7 +236,7 @@ class MetricsGeneratorDaemon:
                     mean, std = baselines[metric]
                     value = np.random.normal(mean, std)
 
-                    # Apply state multiplier
+                    # Apply state multiplier (NATURAL - not scenario multiplier!)
                     multiplier = STATE_MULTIPLIERS[next_state].get(metric, 1.0)
                     value *= multiplier
 
@@ -198,10 +244,7 @@ class MetricsGeneratorDaemon:
                     diurnal_mult = diurnal_multiplier(hour, profile_enum, next_state)
                     value *= diurnal_mult
 
-                    # Apply scenario degradation for affected servers
-                    if is_affected and self.scenario != 'healthy':
-                        if metric in ['cpu', 'mem', 'latency_ms', 'error_rate', 'gc_pause_ms']:
-                            value *= scenario_mult
+                    # NO MORE SCENARIO MULTIPLIERS - state forcing handles scenarios!
 
                     # Apply bounds
                     if metric in ['cpu', 'mem']:
