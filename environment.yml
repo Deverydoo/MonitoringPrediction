@@ -1,0 +1,56 @@
+name: py310
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.10
+  - pip>=23.0
+
+  # Core dependencies (conda)
+  - numpy>=1.24.0
+  - pandas>=2.0.0
+
+  # PyTorch (conda for better CUDA integration)
+  - pytorch>=2.0.0
+  - pytorch-cuda=11.8  # For CUDA 11.8 (adjust for your GPU)
+  - cudatoolkit=11.8   # For CUDA 11.8
+
+  # pip dependencies
+  - pip:
+    # ML/DL
+    - lightning>=2.0.0
+    - pytorch-forecasting>=1.0.0
+
+    # Data processing
+    - pyarrow>=12.0.0
+
+    # Visualization & Dashboard
+    - streamlit>=1.28.0
+    - plotly>=5.17.0
+    - matplotlib>=3.7.0
+
+    # API & Networking
+    - requests>=2.31.0
+    - websockets>=11.0
+
+    # Model serialization
+    - safetensors>=0.4.0
+
+    # Utilities
+    - python-dateutil>=2.8.0
+
+# Platform-specific notes:
+#
+# For CPU-only (no GPU):
+#   Remove pytorch-cuda and cudatoolkit lines
+#   Use: conda env create -f environment.yml
+#
+# For different CUDA versions:
+#   CUDA 12.1: pytorch-cuda=12.1, cudatoolkit=12.1
+#   CUDA 11.7: pytorch-cuda=11.7, cudatoolkit=11.7
+#
+# Alternative creation method:
+#   conda create -n py310 python=3.10
+#   conda activate py310
+#   pip install -r requirements.txt

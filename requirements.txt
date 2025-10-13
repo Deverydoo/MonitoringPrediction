@@ -1,0 +1,35 @@
+# TFT Monitoring Prediction System
+# Python 3.10+
+
+# Core ML/DL
+torch>=2.0.0
+lightning>=2.0.0
+pytorch-forecasting>=1.0.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+pyarrow>=12.0.0  # For Parquet support
+
+# Visualization & Dashboard
+streamlit>=1.28.0
+plotly>=5.17.0
+matplotlib>=3.7.0
+
+# API & Networking
+requests>=2.31.0
+websockets>=11.0
+
+# Model Serialization
+safetensors>=0.4.0
+
+# GPU Acceleration (optional but recommended)
+# Uncomment if using CUDA
+# torch-cuda>=2.0.0
+
+# Development Tools (optional)
+# jupyterlab>=4.0.0
+# ipykernel>=6.25.0
+
+# System
+python-dateutil>=2.8.0

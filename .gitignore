@@ -20,8 +20,6 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-*.safetensors
-metrics_dataset.json
 
 # Virtual environments
 .env
@@ -31,29 +29,21 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.conda/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb_checkpoints
 
-# Model files and caches (LARGE FILES)
-hf_cache/
-*.pth
-*.pt
+# PyTorch checkpoints (training in progress)
 checkpoints/
-local_models/
+*.ckpt
 
-# Logs
+# TensorBoard logs
 logs/
+lightning_logs/
+tensorboard_logs/
 *.log
-
-# Cache directories
-.cache/
-cache/
-
-# Static responses and generated content
-static_responses/
-exported/
-backup*/
 
 # IDE
 .vscode/
@@ -61,23 +51,22 @@ backup*/
 *.swp
 *.swo
 *~
+.DS_Store
 
 # OS
-.DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Ollama models (if cached locally)
-.ollama/
+desktop.ini
 
 # Temporary files
 tmp/
 temp/
 *.tmp
+nul
 
 # Secrets and credentials
 .env.local
@@ -85,14 +74,60 @@ temp/
 secrets.json
 credentials.json
 api_keys.txt
+*.key
+*.pem
 
-# Large data files
+# Large compressed files
 *.gz
 *.zip
 *.tar
 *.bz2
 *.xz
 
+# Training data (too large for git - regenerate with metrics_generator.py)
+training/*.parquet
+training/*.csv
+training/*.json
+
+# But keep the directory structure
+!training/.gitkeep
+
 # Backup files
 *_backup_*
-backup_*
+backup_*/
+*.bak
+
+# Test outputs
+test_outputs/
+*.test
+
+# Cache
+.cache/
+cache/
+__pypackages__/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pytest
+.pytest_cache/
+
+# Distribution
+*.whl
+
+# Ollama/LLM caches (if used)
+.ollama/
+hf_cache/
+
+# Windows
+$RECYCLE.BIN/
+*.lnk

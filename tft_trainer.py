@@ -23,11 +23,14 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.tuner import Tuner
 import time
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
-from pytorch_forecasting.data import GroupNormalizer
+from pytorch_forecasting.data import GroupNormalizer, NaNLabelEncoder
 from pytorch_forecasting.metrics import QuantileLoss
 from safetensors.torch import save_file
 
 from config import CONFIG
+from server_encoder import ServerEncoder
+from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
+from gpu_profiles import setup_gpu
 
 
 def set_random_seed(seed: int = 42):
@@ -113,10 +116,22 @@ class TrainingProgressCallback(Callback):
 
 class TFTTrainer:
     """TFT trainer that works with metrics_generator.py output format."""
-    
+
     def __init__(self, config: Optional[Dict] = None):
         self.config = config or CONFIG
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Auto-detect GPU and apply optimal profile
+        if torch.cuda.is_available():
+            self.gpu = setup_gpu()
+            self.device = self.gpu.device
+            # Use GPU-optimal batch size if not specified
+            if 'batch_size' not in self.config or self.config['batch_size'] == 32:
+                self.config['batch_size'] = self.gpu.get_batch_size('train')
+                print(f"[GPU] Auto-configured batch size: {self.config['batch_size']}")
+        else:
+            self.gpu = None
+            self.device = torch.device('cpu')
+
         self.model = None
     
     def load_dataset(self, dataset_dir: str = "./training/") -> pd.DataFrame:
@@ -278,11 +293,16 @@ class TFTTrainer:
                 df[new_col] = df[old_col]
                 print(f"[INFO] Mapped {old_col} -> {new_col}")
 
-        # Encode server_name to numeric server_id
-        if 'server_name' in df.columns and 'server_id' not in df.columns:
-            # Create categorical encoding for server names
-            df['server_id'] = pd.Categorical(df['server_name']).codes.astype(str)
-            print(f"[INFO] Encoded {len(df['server_name'].unique())} server_names to server_id")
+        # Encode server_name to hash-based server_id (production-ready)
+        if 'server_name' in df.columns:
+            # Use hash-based encoder for stable, production-ready encoding
+            self.server_encoder = ServerEncoder()
+            self.server_encoder.create_mapping(df['server_name'].unique().tolist())
+
+            # Encode server names
+            df['server_id'] = df['server_name'].apply(self.server_encoder.encode)
+            print(f"[OK] Encoded {len(df['server_name'].unique())} server_names using hash-based encoding")
+            print(f"   Sample mappings: {dict(list(self.server_encoder.name_to_id.items())[:3])}")
         
         # Ensure status column exists and is categorical string
         if 'status' not in df.columns:
@@ -338,6 +358,20 @@ class TFTTrainer:
         if 'server_id' not in df.columns:
             df['server_id'] = df[group_col]
         
+        # Validate against data contract
+        validator = DataValidator(strict=False)
+        is_valid, errors, warnings = validator.validate_schema(df)
+
+        if not is_valid:
+            print("[ERROR] Data violates contract!")
+            for error in errors:
+                print(f"   ERROR: {error}")
+
+        if warnings:
+            print(f"[WARNING] {len(warnings)} validation warning(s)")
+            for warning in warnings[:3]:  # Show first 3
+                print(f"   {warning}")
+
         print(f"[OK] Data prepared: {df.shape}")
         print(f"[INFO] Final columns: {list(df.columns)}")
         return df
@@ -369,6 +403,16 @@ class TFTTrainer:
         time_varying_known_reals = ['hour', 'day_of_week', 'month', 'is_weekend']
         time_varying_unknown_categoricals = ['status']
 
+        # CRITICAL: Profile as static categorical for transfer learning
+        static_categoricals = []
+        if 'profile' in df.columns:
+            static_categoricals.append('profile')
+            df['profile'] = df['profile'].fillna('generic').astype(str)
+            print(f"[TRANSFER] Profile feature enabled - model will learn per-profile patterns")
+            print(f"[TRANSFER] Profiles detected: {sorted(df['profile'].unique())}")
+        else:
+            print("[WARNING] No profile column - transfer learning disabled")
+
         # Phase 3: Multi-target prediction support
         multi_target = self.config.get('multi_target', False)
         if multi_target:
@@ -382,7 +426,17 @@ class TFTTrainer:
             target = 'cpu_percent'  # Single target (default)
             print(f"[INFO] Single-target mode: {target}")
 
-        # Create training dataset
+        # Create categorical encoders that support unknown categories (production-ready)
+        categorical_encoders = {
+            'server_id': NaNLabelEncoder(add_nan=True),  # Allow unknown servers
+            'status': NaNLabelEncoder(add_nan=True)       # Allow unknown statuses
+        }
+
+        # Add profile encoder if available
+        if 'profile' in df.columns:
+            categorical_encoders['profile'] = NaNLabelEncoder(add_nan=True)  # Allow unknown profiles
+
+        # Create training dataset with profile-based transfer learning
         training = TimeSeriesDataSet(
             df[df['time_idx'] <= training_cutoff],
             time_idx='time_idx',
@@ -392,15 +446,22 @@ class TFTTrainer:
             max_prediction_length=max_prediction_length,
             min_encoder_length=max_encoder_length // 2,
             min_prediction_length=1,
+            static_categoricals=static_categoricals,  # PROFILE: Enables transfer learning
             time_varying_unknown_reals=time_varying_unknown_reals,
             time_varying_known_reals=time_varying_known_reals,
             time_varying_unknown_categoricals=time_varying_unknown_categoricals,
+            categorical_encoders=categorical_encoders,  # Support unknown categories
             target_normalizer=GroupNormalizer(groups=['server_id'], transformation='softplus'),
             add_relative_time_idx=True,
             add_target_scales=True,
             add_encoder_length=True,
             allow_missing_timesteps=True
         )
+
+        if static_categoricals:
+            print(f"[TRANSFER] Model configured with profile-based transfer learning")
+            print(f"[TRANSFER] New servers will predict based on their profile patterns")
+        print(f"[INFO] Model configured to accept unknown servers and statuses")
         
         # Create validation dataset
         validation = TimeSeriesDataSet.from_dataset(
@@ -527,9 +588,13 @@ class TFTTrainer:
             df = self.load_dataset(dataset_path)
             training_dataset, validation_dataset = self.create_datasets(df)
 
-            # Optimal worker configuration for data loading
-            optimal_workers = 4 if torch.cuda.is_available() else 2
-            use_pin_memory = torch.cuda.is_available()
+            # GPU-optimal worker configuration for data loading
+            if self.gpu:
+                optimal_workers = self.gpu.get_num_workers()
+                use_pin_memory = True
+            else:
+                optimal_workers = 2
+                use_pin_memory = False
 
             print(f" Data loading: {optimal_workers} workers, pin_memory={use_pin_memory}")
 
@@ -615,6 +680,7 @@ class TFTTrainer:
                 print(f"[LOAD] Gradient accumulation: {accumulate_batches} batches (effective batch: {effective_batch})")
 
             # Create trainer with Phase 1 + 2 + 3 optimizations
+            # NOTE: We explicitly do NOT pass ckpt_path to trainer.fit() to prevent auto-resume
             trainer = Trainer(
                 max_epochs=self.config['epochs'],
                 gradient_clip_val=self.config.get('gradient_clip_val', 0.1),
@@ -629,9 +695,17 @@ class TFTTrainer:
                 precision=precision,
                 accumulate_grad_batches=accumulate_batches
             )
-            
+
+            print("[INFO] Training from scratch (checkpoints disabled for resume)")
+
             print(f"[START] Training for {self.config['epochs']} epochs...")
-            trainer.fit(self.model, train_dataloader, val_dataloader)
+            # Explicitly pass ckpt_path=None to prevent auto-resume from any checkpoint
+            trainer.fit(
+                self.model,
+                train_dataloader,
+                val_dataloader,
+                ckpt_path=None  # Force training from scratch
+            )
             
             print("[OK] Training completed successfully!")
             
@@ -682,19 +756,43 @@ class TFTTrainer:
                     }
                 }, f, indent=2)
             
-            # Save training metadata
-            metadata_path = model_dir / "training_metadata.json"
-            with open(metadata_path, 'w') as f:
+            # Save training info with contract compliance
+            training_info_path = model_dir / "training_info.json"
+            with open(training_info_path, 'w') as f:
                 json.dump({
+                    'trained_at': datetime.now().isoformat(),
                     'training_completed': True,
-                    'model_type': 'TFT',
+                    'model_type': 'TemporalFusionTransformer',
                     'framework': 'pytorch_forecasting',
-                    'created_at': datetime.now().isoformat(),
                     'safetensors_format': True,
+                    'epochs': self.config['epochs'],
+                    'unique_states': VALID_STATES,  # From contract
+                    'state_encoder_size': len(VALID_STATES),
+                    'data_contract_version': CONTRACT_VERSION,
                     'model_path': str(model_path)
                 }, f, indent=2)
-            
+
+            # Save server mapping (CRITICAL for inference)
+            if hasattr(self, 'server_encoder'):
+                mapping_path = model_dir / "server_mapping.json"
+                self.server_encoder.save_mapping(mapping_path)
+                print(f"[OK] Server mapping saved with model")
+            else:
+                print(f"[WARNING] No server encoder found - this may cause issues in inference")
+
+            # Save TimeSeriesDataSet parameters including categorical encoders
+            # This is CRITICAL for inference to work properly
+            if hasattr(self.model, 'dataset_parameters'):
+                dataset_params_path = model_dir / "dataset_parameters.pkl"
+                import pickle
+                with open(dataset_params_path, 'wb') as f:
+                    pickle.dump(self.model.dataset_parameters, f)
+                print(f"[OK] Dataset parameters (including encoders) saved")
+            else:
+                print(f"[WARNING] Model doesn't have dataset_parameters - encoders not saved!")
+
             print(f"[OK] Model saved to: {model_dir}")
+            print(f"[OK] Contract version: {CONTRACT_VERSION}")
             return model_dir
             
         except Exception as e:

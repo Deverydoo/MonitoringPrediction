@@ -7,6 +7,7 @@ Supports: CLI mode, Daemon mode with REST/WebSocket API, Real TFT predictions
 import json
 import argparse
 import asyncio
+import warnings
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Union, Set
@@ -17,182 +18,31 @@ import pandas as pd
 import torch
 import numpy as np
 from safetensors.torch import load_file
+from server_encoder import ServerEncoder
+from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
+from gpu_profiles import setup_gpu
+# ScenarioDemoGenerator removed - use metrics_generator.py --stream instead
+
+# Suppress Lightning checkpoint warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='lightning.pytorch.utilities.parsing')
+warnings.filterwarnings('ignore', message='.*is an instance of.*nn.Module.*')
+warnings.filterwarnings('ignore', message='.*dataloader.*does not have many workers.*')
+warnings.filterwarnings('ignore', message='.*Tensor Cores.*')
+
+# Suppress TensorFlow info messages
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress INFO and WARNING messages
 
 
 # =============================================================================
-# SIMULATION DATA GENERATOR
+# DATA GENERATION - REMOVED
 # =============================================================================
-
-class SimulationMode(Enum):
-    """Simulation scenarios."""
-    STABLE = "stable"                  # Healthy baseline
-    BUSINESS_HOURS = "business_hours"  # Peak during day, quiet at night
-    GRADUAL_SPIKE = "gradual_spike"    # Slow resource exhaustion
-    SUDDEN_SPIKE = "sudden_spike"      # Acute incident
-    CYCLIC = "cyclic"                  # Wave patterns
-
-
-class SimulationGenerator:
-    """
-    Generate realistic server metrics with temporal patterns.
-    Seed-based for reproducibility.
-    """
-
-    def __init__(self, fleet_size: int = 25, seed: int = 42,
-                 mode: SimulationMode = SimulationMode.BUSINESS_HOURS):
-        np.random.seed(seed)
-        self.fleet_size = fleet_size
-        self.seed = seed
-        self.mode = mode
-        self.tick_count = 0
-        self.start_time = datetime.now()
-
-        # Create server fleet with profiles
-        self.servers = self._create_fleet()
-
-        # Incident tracking
-        self.incident_active = False
-        self.incident_start_tick = None
-        self.incident_servers = set()
-
-    def _create_fleet(self) -> List[Dict]:
-        """Create diverse server fleet."""
-        servers = []
-        profiles = ['production', 'compute', 'service', 'container']
-        profile_weights = [0.4, 0.3, 0.2, 0.1]
-
-        for i in range(self.fleet_size):
-            profile = np.random.choice(profiles, p=profile_weights)
-            servers.append({
-                'server_name': f'{profile[:4]}-{i:03d}',
-                'profile': profile,
-                'base_cpu': np.random.uniform(20, 50),
-                'base_memory': np.random.uniform(40, 65),
-                'base_latency': np.random.uniform(10, 80),
-                'noise_factor': np.random.uniform(0.85, 1.15),
-                'is_problem_child': np.random.random() < 0.1  # 10% are problematic
-            })
-
-        return servers
-
-    def generate_tick(self) -> List[Dict]:
-        """Generate one tick of data for entire fleet."""
-        self.tick_count += 1
-        current_time = self.start_time + timedelta(seconds=self.tick_count * 5)
-
-        # Time-based factors
-        hour = current_time.hour
-        minute = current_time.minute
-
-        # Diurnal pattern (business hours effect)
-        if self.mode == SimulationMode.BUSINESS_HOURS:
-            if 9 <= hour <= 17:  # Business hours
-                time_factor = 1.4 + 0.2 * np.sin(2 * np.pi * (hour - 9) / 8)
-            else:  # Off hours
-                time_factor = 0.6 + 0.1 * np.sin(2 * np.pi * hour / 24)
-        elif self.mode == SimulationMode.STABLE:
-            time_factor = 1.0
-        elif self.mode == SimulationMode.CYCLIC:
-            time_factor = 1.0 + 0.3 * np.sin(2 * np.pi * self.tick_count / 72)  # 6-minute cycle
-        else:
-            time_factor = 1.0
-
-        # Incident injection (gradual or sudden)
-        incident_factor = 1.0
-        if self.mode == SimulationMode.GRADUAL_SPIKE and self.tick_count > 60:
-            # Gradual increase starting after 5 minutes
-            ramp = min(1.0, (self.tick_count - 60) / 120)  # Ramp over 10 minutes
-            incident_factor = 1.0 + ramp * 1.5
-        elif self.mode == SimulationMode.SUDDEN_SPIKE and 100 < self.tick_count < 200:
-            # Sudden spike for specific window
-            incident_factor = 2.5
-
-        # Generate metrics for each server
-        batch = []
-        for server in self.servers:
-            # Decide if this server is affected by incident
-            is_affected = server['is_problem_child'] or (self.tick_count % 100 == 0)
-
-            # Base metrics with variations
-            cpu_pct = server['base_cpu'] * time_factor * server['noise_factor']
-            if is_affected:
-                cpu_pct *= incident_factor
-            cpu_pct += np.random.normal(0, 5)
-            cpu_pct = max(5, min(100, cpu_pct))
-
-            memory_pct = server['base_memory'] * (1 + 0.1 * time_factor)
-            if is_affected:
-                memory_pct *= (incident_factor * 0.8)
-            memory_pct += np.random.normal(0, 3)
-            memory_pct = max(10, min(98, memory_pct))
-
-            # Disk grows slowly over time (simulates logs/cache)
-            disk_pct = 30 + (self.tick_count * 0.01) + np.random.normal(0, 2)
-            disk_pct = max(20, min(95, disk_pct))
-
-            # Load average correlates with CPU
-            load_average = (cpu_pct / 25) * server['noise_factor']
-            load_average += np.random.exponential(0.3)
-            load_average = max(0.1, min(16, load_average))
-
-            # Java heap (for production servers)
-            if server['profile'] == 'production':
-                java_heap_usage = memory_pct * 0.9 + np.random.normal(0, 5)
-            else:
-                java_heap_usage = memory_pct * 0.5 + np.random.normal(0, 3)
-            java_heap_usage = max(10, min(100, java_heap_usage))
-
-            # Network errors (spike during incidents)
-            network_errors = np.random.poisson(2 if not is_affected else 15)
-
-            # Anomaly score (composite indicator)
-            anomaly_score = 0.0
-            if cpu_pct > 80:
-                anomaly_score += 0.3
-            if memory_pct > 85:
-                anomaly_score += 0.3
-            if load_average > 8:
-                anomaly_score += 0.2
-            if network_errors > 10:
-                anomaly_score += 0.2
-            anomaly_score = min(1.0, anomaly_score + np.random.uniform(0, 0.1))
-
-            # State determination
-            if anomaly_score > 0.7:
-                state = 'critical_issue'
-            elif anomaly_score > 0.4:
-                state = 'warning'
-            else:
-                state = 'healthy'
-
-            # Time features
-            batch.append({
-                'timestamp': current_time.isoformat(),
-                'server_name': server['server_name'],
-                'cpu_percent': float(cpu_pct),
-                'memory_percent': float(memory_pct),
-                'disk_percent': float(disk_pct),
-                'load_average': float(load_average),
-                'java_heap_usage': float(java_heap_usage),
-                'network_errors': int(network_errors),
-                'anomaly_score': float(anomaly_score),
-                'hour': hour,
-                'day_of_week': current_time.weekday(),
-                'day_of_month': current_time.day,
-                'month': current_time.month,
-                'quarter': (current_time.month - 1) // 3 + 1,
-                'is_weekend': current_time.weekday() >= 5,
-                'is_business_hours': 9 <= hour <= 17,
-                'status': state,
-                'timeframe': 'realtime',
-                'service_type': server['profile'],
-                'datacenter': 'dc1',
-                'environment': 'production'
-            })
-
-        return batch
-
-
+# Built-in data generator removed. Use external metrics_generator.py --stream instead.
+# This creates a clean separation: daemon = inference only, generator = data only.
+#
+# To feed data to the daemon:
+#   python metrics_generator.py --stream --servers 20 --scenario healthy
+#
 # =============================================================================
 # TFT INFERENCE ENGINE
 # =============================================================================
@@ -209,12 +59,20 @@ class TFTInference:
     """
 
     def __init__(self, model_path: Optional[str] = None, use_real_model: bool = True):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # Auto-detect GPU and apply optimal profile
+        if torch.cuda.is_available():
+            self.gpu = setup_gpu()
+            self.device = self.gpu.device
+        else:
+            self.gpu = None
+            self.device = torch.device('cpu')
+
         self.use_real_model = use_real_model
         self.model_dir = self._find_model(model_path)
         self.config = self._load_config()
         self.model = None
         self.training_data = None
+        self.server_encoder = None  # Will be loaded from model
 
         if self.use_real_model and self.model_dir:
             self._load_model()
@@ -276,29 +134,97 @@ class TFTInference:
 
             print(f"[INFO] Loading TFT model from: {self.model_dir}")
 
-            # Step 1: Create a dummy dataset for model architecture
-            # This is needed because pytorch_forecasting requires TimeSeriesDataSet
-            dummy_df = self._create_dummy_dataset()
+            # Step 1: Load server mapping
+            mapping_file = self.model_dir / "server_mapping.json"
+            if not mapping_file.exists():
+                print(f"[ERROR] server_mapping.json not found in {self.model_dir}")
+                print("   Model was not trained with contract-compliant encoding")
+                self.use_real_model = False
+                return
 
-            # Step 2: Create TimeSeriesDataSet matching training config
-            self.training_data = TimeSeriesDataSet(
-                dummy_df,
-                time_idx='time_idx',
-                target='cpu_percent',  # Primary target
-                group_ids=['server_id'],
-                max_encoder_length=24,  # 2 hours context
-                max_prediction_length=96,  # 8 hours ahead
-                min_encoder_length=12,
-                min_prediction_length=1,
-                time_varying_unknown_reals=['cpu_percent', 'memory_percent', 'disk_percent', 'load_average'],
-                time_varying_known_reals=['hour', 'day_of_week', 'month', 'is_weekend'],
-                time_varying_unknown_categoricals=['status'],
-                target_normalizer=GroupNormalizer(groups=['server_id'], transformation='softplus'),
-                add_relative_time_idx=True,
-                add_target_scales=True,
-                add_encoder_length=True,
-                allow_missing_timesteps=True
-            )
+            self.server_encoder = ServerEncoder(mapping_file)
+            print(f"[OK] Server mapping loaded: {self.server_encoder.get_stats()['total_servers']} servers")
+
+            # Step 2: Validate contract compatibility
+            training_info_file = self.model_dir / "training_info.json"
+            if training_info_file.exists():
+                with open(training_info_file) as f:
+                    training_info = json.load(f)
+
+                contract_version = training_info.get('data_contract_version')
+                if contract_version != CONTRACT_VERSION:
+                    print(f"[WARNING] Model trained with contract v{contract_version}, "
+                          f"current is v{CONTRACT_VERSION}")
+
+                model_states = training_info.get('unique_states', [])
+                if set(model_states) != set(VALID_STATES):
+                    print(f"[ERROR] Model state mismatch!")
+                    print(f"   Model has: {model_states}")
+                    print(f"   Contract expects: {VALID_STATES}")
+                    self.use_real_model = False
+                    return
+
+                print(f"[OK] Contract validation passed (v{CONTRACT_VERSION})")
+            else:
+                print(f"[WARNING] training_info.json not found - skipping validation")
+
+            # Step 3: Try to load saved dataset parameters (includes trained encoders!)
+            dataset_params_file = self.model_dir / "dataset_parameters.pkl"
+
+            if dataset_params_file.exists():
+                # Load the trained dataset parameters including categorical encoders
+                print(f"[INFO] Loading trained dataset parameters (including encoders)...")
+                import pickle
+                with open(dataset_params_file, 'rb') as f:
+                    dataset_params = pickle.load(f)
+
+                # Create TimeSeriesDataSet from saved parameters
+                dummy_df = self._create_dummy_dataset()
+                self.training_data = TimeSeriesDataSet.from_parameters(
+                    dataset_params,
+                    dummy_df,
+                    predict=False,
+                    stop_randomization=True
+                )
+                print(f"[OK] Loaded trained encoders - all servers will be recognized!")
+            else:
+                # Fallback: Create new encoders (will cause "unknown" warnings)
+                print(f"[WARNING] dataset_parameters.pkl not found - creating new encoders")
+                print(f"   This may cause 'unknown class' warnings during inference")
+                print(f"   Retrain model to save encoders properly")
+
+                dummy_df = self._create_dummy_dataset()
+
+                # Step 2: Create TimeSeriesDataSet matching training config
+                # CRITICAL: Must use NaNLabelEncoder with add_nan=True to match training architecture
+                from pytorch_forecasting.data import NaNLabelEncoder
+
+                categorical_encoders = {
+                    'server_id': NaNLabelEncoder(add_nan=True),  # Adds unknown category (+1 dimension)
+                    'status': NaNLabelEncoder(add_nan=True),     # Adds unknown category (+1 dimension)
+                    'profile': NaNLabelEncoder(add_nan=True)     # Adds unknown category (+1 dimension)
+                }
+
+                self.training_data = TimeSeriesDataSet(
+                    dummy_df,
+                    time_idx='time_idx',
+                    target='cpu_percent',  # Primary target
+                    group_ids=['server_id'],
+                    max_encoder_length=24,  # 2 hours context
+                    max_prediction_length=96,  # 8 hours ahead
+                    min_encoder_length=12,
+                    min_prediction_length=1,
+                    time_varying_unknown_reals=['cpu_percent', 'memory_percent', 'disk_percent', 'load_average'],
+                    time_varying_known_reals=['hour', 'day_of_week', 'month', 'is_weekend'],
+                    time_varying_unknown_categoricals=['status'],
+                    static_categoricals=['profile'],  # CRITICAL: Profile for transfer learning
+                    categorical_encoders=categorical_encoders,  # CRITICAL: Must match training!
+                    target_normalizer=GroupNormalizer(groups=['server_id'], transformation='softplus'),
+                    add_relative_time_idx=True,
+                    add_target_scales=True,
+                    add_encoder_length=True,
+                    allow_missing_timesteps=True
+                )
 
             # Step 3: Create model architecture from dataset
             training_config = self.config.get('training_config', {})
@@ -337,9 +263,8 @@ class TFTInference:
     def _create_dummy_dataset(self) -> pd.DataFrame:
         """Create minimal dummy dataset for TimeSeriesDataSet initialization.
 
-        IMPORTANT: Must match the schema used in training!
-        - 8 unique status values (from metrics_generator.py state column)
-        - Same features as training data
+        IMPORTANT: Must use ACTUAL server names from training, not generic IDs!
+        The loaded encoders expect the exact server names and hash IDs from training.
         """
         # All possible status values from training data
         all_status_values = [
@@ -347,25 +272,84 @@ class TFTInference:
             'maintenance', 'morning_spike', 'offline', 'recovery'
         ]
 
-        data = []
-        for server_idx, server_id in enumerate([f'{i}' for i in range(3)]):
-            for time_idx in range(50):  # Enough for encoder + prediction
-                # Cycle through status values to ensure all are present
-                status = all_status_values[time_idx % len(all_status_values)]
+        # All possible profile values (CRITICAL: matches training!)
+        all_profiles = [
+            'ml_compute', 'database', 'web_api', 'conductor_mgmt',
+            'data_ingest', 'risk_analytics', 'generic'
+        ]
 
-                data.append({
-                    'time_idx': time_idx,
-                    'server_id': server_id,  # Numeric string (matches training encoding)
-                    'cpu_percent': 50.0,
-                    'memory_percent': 60.0,
-                    'disk_percent': 40.0,
-                    'load_average': 2.0,
-                    'hour': time_idx % 24,
-                    'day_of_week': time_idx % 7,
-                    'month': 1,
-                    'is_weekend': 1 if (time_idx % 7) >= 5 else 0,
-                    'status': status
-                })
+        # CRITICAL FIX: Use actual server names from loaded server_encoder
+        # If server_encoder is available, get the actual trained server names
+        if self.server_encoder:
+            # Get all trained server names from the encoder
+            trained_servers = list(self.server_encoder.name_to_id.keys())
+            print(f"[OK] Using {len(trained_servers)} actual server names from training")
+
+            data = []
+            for server_name in trained_servers:
+                # Encode to get the hash ID used in training
+                server_id = self.server_encoder.encode(server_name)
+
+                # Infer profile from server name
+                if server_name.startswith('ppml'): profile = 'ml_compute'
+                elif server_name.startswith('ppdb'): profile = 'database'
+                elif server_name.startswith('ppweb'): profile = 'web_api'
+                elif server_name.startswith('ppcon'): profile = 'conductor_mgmt'
+                elif server_name.startswith('ppetl'): profile = 'data_ingest'
+                elif server_name.startswith('pprisk'): profile = 'risk_analytics'
+                elif server_name.startswith('ppgen'): profile = 'generic'
+                else: profile = 'generic'
+
+                # CRITICAL: Need enough time steps to satisfy encoder/decoder requirements
+                # Based on config.py: context_length=288, prediction_horizon=96
+                # Training adjusts to min(context_length, min_length//3)
+                # So we need at least 400+ timesteps to ensure we have enough history
+                for time_idx in range(450):  # Plenty of history for encoder + prediction
+                    # Cycle through status values to ensure all are present
+                    status = all_status_values[time_idx % len(all_status_values)]
+
+                    data.append({
+                        'time_idx': time_idx,
+                        'server_id': server_id,  # Hash ID from training
+                        'profile': profile,  # CRITICAL: Static categorical for transfer learning
+                        'cpu_percent': 50.0,
+                        'memory_percent': 60.0,
+                        'disk_percent': 40.0,
+                        'load_average': 2.0,
+                        'hour': time_idx % 24,
+                        'day_of_week': time_idx % 7,
+                        'month': 1,
+                        'is_weekend': 1 if (time_idx % 7) >= 5 else 0,
+                        'status': status
+                    })
+        else:
+            # Fallback: No server encoder loaded (shouldn't happen with proper model)
+            print("[WARNING] No server encoder - using generic dummy data")
+            data = []
+            num_dummy_servers = max(len(all_profiles), len(all_status_values))
+
+            for server_idx in range(num_dummy_servers):
+                server_id = f'{server_idx}'
+                profile = all_profiles[server_idx % len(all_profiles)]
+
+                # CRITICAL: Need enough time steps to satisfy encoder/decoder requirements
+                for time_idx in range(450):  # Plenty of history for encoder + prediction
+                    status = all_status_values[time_idx % len(all_status_values)]
+                    data.append({
+                        'time_idx': time_idx,
+                        'server_id': server_id,
+                        'profile': profile,
+                        'cpu_percent': 50.0,
+                        'memory_percent': 60.0,
+                        'disk_percent': 40.0,
+                        'load_average': 2.0,
+                        'hour': time_idx % 24,
+                        'day_of_week': time_idx % 7,
+                        'month': 1,
+                        'is_weekend': 1 if (time_idx % 7) >= 5 else 0,
+                        'status': status
+                    })
+
         return pd.DataFrame(data)
 
     def predict(self, data: Union[Dict, List[Dict], pd.DataFrame],
@@ -419,7 +403,11 @@ class TFTInference:
 
     def _predict_with_tft(self, df: pd.DataFrame, horizon: int) -> Dict:
         """
-        Use actual TFT model for predictions.
+        Use TFT model for predictions on ALL servers (known and unknown).
+
+        With add_nan=True in training, the model handles unknown servers natively
+        by routing them to a learned "unknown" category that captures average
+        server behavior patterns.
 
         Args:
             df: DataFrame with server metrics (must have required columns)
@@ -442,11 +430,14 @@ class TFTInference:
                 stop_randomization=True
             )
 
-            # Step 3: Create dataloader
+            # Step 3: Create dataloader with GPU-optimal settings
+            batch_size = self.gpu.get_batch_size('inference') if self.gpu else 64
+            num_workers = min(self.gpu.get_num_workers(), 4) if self.gpu else 0  # Cap at 4 for inference
+
             prediction_dataloader = prediction_dataset.to_dataloader(
                 train=False,
-                batch_size=64,
-                num_workers=0  # No multiprocessing for inference
+                batch_size=batch_size,
+                num_workers=num_workers
             )
 
             # Step 4: Run predictions
@@ -464,10 +455,23 @@ class TFTInference:
             return predictions
 
         except Exception as e:
-            print(f"[WARNING] TFT prediction failed: {e}")
-            print("   Falling back to heuristic predictions")
-            import traceback
-            traceback.print_exc()
+            # Suppress traceback if it's a warmup-related error (not enough data)
+            error_msg = str(e)
+            is_warmup_error = (
+                'filters should not remove entries' in error_msg or
+                'check encoder/decoder lengths' in error_msg
+            )
+
+            if is_warmup_error:
+                # Silently fall back during warmup - this is expected behavior
+                pass
+            else:
+                # Log unexpected errors with full traceback
+                print(f"[WARNING] TFT prediction failed: {e}")
+                print("   Falling back to heuristic predictions")
+                import traceback
+                traceback.print_exc()
+
             return self._predict_heuristic(df, horizon)
 
     def _prepare_data_for_tft(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -486,8 +490,15 @@ class TFTInference:
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
 
-        # Rename server_name to server_id for TFT
-        if 'server_name' in prediction_df.columns:
+        # Convert server_name to server_id using hash-based encoder
+        if 'server_name' in prediction_df.columns and self.server_encoder:
+            # Encode using the same mapping as training
+            prediction_df['server_id'] = prediction_df['server_name'].apply(
+                self.server_encoder.encode
+            )
+        elif 'server_name' in prediction_df.columns:
+            # Fallback if no encoder available
+            print("[WARNING] No server encoder loaded - using fallback encoding")
             prediction_df['server_id'] = prediction_df['server_name']
 
         # Create time_idx (sequential index)
@@ -506,6 +517,21 @@ class TFTInference:
         if 'status' not in prediction_df.columns:
             prediction_df['status'] = 'healthy'
 
+        # CRITICAL: Infer profile from server_name (for transfer learning)
+        def get_profile(server_name):
+            """Infer server profile from naming convention."""
+            if server_name.startswith('ppml'): return 'ml_compute'
+            if server_name.startswith('ppdb'): return 'database'
+            if server_name.startswith('ppweb'): return 'web_api'
+            if server_name.startswith('ppcon'): return 'conductor_mgmt'
+            if server_name.startswith('ppetl'): return 'data_ingest'
+            if server_name.startswith('pprisk'): return 'risk_analytics'
+            if server_name.startswith('ppgen'): return 'generic'
+            return 'generic'  # Fallback for unknown servers
+
+        if 'profile' not in prediction_df.columns:
+            prediction_df['profile'] = prediction_df['server_name'].apply(get_profile)
+
         return prediction_df
 
     def _format_tft_predictions(self, raw_predictions, input_df: pd.DataFrame,
@@ -517,23 +543,35 @@ class TFTInference:
         """
         predictions = {}
 
-        # Extract prediction tensor
-        # Shape: (batch_size, horizon, output_size, num_quantiles)
-        pred_tensor = raw_predictions.output
+        # Extract prediction tensor - raw_predictions is an Output object, not a tensor
+        # Access the prediction attribute which contains the actual tensor
+        if hasattr(raw_predictions, 'prediction'):
+            pred_tensor = raw_predictions.prediction  # Shape: (batch_size, horizon, num_quantiles)
+        elif hasattr(raw_predictions, 'output'):
+            pred_tensor = raw_predictions.output
+        else:
+            # Fallback: raw_predictions might be the tensor directly
+            pred_tensor = raw_predictions
 
         # Get unique servers
         servers = input_df['server_id'].unique()
 
         # Extract predictions per server
-        for idx, server in enumerate(servers):
+        for idx, server_id in enumerate(servers):
             if idx >= len(pred_tensor):
                 break
+
+            # Decode server_id back to server_name
+            if self.server_encoder:
+                server_name = self.server_encoder.decode(server_id)
+            else:
+                server_name = server_id  # Fallback
 
             server_preds = {}
 
             # TFT predicts cpu_percent (primary target)
             # Extract quantiles: [0.1, 0.5, 0.9] typically
-            if pred_tensor.dim() >= 3:
+            if hasattr(pred_tensor, 'dim') and pred_tensor.dim() >= 2:
                 # pred_tensor[idx] shape: (horizon, 1, 3) for single target
                 pred_values = pred_tensor[idx].cpu().numpy()
 
@@ -551,7 +589,7 @@ class TFTInference:
                     p90_values = [min(100, v + std_dev) for v in p50_values]
 
                 # Get current value from input
-                server_data = input_df[input_df['server_id'] == server]
+                server_data = input_df[input_df['server_id'] == server_id]
                 current_cpu = server_data['cpu_percent'].iloc[-1] if len(server_data) > 0 else 50.0
 
                 # Calculate trend
@@ -570,7 +608,7 @@ class TFTInference:
 
             # For other metrics, use heuristic predictions based on CPU
             # (since model was trained primarily on CPU)
-            server_data = input_df[input_df['server_id'] == server]
+            server_data = input_df[input_df['server_id'] == server_id]
 
             for metric in ['memory_percent', 'disk_percent', 'load_average']:
                 if metric in server_data.columns:
@@ -597,7 +635,8 @@ class TFTInference:
                             'trend': float(trend)
                         }
 
-            predictions[server] = server_preds
+            # Use decoded server_name as key
+            predictions[server_name] = server_preds
 
         return predictions
 
@@ -605,10 +644,21 @@ class TFTInference:
         """
         Enhanced heuristic predictions (fallback when TFT not available).
         Uses trend analysis and statistical methods.
+
+        Expects production standard columns from metrics_generator.py:
+        cpu_pct, mem_pct, disk_io_mb_s, latency_ms, error_rate, gc_pause_ms
         """
         predictions = {}
-        metrics = ['cpu_percent', 'memory_percent', 'disk_percent', 'load_average',
-                   'java_heap_usage', 'network_errors', 'anomaly_score']
+
+        # Map production columns to output names for compatibility
+        metrics_mapping = {
+            'cpu_pct': 'cpu_percent',
+            'mem_pct': 'memory_percent',
+            'disk_io_mb_s': 'disk_percent',
+            'latency_ms': 'load_average',
+            'error_rate': 'network_errors',
+            'gc_pause_ms': 'java_heap_usage'
+        }
 
         # Group by server for per-server predictions
         servers = df['server_name'].unique() if 'server_name' in df.columns else ['default']
@@ -621,17 +671,25 @@ class TFTInference:
 
             server_preds = {}
 
-            for metric in metrics:
-                if metric not in server_data.columns:
+            # Process each production metric
+            for input_col, output_name in metrics_mapping.items():
+                if input_col not in server_data.columns:
                     continue
 
-                values = server_data[metric].values[-24:]  # Last 2 hours
+                values = server_data[input_col].values[-24:]  # Last 2 hours
 
-                if len(values) > 0:
-                    current = values[-1]
+                # Clean data: remove NaN and infinite values
+                values = values[np.isfinite(values)]
 
-                    # Calculate trend
-                    if len(values) > 1:
+                if len(values) == 0:
+                    continue  # Skip if no valid data
+
+                current = values[-1]
+
+                # Calculate trend with error handling
+                trend = 0
+                if len(values) > 1:
+                    try:
                         x = np.arange(len(values))
                         trend = np.polyfit(x, values, 1)[0]
 
@@ -639,46 +697,51 @@ class TFTInference:
                         if len(values) > 5:
                             recent_trend = np.polyfit(np.arange(5), values[-5:], 1)[0]
                             trend = 0.7 * trend + 0.3 * recent_trend  # Weighted
-                    else:
-                        trend = 0
-
-                    # Generate forecasts with quantiles
-                    p50_forecast = []  # Median
-                    p10_forecast = []  # Lower bound
-                    p90_forecast = []  # Upper bound
-
-                    noise = np.std(values) if len(values) > 2 else 1.0
-
-                    for i in range(1, horizon + 1):
-                        # Trend-based prediction
-                        pred = current + (trend * i)
-
-                        # Apply bounds
-                        if metric.endswith('_percent') or metric == 'anomaly_score':
-                            pred = max(0, min(100 if metric.endswith('_percent') else 1.0, pred))
+                    except (np.linalg.LinAlgError, ValueError) as e:
+                        # Fallback: simple difference-based trend
+                        if len(values) >= 2:
+                            trend = (values[-1] - values[0]) / len(values)
                         else:
-                            pred = max(0, pred)
+                            trend = 0
 
-                        # Quantiles (confidence intervals)
-                        uncertainty = noise * np.sqrt(i)  # Uncertainty grows with horizon
-                        p10 = max(0, pred - 1.28 * uncertainty)
-                        p90 = pred + 1.28 * uncertainty
+                # Generate forecasts with quantiles
+                p50_forecast = []  # Median
+                p10_forecast = []  # Lower bound
+                p90_forecast = []  # Upper bound
 
-                        if metric.endswith('_percent'):
-                            p10 = min(100, p10)
-                            p90 = min(100, p90)
+                noise = np.std(values) if len(values) > 2 else 1.0
 
-                        p50_forecast.append(float(pred))
-                        p10_forecast.append(float(p10))
-                        p90_forecast.append(float(p90))
+                for i in range(1, horizon + 1):
+                    # Trend-based prediction
+                    pred = current + (trend * i)
 
-                    server_preds[metric] = {
-                        'p50': p50_forecast,
-                        'p10': p10_forecast,
-                        'p90': p90_forecast,
-                        'current': float(current),
-                        'trend': float(trend)
-                    }
+                    # Apply bounds (check output name for type)
+                    if output_name.endswith('_percent') or output_name == 'anomaly_score':
+                        pred = max(0, min(100 if output_name.endswith('_percent') else 1.0, pred))
+                    else:
+                        pred = max(0, pred)
+
+                    # Quantiles (confidence intervals)
+                    uncertainty = noise * np.sqrt(i)  # Uncertainty grows with horizon
+                    p10 = max(0, pred - 1.28 * uncertainty)
+                    p90 = pred + 1.28 * uncertainty
+
+                    if output_name.endswith('_percent'):
+                        p10 = min(100, p10)
+                        p90 = min(100, p90)
+
+                    p50_forecast.append(float(pred))
+                    p10_forecast.append(float(p10))
+                    p90_forecast.append(float(p90))
+
+                # Use output name for predictions
+                server_preds[output_name] = {
+                    'p50': p50_forecast,
+                    'p10': p10_forecast,
+                    'p90': p90_forecast,
+                    'current': float(current),
+                    'trend': float(trend)
+                }
 
             predictions[server] = server_preds
 
@@ -823,17 +886,14 @@ class InferenceDaemon:
         self.tick_count = 0
         self.start_time = None
 
-        # Initialize inference engine
-        model_path = config.get('model_path')
-        self.inference = TFTInference(model_path, use_real_model=True)
+        # Defer heavy initialization to start() method
+        self.inference = None
+        self.generator = None
 
-        # Initialize data source (simulation mode)
-        fleet_size = config.get('fleet_size', 25)
-        seed = config.get('seed', 42)
-        mode_str = config.get('simulation_mode', 'business_hours')
-        mode = SimulationMode(mode_str)
-
-        self.generator = SimulationGenerator(fleet_size, seed, mode)
+        # Warmup tracking
+        # CRITICAL: Must match min_encoder_length from training (144 timesteps = 12 hours)
+        self.warmup_threshold = 150  # Timesteps needed per server for TFT (144 min + buffer)
+        self.is_warmed_up = False
 
         # State
         self.rolling_window = deque(maxlen=config.get('window_size', 8640))
@@ -843,25 +903,76 @@ class InferenceDaemon:
         # WebSocket clients
         self.ws_clients: Set = set()
 
-    async def start(self):
-        """Start the daemon."""
+    def set_scenario(self, mode: str, affected_count: Optional[int] = None):
+        """
+        Set demo scenario - called from dashboard button.
+
+        Args:
+            mode: 'healthy', 'degrading', or 'critical'
+            affected_count: Number of servers to affect (default: random 1-5)
+        """
+        if not self.generator:
+            return {"error": "Daemon not fully initialized yet"}
+        self.generator.set_scenario(mode, affected_count)
+        print(f"[SCENARIO] Switched to: {mode.upper()}")
+
+    def get_scenario_status(self) -> Dict:
+        """Get current scenario status."""
+        if not self.generator:
+            return {"scenario": "initializing", "affected_servers": [], "transition_progress": 0.0}
+        return self.generator.get_status()
+
+    def _sync_initialization(self):
+        """Heavy initialization that runs in thread pool to avoid blocking event loop."""
         print("[START] TFT Inference Daemon Starting...")
+
+        # Initialize inference engine (heavy - loads model)
+        model_path = self.config.get('model_path')
+        self.inference = TFTInference(model_path, use_real_model=True)
+
+        # Initialize interactive scenario demo generator (reads training data)
+        seed = self.config.get('seed', 42)
+        training_data_path = self.config.get('training_data_path', './training/server_metrics.parquet')
+
+        self.generator = ScenarioDemoGenerator(
+            training_data_path=training_data_path,
+            seed=seed
+        )
+        print(f"[DEMO] Loaded {self.generator.fleet_size} servers from training data")
+
         print(f"   Model: {self.config.get('model_path', 'auto-detect')}")
-        print(f"   Fleet size: {self.config.get('fleet_size', 25)} servers")
-        print(f"   Simulation mode: {self.config.get('simulation_mode', 'business_hours')}")
+        print(f"   Fleet size: {self.generator.fleet_size} servers (auto-detected from training data)")
+        print(f"   Scenario mode: Interactive demo with real-time control")
+
+        # Generate sufficient startup data for immediate TFT predictions
+        # Need warmup_threshold (150) timesteps per server for TFT to work
+        print(f"[INFO] Generating startup data ({self.warmup_threshold} timesteps for instant warmup)...")
+        for i in range(self.warmup_threshold):
+            batch = self.generator.generate_tick()
+            self.rolling_window.extend(batch)
+            if (i + 1) % 30 == 0:  # Progress every 30 ticks (2.5 minutes)
+                print(f"  Progress: {i+1}/{self.warmup_threshold} timesteps ({(i+1)/self.warmup_threshold*100:.0f}%)")
+
+        print(f"[OK] Initialized with {len(self.rolling_window)} records ({self.warmup_threshold} timesteps × {self.generator.fleet_size} servers)")
+        print(f"[OK] All {self.generator.fleet_size} servers ready for TFT predictions immediately!")
+
+    async def start(self):
+        """Start the daemon - runs heavy init in thread pool to avoid blocking event loop."""
+        # Run heavy initialization in thread pool so event loop can process HTTP requests
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._sync_initialization)
 
         self.is_running = True
         self.start_time = datetime.now()
 
-        # Load initial historical data
-        print("[INFO] Generating initial 24-hour window...")
-        for _ in range(288 * 5):  # 24 hours worth
-            batch = self.generator.generate_tick()
-            self.rolling_window.extend(batch)
+        print("=" * 80)
+        print("=" * 80)
+        print(f"{'🚀 DAEMON READY! 🚀':^80}")
+        print(f"{'Dashboard can connect now - first predictions will generate momentarily':^80}")
+        print("=" * 80)
+        print("=" * 80)
 
-        print(f"[OK] Initialized with {len(self.rolling_window)} historical records")
-
-        # Start inference loop
+        # Start inference loop (first iteration will warm up model)
         await self.inference_loop()
 
     async def inference_loop(self):
@@ -875,9 +986,35 @@ class InferenceDaemon:
                 self.rolling_window.extend(batch)
                 self.tick_count += 1
 
-                # Run predictions
+                # Run predictions in thread pool to avoid blocking event loop
                 df = pd.DataFrame(list(self.rolling_window))
-                predictions = self.inference.predict(df, horizon=96)
+
+                # Check if we have enough data for TFT (need 120+ timesteps per server for stable predictions)
+                # TFT needs: max_encoder_length (24) + buffer for dataset filtering (96+)
+                if 'server_name' in df.columns:
+                    timesteps_per_server = df.groupby('server_name').size().min()
+                    if timesteps_per_server < self.warmup_threshold:
+                        # Not enough data yet - use heuristic only to avoid TFT errors
+                        if self.tick_count % 12 == 0:  # Log every minute
+                            warmup_progress = (timesteps_per_server / self.warmup_threshold) * 100
+                            print(f"[INFO] Model warming up: {timesteps_per_server}/{self.warmup_threshold} timesteps ({warmup_progress:.0f}%)")
+                        # Temporarily disable TFT to avoid error spam
+                        self.inference.use_real_model = False
+                        # Run prediction in thread pool to not block HTTP server
+                        loop = asyncio.get_event_loop()
+                        predictions = await loop.run_in_executor(None, self.inference.predict, df, 96)
+                        self.inference.use_real_model = True  # Re-enable for next attempt
+                    else:
+                        # Enough data - try TFT (will auto-fallback to heuristic if still fails)
+                        if not self.is_warmed_up:
+                            self.is_warmed_up = True
+                            print(f"[OK] Model warmed up! Switching to TFT predictions ({timesteps_per_server} timesteps available)")
+                        # Run TFT prediction in thread pool to not block HTTP server
+                        loop = asyncio.get_event_loop()
+                        predictions = await loop.run_in_executor(None, self.inference.predict, df, 96)
+                else:
+                    loop = asyncio.get_event_loop()
+                    predictions = await loop.run_in_executor(None, self.inference.predict, df, 96)
 
                 # Cache results
                 self.latest_predictions = predictions
@@ -942,8 +1079,8 @@ class InferenceDaemon:
 
 daemon: Optional[InferenceDaemon] = None
 
-def create_api_app():
-    """Create FastAPI application."""
+def create_api_app(daemon_config: Optional[Dict] = None):
+    """Create FastAPI application with optional daemon configuration."""
     try:
         from fastapi import FastAPI, WebSocket, WebSocketDisconnect
         from fastapi.responses import JSONResponse
@@ -957,19 +1094,30 @@ def create_api_app():
         version="2.0.0"
     )
 
+    # Initialize daemon BEFORE startup event so it doesn't block
+    global daemon
+    config = daemon_config or {
+        'model_path': None,  # Auto-detect
+        'fleet_size': 25,
+        'seed': 42,
+        'simulation_mode': 'business_hours',
+        'tick_interval': 5,
+        'window_size': 8640
+    }
+    daemon = InferenceDaemon(config)
+
     @app.on_event("startup")
     async def startup():
-        global daemon
-        config = {
-            'model_path': None,  # Auto-detect
-            'fleet_size': 25,
-            'seed': 42,
-            'simulation_mode': 'business_hours',
-            'tick_interval': 5,
-            'window_size': 8640
-        }
-        daemon = InferenceDaemon(config)
-        asyncio.create_task(daemon.start())
+        # CRITICAL: Don't start daemon here - it blocks the event loop
+        # We'll start it AFTER Uvicorn is ready using a delayed task
+        async def delayed_start():
+            # Wait for Uvicorn to complete startup
+            await asyncio.sleep(0.1)
+            print("[OK] HTTP server ready, starting daemon initialization...")
+            await daemon.start()
+
+        # Start daemon after a tiny delay to let Uvicorn finish
+        asyncio.create_task(delayed_start())
 
     @app.on_event("shutdown")
     async def shutdown():
@@ -978,6 +1126,13 @@ def create_api_app():
 
     @app.get("/health")
     async def health():
+        if daemon.inference is None:
+            # Still initializing
+            return {
+                "status": "initializing",
+                "message": "Daemon is loading model and generating initial data",
+                "uptime_seconds": 0
+            }
         return {
             "status": "healthy" if daemon.is_running else "stopped",
             "uptime_seconds": (datetime.now() - daemon.start_time).total_seconds() if daemon.start_time else 0
@@ -985,12 +1140,26 @@ def create_api_app():
 
     @app.get("/status")
     async def status():
+        # Calculate warmup progress
+        warmup_progress = 0
+        if daemon.generator and len(daemon.rolling_window) > 0:
+            df = pd.DataFrame(list(daemon.rolling_window))
+            if 'server_name' in df.columns:
+                timesteps_per_server = df.groupby('server_name').size().min()
+                warmup_progress = min(100, (timesteps_per_server / daemon.warmup_threshold) * 100)
+
         return {
             "running": daemon.is_running,
             "tick_count": daemon.tick_count,
             "window_size": len(daemon.rolling_window),
             "active_alerts": len(daemon.active_alerts),
-            "ws_clients": len(daemon.ws_clients)
+            "ws_clients": len(daemon.ws_clients),
+            "warmup": {
+                "is_warmed_up": daemon.is_warmed_up,
+                "progress_percent": warmup_progress,
+                "threshold": daemon.warmup_threshold,
+                "message": "Model warming up - using heuristic predictions" if not daemon.is_warmed_up else "Model ready - using TFT predictions"
+            }
         }
 
     @app.get("/predictions/current")
@@ -1002,6 +1171,93 @@ def create_api_app():
     @app.get("/alerts/active")
     async def get_alerts():
         return {"count": len(daemon.active_alerts), "alerts": daemon.active_alerts}
+
+    @app.post("/feed/data")
+    async def feed_data(data: Dict):
+        """
+        Feed external data to daemon for prediction.
+        Used for demo mode to inject scenario data in real-time.
+
+        Expected format:
+        {
+            "records": [
+                {
+                    "timestamp": "2025-10-10T12:00:00",
+                    "server_name": "server01",
+                    "cpu_percent": 45.2,
+                    "memory_percent": 62.1,
+                    ...
+                },
+                ...
+            ]
+        }
+        """
+        try:
+            records = data.get('records', [])
+            if not records:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "No records provided"}
+                )
+
+            # Convert to DataFrame
+            import pandas as pd
+            df = pd.DataFrame(records)
+
+            # Ensure timestamp is datetime
+            if 'timestamp' in df.columns:
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+            # Add each record to rolling window (it's a deque)
+            for _, row in df.iterrows():
+                daemon.rolling_window.append(row.to_dict())
+
+            # Trigger immediate prediction
+            daemon.tick_count += 1
+
+            print(f"[FEED] Received {len(records)} records, window size: {len(daemon.rolling_window)}")
+
+            return {
+                "status": "success",
+                "records_added": len(records),
+                "window_size": len(daemon.rolling_window)
+            }
+
+        except Exception as e:
+            print(f"[ERROR] Feed data failed: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": str(e)}
+            )
+
+    @app.post("/scenario/set")
+    async def set_scenario(request: Dict):
+        """
+        Interactive demo scenario control.
+
+        Expected: {"mode": "healthy|degrading|critical", "affected_count": 3}
+        """
+        try:
+            mode = request.get('mode', 'healthy')
+            affected_count = request.get('affected_count')
+
+            daemon.set_scenario(mode, affected_count)
+
+            return {
+                "status": "success",
+                "scenario": mode,
+                "affected_servers": len(daemon.generator.affected_servers)
+            }
+        except Exception as e:
+            return JSONResponse(
+                status_code=400,
+                content={"error": str(e)}
+            )
+
+    @app.get("/scenario/status")
+    async def get_scenario_status():
+        """Get current scenario status."""
+        return daemon.get_scenario_status()
 
     @app.websocket("/ws/predictions")
     async def ws_predictions(websocket: WebSocket):
@@ -1106,7 +1362,17 @@ Examples:
         print(f"Simulation: {args.simulation_mode} ({args.fleet_size} servers)")
         print("="*60)
 
-        app = create_api_app()
+        # Pass command-line args to daemon config
+        daemon_config = {
+            'model_path': args.model,
+            'fleet_size': args.fleet_size,
+            'seed': args.seed,
+            'simulation_mode': args.simulation_mode,
+            'tick_interval': 5,
+            'window_size': 8640
+        }
+
+        app = create_api_app(daemon_config)
         if app:
             uvicorn.run(app, host=args.host, port=args.port, log_level="info")
         return 0

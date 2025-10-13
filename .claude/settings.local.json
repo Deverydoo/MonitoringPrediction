@@ -1,7 +1,31 @@
 {
   "permissions": {
     "allow": [
-      "Bash(\"C:\\Users\\craig\\miniconda3\\envs\\py310\\python.exe\" -c \"\nimport pandas as pd\ndf = pd.read_parquet(''''training/server_metrics.parquet'''')\nunique_states = sorted(df[''''state''''].unique())\nprint(f''''Unique states: {len(unique_states)}'''')\nprint(f''''States: {unique_states}'''')\n\")"
+      "Bash(\"C:\\Users\\craig\\miniconda3\\envs\\py310\\python.exe\":*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(rd:*)",
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)",
+      "Bash(C:\\Users\\craig\\miniconda3\\envs\\py310\\python.exe check_training_status.py:*)",
+      "Bash(C:\\Users\\craig\\miniconda3\\envs\\py310\\python.exe:*)",
+      "Bash(python:*)",
+      "Bash(test:*)",
+      "Bash(awk:*)",
+      "Bash(C:Userscraigminiconda3envspy310python.exe tft_inference.py --daemon --port 8000 --fleet-size 25)",
+      "Bash(C:Userscraigminiconda3Scriptsactivate.bat py310)",
+      "Bash(C:/Users/craig/miniconda3/envs/py310/python.exe tft_inference.py:*)",
+      "Bash(xargs cat:*)",
+      "Bash(C:/Users/craig/miniconda3/envs/py310/python.exe:*)",
+      "Bash(tasklist)",
+      "Bash(cat:*)",
+      "Bash(curl:*)",
+      "Bash(C:\\Users\\craig\\miniconda3\\envs\\py310\\python.exe -c:*)",
+      "Bash(C:\\Users\\craig\\miniconda3\\envs\\py310\\python.exe tft_trainer.py:*)",
+      "Bash(timeout:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(chmod:*)",
+      "Bash(netstat:*)"
     ],
     "deny": [],
     "ask": []

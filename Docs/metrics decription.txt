@@ -1,0 +1,52 @@
+🖥 Host and Version Information
+Field	Description
+Host Name	The server’s unique hostname (e.g., ppvra00a0041). This identifies each compute host in the AIMLP OSDS 2.0 production cluster.
+Agent Version	Version of the monitoring agent installed on the host (e.g., 1.5.140). This ensures consistency in metrics collection across nodes.
+⚡ Load and CPU Metrics
+Field	Description
+Load	The current system load per CPU core. A value of 1.0 means each core is fully utilized. For example, a 16-core system with a load of 16.0 is at 100% total load.
+%CPU User	Percentage of CPU cycles spent executing user-space processes (e.g., your Java app).
+%CPU Sys	Percentage of CPU cycles spent on kernel (system) tasks (e.g., I/O handling, network stack).
+%CPU iowt	CPU percentage waiting for I/O operations (e.g., disk reads/writes). High values can indicate I/O bottlenecks.
+%CPU Idle	Percentage of time CPU is idle. Lower values indicate higher utilization. A healthy idle value depends on workload.
+☕ Application Load
+Field	Description
+Java CPU	Amount of CPU time (in milliseconds or relative metric) consumed by Java processes running on the host. Often comes from JVM or monitoring agents.
+Total Procs	Total number of processes currently running on the system. High counts can indicate service sprawl or runaway jobs.
+🧠 Memory and Swap
+Field	Description
+%Mem Used	Percentage of physical RAM used. High usage with low swap may indicate expected caching behavior; sustained 90%+ can be a concern.
+%Swap	Percentage of swap space in use. High swap usage often indicates memory pressure.
+Mem	Total physical memory in MB (e.g., 2517 MB).
+Swap	Total swap memory in MB (e.g., 16.0 MB).
+💾 Disk and Network
+Field	Description
+Disk Usage	Percentage of disk space used on the monitored filesystem (here, /aimlp_work).
+Mb/s In	Incoming network throughput in megabits per second. Useful for identifying network saturation or spikes.
+Mb/s Out	Outgoing network throughput in megabits per second.
+🕓 Process Wait Metrics
+Field	Description
+Back Close Wait	Count of backend processes in close wait state (likely TCP connections awaiting closure). Persistent non-zero values can indicate network handling issues.
+Front Close Wait	Count of frontend processes in close wait state. Same idea as above but for inbound connections.
+🕒 System Uptime and Load Trends
+Field	Description
+Uptime Days	Number of days the server has been running since its last reboot. Useful for identifying long-running instances.
+Load Aver	The average system load over the last period (likely 1 or 5 minutes). This gives a quick view of sustained CPU pressure.
+Last Update	Timestamp of the last time metrics were collected from the host. Ensures data freshness.
+🧮 Resource Configuration
+Field	Description
+CPU	Number of CPU cores available on the host. (e.g., 16 cores).
+
+✅ How this data is typically used in operations:
+
+CPU Load + Java CPU → Identify hosts under heavy compute load.
+
+%CPU iowt + Disk Usage → Detect I/O bottlenecks.
+
+%Mem Used + %Swap → Spot memory pressure and potential thrashing.
+
+Load Average vs CPU cores → Assess if a server is overloaded.
+
+Front/Back Close Wait → Detect network stack issues or slow service shutdowns.
+
+Uptime Days + Agent Version → Find outdated or long-running hosts needing maintenance.

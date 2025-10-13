@@ -1,0 +1,2 @@
+# This file ensures the training directory is tracked by git
+# Training data files (*.parquet, *.json) are gitignored but regenerated via metrics_generator.py

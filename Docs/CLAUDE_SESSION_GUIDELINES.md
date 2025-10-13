@@ -27,10 +27,11 @@ When beginning a new session:
    - Reference what was accomplished in previous session
    - Ask about priorities for this session
 
-4. **Read Core Documentation**
-   - [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Current state
-   - [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Daily reference
-   - Latest SESSION_*_SUMMARY.md - Previous session notes
+4. **Read Core Documentation (ESSENTIAL ONLY)**
+   - [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md) - ⭐ Complete system reference
+   - [SESSION_2025-10-11_SUMMARY.md](SESSION_2025-10-11_SUMMARY.md) - Latest session
+   - [PROJECT_CODEX.md](PROJECT_CODEX.md) - Development rules
+   - ⚠️ **DO NOT** read `archive/` directory - Historical docs only
 
 ---
 
@@ -337,10 +338,18 @@ git status
 
 ## 📚 Related Documentation
 
-- [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Always update at session end
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Daily commands
+### Active Documentation (Read These)
+- [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md) - ⭐ Complete reference
+- [PROJECT_CODEX.md](PROJECT_CODEX.md) - Development rules
+- [SESSION_2025-10-11_SUMMARY.md](SESSION_2025-10-11_SUMMARY.md) - Latest work
 - [INDEX.md](INDEX.md) - Doc navigation
 - [CHANGELOG.md](CHANGELOG.md) - Version history
+- [TIME_TRACKING.md](TIME_TRACKING.md) - Hours tracking
+
+### Archived Documentation (DO NOT READ)
+- `archive/` - Historical docs, superseded information
+- Only access when user explicitly asks about past decisions
+- Never read during session start/refresh
 
 ---
 
@@ -400,8 +409,11 @@ Updating PROJECT_SUMMARY.md with today's changes...
 
 **Every Session Start:**
 - [ ] Record start time
-- [ ] Review last session summary
+- [ ] Read ESSENTIAL_RAG.md
+- [ ] Read latest SESSION summary (not archived ones)
+- [ ] Review PROJECT_CODEX.md
 - [ ] Check git status
+- [ ] ⚠️ SKIP archive/ directory entirely
 - [ ] Greet with context
 
 **Every Session End:**
