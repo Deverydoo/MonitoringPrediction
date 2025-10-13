@@ -1,0 +1,21 @@
+{
+  "trained_at": "2025-10-13T10:02:05.676461",
+  "training_completed": true,
+  "model_type": "TemporalFusionTransformer",
+  "framework": "pytorch_forecasting",
+  "safetensors_format": true,
+  "epochs": 1,
+  "unique_states": [
+    "critical_issue",
+    "healthy",
+    "heavy_load",
+    "idle",
+    "maintenance",
+    "morning_spike",
+    "offline",
+    "recovery"
+  ],
+  "state_encoder_size": 8,
+  "data_contract_version": "1.0.0",
+  "model_path": "models\\tft_model_20251013_100205\\model.safetensors"
+}
