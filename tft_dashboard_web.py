@@ -21,7 +21,6 @@ import time
 from typing import Dict, List, Optional
 import warnings
 warnings.filterwarnings('ignore')
-warnings.filterwarnings('ignore', message='.*keyword arguments have been deprecated.*')
 
 # =============================================================================
 # PAGE CONFIGURATION
@@ -893,7 +892,7 @@ with tab1:
                     height=400
                 )
                 fig.update_layout(xaxis_tickangle=-45)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
             with col2:
                 # Risk distribution pie
@@ -911,7 +910,7 @@ with tab1:
                     },
                     height=400
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         st.divider()
 
@@ -1068,10 +1067,12 @@ with tab1:
                 st.markdown("---")
 
                 # Add insight with better context
-                if p1_count > 0:
-                    st.error(f"⚠️ **Action Required**: {p1_count} critical server(s) need immediate attention")
-                elif p2_count > 0:
-                    st.warning(f"⚠️ **Monitor Closely**: {p2_count} server(s) showing warning signs")
+                if critical_count > 0:
+                    st.error(f"⚠️ **Action Required**: {critical_count} critical server(s) need immediate attention")
+                elif danger_count > 0:
+                    st.warning(f"⚠️ **High Priority**: {danger_count} server(s) in danger state")
+                elif warning_count > 0:
+                    st.warning(f"⚠️ **Monitor Closely**: {warning_count} server(s) showing warning signs")
 
                 # Show summary explanation
                 st.caption(f"📊 Total fleet: {total_servers} servers | Showing: {len(alert_rows)} alerts | Hidden: {healthy_count} healthy")
@@ -1282,7 +1283,7 @@ with tab3:
                         }
                     ))
                     fig.update_layout(height=250)
-                    st.plotly_chart(fig, use_container_width=True, key=f"gauge_{server_name}")
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, key=f"gauge_{server_name}")
 
                 with col2:
                     # Show current vs predicted side-by-side
@@ -1415,7 +1416,7 @@ with tab3:
                             hovermode='x'
                         )
 
-                        st.plotly_chart(fig, use_container_width=True, key=f"forecast_{server_name}")
+                        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, key=f"forecast_{server_name}")
 
     else:
         st.info("Connect to daemon to see top problem servers")
@@ -1498,7 +1499,7 @@ with tab4:
                 hovermode='x'
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
             # Statistics
             col1, col2, col3, col4 = st.columns(4)
@@ -1909,7 +1910,7 @@ with tab7:
         # Environment-level alerts
         if prob_30m > 0.7:
             alerts_to_send.append({
-                'Severity': '🔴 P1 - Critical',
+                'Severity': '🔴 Critical',
                 'Type': 'Environment',
                 'Message': f'CRITICAL: Environment incident probability 30m = {prob_30m*100:.1f}%',
                 'Recipients': 'On-Call Engineer (PagerDuty)',
@@ -1919,9 +1920,9 @@ with tab7:
             })
         elif prob_30m > 0.4:
             alerts_to_send.append({
-                'Severity': '🟠 P2 - Warning',
+                'Severity': '🟠 Danger',
                 'Type': 'Environment',
-                'Message': f'WARNING: Environment degrading, incident probability 30m = {prob_30m*100:.1f}%',
+                'Message': f'DANGER: Environment degrading, incident probability 30m = {prob_30m*100:.1f}%',
                 'Recipients': 'Engineering Team (Email + Slack)',
                 'Delivery Method': '📧 Email + 💬 Slack #ops-alerts',
                 'Action Required': 'Monitor closely, prepare for potential escalation',
@@ -1929,9 +1930,9 @@ with tab7:
             })
         elif prob_8h > 0.5:
             alerts_to_send.append({
-                'Severity': '🟡 P3 - Caution',
+                'Severity': '🟡 Warning',
                 'Type': 'Environment',
-                'Message': f'CAUTION: Elevated risk over 8 hours, probability = {prob_8h*100:.1f}%',
+                'Message': f'WARNING: Elevated risk over 8 hours, probability = {prob_8h*100:.1f}%',
                 'Recipients': 'Engineering Team (Email)',
                 'Delivery Method': '📧 Email to ops-team@company.com',
                 'Action Required': 'Review dashboard, plan capacity if needed',
@@ -1958,14 +1959,31 @@ with tab7:
                 else:
                     profile = 'Generic'
 
+                # Determine severity based on new graduated scale
+                if risk_score >= 90:
+                    severity = '🔴 Imminent Failure'
+                    recipients = 'On-Call Engineer (PagerDuty)'
+                    delivery = '📞 Phone + SMS + App'
+                    escalation = '5 min → CTO'
+                elif risk_score >= 80:
+                    severity = '🔴 Critical'
+                    recipients = 'On-Call Engineer (PagerDuty)'
+                    delivery = '📞 Phone + SMS + App'
+                    escalation = '15 min → Senior → 30 min → Director'
+                else:  # risk_score >= 70
+                    severity = '🟠 Danger'
+                    recipients = 'Server Team Lead (Slack)'
+                    delivery = '💬 Slack + Email'
+                    escalation = '30 min → On-Call'
+
                 alerts_to_send.append({
-                    'Severity': '🔴 P1 - Critical' if risk_score >= 85 else '🟠 P2 - Warning',
+                    'Severity': severity,
                     'Type': f'Server ({profile})',
                     'Message': f'{server_name}: Critical resource exhaustion predicted (Risk: {risk_score:.0f}/100)',
-                    'Recipients': 'On-Call Engineer' if risk_score >= 85 else 'Server Team',
-                    'Delivery Method': '📞 PagerDuty' if risk_score >= 85 else '💬 Slack #server-ops',
+                    'Recipients': recipients,
+                    'Delivery Method': delivery,
                     'Action Required': 'Check server health, trigger auto-remediation if available',
-                    'Escalation': '15 min → Senior Engineer' if risk_score >= 85 else 'None'
+                    'Escalation': escalation
                 })
 
         if alerts_to_send:
@@ -1976,24 +1994,24 @@ with tab7:
 
             st.divider()
 
-            # Alert summary
+            # Alert summary by severity
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                p1_count = len([a for a in alerts_to_send if 'P1' in a['Severity']])
-                st.metric("P1 (Critical)", p1_count)
+                imminent_count = len([a for a in alerts_to_send if 'Imminent Failure' in a['Severity']])
+                st.metric("🔴 Imminent Failure", imminent_count)
 
             with col2:
-                p2_count = len([a for a in alerts_to_send if 'P2' in a['Severity']])
-                st.metric("P2 (Warning)", p2_count)
+                critical_count = len([a for a in alerts_to_send if 'Critical' in a['Severity'] and 'Imminent' not in a['Severity']])
+                st.metric("🔴 Critical", critical_count)
 
             with col3:
-                p3_count = len([a for a in alerts_to_send if 'P3' in a['Severity']])
-                st.metric("P3 (Caution)", p3_count)
+                danger_count = len([a for a in alerts_to_send if 'Danger' in a['Severity']])
+                st.metric("🟠 Danger", danger_count)
 
             with col4:
-                pagerduty_count = len([a for a in alerts_to_send if 'PagerDuty' in a['Recipients']])
-                st.metric("PagerDuty Pages", pagerduty_count)
+                warning_count = len([a for a in alerts_to_send if 'Warning' in a['Severity']])
+                st.metric("🟡 Warning", warning_count)
 
         else:
             st.success("✅ No alerts required - All systems healthy!")
@@ -2241,7 +2259,7 @@ with tab9:
         'Status': ['Healthy ✅', 'Watch 👁️', 'Degrading 🟢', 'Degrading 🟢', 'Critical 🔴', 'Imminent Failure 🔴']
     })
 
-    st.dataframe(examples_df, hide_index=True, use_container_width=True)
+    st.dataframe(examples_df, hide_index=True, width='stretch')
 
     st.divider()
 
@@ -2276,7 +2294,7 @@ with tab9:
         'SLA': ['5 minutes', '15 minutes', '30 minutes', '1 hour', '2 hours', 'Best effort', 'N/A']
     })
 
-    st.dataframe(priority_df, hide_index=True, use_container_width=True)
+    st.dataframe(priority_df, hide_index=True, width='stretch')
 
     st.markdown("""
     **Key Insight**: Notice how the system provides graduated escalation. You don't go from "Healthy" to "Critical" -
@@ -2416,7 +2434,7 @@ with tab9:
         ]
     })
 
-    st.dataframe(profiles_df, hide_index=True, use_container_width=True)
+    st.dataframe(profiles_df, hide_index=True, width='stretch')
 
     st.info("""
     **Why Profile Awareness Matters**: A database at 100% memory is healthy (caching), but a web server at 100% memory
@@ -2452,7 +2470,7 @@ with tab9:
         ]
     })
 
-    st.dataframe(alert_columns_df, hide_index=True, use_container_width=True)
+    st.dataframe(alert_columns_df, hide_index=True, width='stretch')
 
     st.markdown("#### 🎯 Priority Triage Strategy")
 
@@ -2518,7 +2536,7 @@ with tab9:
         ]
     })
 
-    st.dataframe(env_status_df, hide_index=True, use_container_width=True)
+    st.dataframe(env_status_df, hide_index=True, width='stretch')
 
     st.markdown("""
     **Example Scenario**: You have 20 servers

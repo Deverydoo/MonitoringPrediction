@@ -219,6 +219,28 @@ Risk scoring adjusts thresholds based on detected profile from hostname.
 - **Fixed**: Clear separation with "X/Y" format labels
 - **File**: `tft_dashboard_web.py` lines 1007-1038
 
+**Issue 6**: Plotly deprecation warnings appearing on console AND dashboard
+- **Root Cause**: Streamlit's st.plotly_chart() needs `config` dict parameter to properly pass Plotly configuration options. Passing config options as kwargs causes deprecation warnings.
+- **Symptoms**: 13 warnings about "keyword arguments have been deprecated and will be removed in a future release. Use `config` instead"
+- **Fixed**: Added `config={'displayModeBar': False}` to all 5 st.plotly_chart() calls
+- **Pattern**:
+  ```python
+  # WRONG (causes deprecation warnings):
+  st.plotly_chart(fig, width='stretch')
+
+  # CORRECT (no warnings):
+  st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+  ```
+- **Files Modified**: `tft_dashboard_web.py` lines 895, 913, 1286, 1419, 1502
+- **Note**: Always bundle Plotly config options in a `config` dict parameter, never pass as direct kwargs
+
+**Issue 7**: Incomplete P1/P2/P3 label cleanup in Alerting Strategy tab
+- **Root Cause**: Initial label redesign only updated Overview tab, missed Alerting Strategy tab
+- **Symptoms**: Old "P1 - Critical", "P2 - Warning", "P3 - Caution" labels in alert generation logic
+- **Fixed**: Updated environment-level alerts, per-server alert logic, and alert summary metrics to use graduated severity system
+- **Files Modified**: `tft_dashboard_web.py` lines 1911-2015
+- **Result**: 100% terminology consistency across all dashboard tabs
+
 ### No Known Issues
 
 System is stable and demo-ready. All critical bugs resolved.

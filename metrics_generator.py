@@ -180,49 +180,127 @@ class Config:
         assert dist['generic'] <= 10, "Generic capped at 10"
 
 # Profile baselines: (mean, std) for each metric
-# Realistic values for financial ML platform with Spectrum Conductor
+# ** LINBORG-COMPATIBLE METRICS ** - Matches actual production monitoring
+# All CPU metrics are 0-1 scale (will be converted to 0-100% in output)
 PROFILE_BASELINES = {
     ServerProfile.ML_COMPUTE: {
-        # Low CPU/Memory during normal operation (healthy baseline = 15-30%)
-        "cpu": (0.20, 0.08), "mem": (0.28, 0.08), "disk_io_mb_s": (45.0, 15.0),
-        "net_in_mb_s": (8.5, 3.0), "net_out_mb_s": (5.2, 2.0),
-        "latency_ms": (22.0, 5.0), "error_rate": (0.002, 0.001), "gc_pause_ms": (15.0, 8.0)
+        # ML training nodes - High compute during jobs, Spark/Java heavy
+        "cpu_user": (0.45, 0.12),      # User space (Spark workers)
+        "cpu_sys": (0.08, 0.03),       # System/kernel
+        "cpu_iowait": (0.02, 0.01),    # I/O wait (should be low)
+        "cpu_idle": (0.45, 0.15),      # Idle (inverse of busy)
+        "java_cpu": (0.50, 0.15),      # Java/Spark CPU usage
+        "mem_used": (0.72, 0.10),      # High memory for models
+        "swap_used": (0.05, 0.03),     # Minimal swap (bad if high)
+        "disk_usage": (0.55, 0.08),    # Checkpoints, logs
+        "net_in_mb_s": (8.5, 3.0),     # Network ingress
+        "net_out_mb_s": (5.2, 2.0),    # Network egress
+        "back_close_wait": (2, 1),     # TCP back connections
+        "front_close_wait": (2, 1),    # TCP front connections
+        "load_average": (6.5, 2.0),    # System load
+        "uptime_days": (25, 2)         # ~monthly maintenance
     },
     ServerProfile.DATABASE: {
-        # Low CPU/Memory (healthy baseline = 12-28%)
-        "cpu": (0.18, 0.07), "mem": (0.30, 0.08), "disk_io_mb_s": (180.0, 45.0),
-        "net_in_mb_s": (35.0, 12.0), "net_out_mb_s": (28.0, 10.0),
-        "latency_ms": (8.5, 3.0), "error_rate": (0.001, 0.0005), "gc_pause_ms": (5.0, 2.0)
+        # Database servers - I/O intensive, high iowait
+        "cpu_user": (0.25, 0.08),
+        "cpu_sys": (0.12, 0.04),       # Higher system (I/O operations)
+        "cpu_iowait": (0.15, 0.05),    # ** HIGH - Critical for DBs **
+        "cpu_idle": (0.48, 0.12),
+        "java_cpu": (0.10, 0.05),      # Minimal Java
+        "mem_used": (0.68, 0.10),      # Buffer pools
+        "swap_used": (0.03, 0.02),
+        "disk_usage": (0.70, 0.10),    # Databases fill disks
+        "net_in_mb_s": (35.0, 12.0),   # High network (queries)
+        "net_out_mb_s": (28.0, 10.0),
+        "back_close_wait": (8, 3),     # Many connections
+        "front_close_wait": (6, 2),
+        "load_average": (4.2, 1.5),
+        "uptime_days": (25, 2)
     },
     ServerProfile.WEB_API: {
-        # Low CPU, low memory (healthy baseline = 10-24%)
-        "cpu": (0.15, 0.06), "mem": (0.22, 0.08), "disk_io_mb_s": (12.0, 4.0),
-        "net_in_mb_s": (85.0, 25.0), "net_out_mb_s": (120.0, 35.0),
-        "latency_ms": (45.0, 15.0), "error_rate": (0.004, 0.002), "gc_pause_ms": (8.0, 3.0)
+        # Web/API servers - Network heavy, lower compute
+        "cpu_user": (0.18, 0.06),
+        "cpu_sys": (0.05, 0.02),
+        "cpu_iowait": (0.03, 0.02),
+        "cpu_idle": (0.74, 0.10),      # Mostly idle
+        "java_cpu": (0.25, 0.08),      # Tomcat/Spring
+        "mem_used": (0.45, 0.10),      # Connection pools
+        "swap_used": (0.02, 0.01),
+        "disk_usage": (0.35, 0.08),    # Low disk (stateless)
+        "net_in_mb_s": (85.0, 25.0),   # ** HIGH network **
+        "net_out_mb_s": (120.0, 35.0),
+        "back_close_wait": (15, 5),    # Lots of API connections
+        "front_close_wait": (12, 4),
+        "load_average": (2.8, 1.0),
+        "uptime_days": (25, 2)
     },
     ServerProfile.CONDUCTOR_MGMT: {
-        # Low CPU, low memory (healthy baseline = 10-25%)
-        "cpu": (0.15, 0.06), "mem": (0.25, 0.08), "disk_io_mb_s": (18.0, 6.0),
-        "net_in_mb_s": (22.0, 8.0), "net_out_mb_s": (18.0, 6.0),
-        "latency_ms": (15.0, 4.0), "error_rate": (0.001, 0.0005), "gc_pause_ms": (10.0, 4.0)
+        # Spectrum Conductor - Orchestration, job scheduling
+        "cpu_user": (0.15, 0.06),
+        "cpu_sys": (0.06, 0.02),
+        "cpu_iowait": (0.02, 0.01),
+        "cpu_idle": (0.77, 0.08),
+        "java_cpu": (0.20, 0.06),      # EGO/Conductor Java
+        "mem_used": (0.42, 0.08),      # Job metadata
+        "swap_used": (0.02, 0.01),
+        "disk_usage": (0.40, 0.08),    # Logs
+        "net_in_mb_s": (22.0, 8.0),
+        "net_out_mb_s": (18.0, 6.0),
+        "back_close_wait": (5, 2),
+        "front_close_wait": (4, 2),
+        "load_average": (3.2, 1.2),
+        "uptime_days": (25, 2)
     },
     ServerProfile.DATA_INGEST: {
-        # Low CPU/Memory (healthy baseline = 15-32%)
-        "cpu": (0.20, 0.08), "mem": (0.30, 0.10), "disk_io_mb_s": (220.0, 60.0),
-        "net_in_mb_s": (150.0, 45.0), "net_out_mb_s": (95.0, 30.0),
-        "latency_ms": (12.0, 5.0), "error_rate": (0.003, 0.001), "gc_pause_ms": (18.0, 8.0)
+        # ETL/Kafka/Spark streaming - High I/O and network
+        "cpu_user": (0.35, 0.10),
+        "cpu_sys": (0.10, 0.03),
+        "cpu_iowait": (0.08, 0.03),    # Moderate I/O wait
+        "cpu_idle": (0.47, 0.12),
+        "java_cpu": (0.45, 0.12),      # Kafka/Spark Java
+        "mem_used": (0.62, 0.12),      # Stream buffers
+        "swap_used": (0.04, 0.02),
+        "disk_usage": (0.65, 0.12),    # Writes data
+        "net_in_mb_s": (150.0, 45.0),  # ** VERY HIGH ingress **
+        "net_out_mb_s": (95.0, 30.0),
+        "back_close_wait": (10, 4),
+        "front_close_wait": (8, 3),
+        "load_average": (5.5, 2.0),
+        "uptime_days": (25, 2)
     },
     ServerProfile.RISK_ANALYTICS: {
-        # Low CPU/Memory (healthy baseline = 18-35%)
-        "cpu": (0.24, 0.08), "mem": (0.32, 0.08), "disk_io_mb_s": (38.0, 12.0),
-        "net_in_mb_s": (12.0, 4.0), "net_out_mb_s": (8.0, 3.0),
-        "latency_ms": (18.0, 6.0), "error_rate": (0.002, 0.001), "gc_pause_ms": (25.0, 12.0)
+        # Risk calculations - CPU intensive, EOD spikes
+        "cpu_user": (0.55, 0.15),      # ** HIGH - Monte Carlo **
+        "cpu_sys": (0.08, 0.03),
+        "cpu_iowait": (0.02, 0.01),
+        "cpu_idle": (0.35, 0.15),
+        "java_cpu": (0.60, 0.15),      # Java risk calcs
+        "mem_used": (0.70, 0.10),      # Simulation data
+        "swap_used": (0.05, 0.03),
+        "disk_usage": (0.50, 0.10),    # Result writes
+        "net_in_mb_s": (12.0, 4.0),
+        "net_out_mb_s": (8.0, 3.0),
+        "back_close_wait": (3, 1),
+        "front_close_wait": (2, 1),
+        "load_average": (8.2, 2.5),    # High load during calcs
+        "uptime_days": (25, 2)
     },
     ServerProfile.GENERIC: {
-        # Balanced baseline (healthy baseline = 12-28%)
-        "cpu": (0.18, 0.07), "mem": (0.25, 0.08), "disk_io_mb_s": (25.0, 10.0),
-        "net_in_mb_s": (15.0, 8.0), "net_out_mb_s": (12.0, 6.0),
-        "latency_ms": (30.0, 10.0), "error_rate": (0.003, 0.001), "gc_pause_ms": (10.0, 5.0)
+        # Utility/monitoring servers - Low everything
+        "cpu_user": (0.12, 0.05),
+        "cpu_sys": (0.04, 0.02),
+        "cpu_iowait": (0.01, 0.01),
+        "cpu_idle": (0.83, 0.08),      # Mostly idle
+        "java_cpu": (0.08, 0.03),
+        "mem_used": (0.35, 0.08),
+        "swap_used": (0.01, 0.01),
+        "disk_usage": (0.30, 0.08),
+        "net_in_mb_s": (15.0, 8.0),
+        "net_out_mb_s": (12.0, 6.0),
+        "back_close_wait": (2, 1),
+        "front_close_wait": (2, 1),
+        "load_average": (1.5, 0.8),
+        "uptime_days": (25, 2)
     }
 }
 
@@ -231,39 +309,57 @@ PROFILE_BASELINES = {
 # Keep moderate to avoid 100% CPU/memory in healthy scenarios
 STATE_MULTIPLIERS = {
     ServerState.IDLE: {
-        "cpu": 0.5, "mem": 0.8, "disk_io_mb_s": 0.3, "net_in_mb_s": 0.2, "net_out_mb_s": 0.2,
-        "latency_ms": 0.7, "error_rate": 0.3, "gc_pause_ms": 0.1
+        "cpu_user": 0.3, "cpu_sys": 0.5, "cpu_iowait": 0.2, "cpu_idle": 1.5,
+        "java_cpu": 0.2, "mem_used": 0.8, "swap_used": 0.5, "disk_usage": 1.0,
+        "net_in_mb_s": 0.2, "net_out_mb_s": 0.2, "back_close_wait": 0.3, "front_close_wait": 0.3,
+        "load_average": 0.4, "uptime_days": 1.0
     },
     ServerState.HEALTHY: {
-        "cpu": 1.0, "mem": 1.0, "disk_io_mb_s": 1.0, "net_in_mb_s": 1.0, "net_out_mb_s": 1.0,
-        "latency_ms": 1.0, "error_rate": 1.0, "gc_pause_ms": 1.0
+        "cpu_user": 1.0, "cpu_sys": 1.0, "cpu_iowait": 1.0, "cpu_idle": 1.0,
+        "java_cpu": 1.0, "mem_used": 1.0, "swap_used": 1.0, "disk_usage": 1.0,
+        "net_in_mb_s": 1.0, "net_out_mb_s": 1.0, "back_close_wait": 1.0, "front_close_wait": 1.0,
+        "load_average": 1.0, "uptime_days": 1.0
     },
     ServerState.MORNING_SPIKE: {
-        # Moderate spike - realistic morning load (was 1.7/1.3, now 1.2/1.1)
-        "cpu": 1.2, "mem": 1.1, "disk_io_mb_s": 1.3, "net_in_mb_s": 1.5, "net_out_mb_s": 1.4,
-        "latency_ms": 1.2, "error_rate": 1.3, "gc_pause_ms": 1.4
+        # Moderate spike - morning load (pre-market activity)
+        "cpu_user": 1.3, "cpu_sys": 1.2, "cpu_iowait": 1.4, "cpu_idle": 0.7,
+        "java_cpu": 1.4, "mem_used": 1.1, "swap_used": 1.2, "disk_usage": 1.0,
+        "net_in_mb_s": 1.5, "net_out_mb_s": 1.4, "back_close_wait": 1.3, "front_close_wait": 1.3,
+        "load_average": 1.3, "uptime_days": 1.0
     },
     ServerState.HEAVY_LOAD: {
-        # Heavy but not critical - still sub-80% CPU/mem (was 1.9/1.4, now 1.3/1.2)
-        "cpu": 1.3, "mem": 1.2, "disk_io_mb_s": 1.4, "net_in_mb_s": 1.5, "net_out_mb_s": 1.4,
-        "latency_ms": 1.4, "error_rate": 1.4, "gc_pause_ms": 1.5
+        # Heavy but not critical - market hours activity
+        "cpu_user": 1.4, "cpu_sys": 1.3, "cpu_iowait": 1.5, "cpu_idle": 0.6,
+        "java_cpu": 1.5, "mem_used": 1.2, "swap_used": 1.3, "disk_usage": 1.0,
+        "net_in_mb_s": 1.5, "net_out_mb_s": 1.4, "back_close_wait": 1.4, "front_close_wait": 1.4,
+        "load_average": 1.4, "uptime_days": 1.0
     },
     ServerState.CRITICAL_ISSUE: {
-        # This is actual incident territory - 90-100% CPU/Mem for critical scenarios
-        "cpu": 3.5, "mem": 3.0, "disk_io_mb_s": 0.6, "net_in_mb_s": 0.4, "net_out_mb_s": 0.3,
-        "latency_ms": 2.5, "error_rate": 4.0, "gc_pause_ms": 3.0
+        # Actual incident - high CPU, I/O wait spikes, memory pressure
+        "cpu_user": 2.5, "cpu_sys": 2.0, "cpu_iowait": 3.5, "cpu_idle": 0.3,
+        "java_cpu": 2.8, "mem_used": 1.4, "swap_used": 3.0, "disk_usage": 1.0,
+        "net_in_mb_s": 0.4, "net_out_mb_s": 0.3, "back_close_wait": 2.5, "front_close_wait": 2.5,
+        "load_average": 2.5, "uptime_days": 1.0
     },
     ServerState.MAINTENANCE: {
-        "cpu": 0.4, "mem": 0.8, "disk_io_mb_s": 1.5, "net_in_mb_s": 0.2, "net_out_mb_s": 0.2,
-        "latency_ms": 0.9, "error_rate": 0.3, "gc_pause_ms": 0.1
+        # Planned maintenance - low activity, possible disk operations
+        "cpu_user": 0.3, "cpu_sys": 0.5, "cpu_iowait": 0.8, "cpu_idle": 1.4,
+        "java_cpu": 0.2, "mem_used": 0.8, "swap_used": 0.5, "disk_usage": 1.0,
+        "net_in_mb_s": 0.2, "net_out_mb_s": 0.2, "back_close_wait": 0.2, "front_close_wait": 0.2,
+        "load_average": 0.5, "uptime_days": 1.0
     },
     ServerState.RECOVERY: {
-        "cpu": 0.9, "mem": 1.0, "disk_io_mb_s": 0.7, "net_in_mb_s": 0.8, "net_out_mb_s": 0.7,
-        "latency_ms": 1.3, "error_rate": 1.2, "gc_pause_ms": 0.8
+        # Post-incident recovery - ramping back up
+        "cpu_user": 0.8, "cpu_sys": 0.9, "cpu_iowait": 1.2, "cpu_idle": 1.1,
+        "java_cpu": 0.7, "mem_used": 1.0, "swap_used": 1.1, "disk_usage": 1.0,
+        "net_in_mb_s": 0.8, "net_out_mb_s": 0.7, "back_close_wait": 0.9, "front_close_wait": 0.9,
+        "load_average": 0.9, "uptime_days": 1.0
     },
     ServerState.OFFLINE: {
-        "cpu": 0.0, "mem": 0.0, "disk_io_mb_s": 0.0, "net_in_mb_s": 0.0, "net_out_mb_s": 0.0,
-        "latency_ms": 0.0, "error_rate": 0.0, "gc_pause_ms": 0.0
+        "cpu_user": 0.0, "cpu_sys": 0.0, "cpu_iowait": 0.0, "cpu_idle": 0.0,
+        "java_cpu": 0.0, "mem_used": 0.0, "swap_used": 0.0, "disk_usage": 0.0,
+        "net_in_mb_s": 0.0, "net_out_mb_s": 0.0, "back_close_wait": 0, "front_close_wait": 0,
+        "load_average": 0.0, "uptime_days": 1.0
     }
 }
 

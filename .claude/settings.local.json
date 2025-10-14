@@ -6,7 +6,8 @@
       "Bash(taskkill:*)",
       "Bash(tasklist)",
       "Bash(findstr:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(venv/Scripts/python.exe:*)"
     ],
     "deny": [],
     "ask": []
