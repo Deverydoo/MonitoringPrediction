@@ -245,52 +245,94 @@ def calculate_server_risk_score(server_pred: Dict) -> float:
     profile = get_server_profile(server_pred.get('server_name', ''))
 
     # =========================================================================
-    # CPU RISK ASSESSMENT
+    # CPU RISK ASSESSMENT (LINBORG: calculate % CPU Used from components)
     # =========================================================================
-    if 'cpu_percent' in server_pred:
-        cpu = server_pred['cpu_percent']
-        current_cpu = cpu.get('current', 0)
-        p90 = cpu.get('p90', [])
-        max_cpu_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_cpu
+    # Calculate total CPU usage: 100 - idle, or sum(user + sys + iowait)
+    cpu_idle = server_pred.get('cpu_idle_pct', {}).get('current', 0) if 'cpu_idle_pct' in server_pred else 0
+    cpu_user = server_pred.get('cpu_user_pct', {}).get('current', 0) if 'cpu_user_pct' in server_pred else 0
+    cpu_sys = server_pred.get('cpu_sys_pct', {}).get('current', 0) if 'cpu_sys_pct' in server_pred else 0
+    cpu_iowait = server_pred.get('cpu_iowait_pct', {}).get('current', 0) if 'cpu_iowait_pct' in server_pred else 0
 
-        # CURRENT CPU RISK (what matters most to executives)
-        if current_cpu >= 98:
-            current_risk += 60  # CRITICAL - System will hang
-        elif current_cpu >= 95:
-            current_risk += 40  # Severe degradation
-        elif current_cpu >= 90:
-            current_risk += 20  # High load
+    # Calculate current CPU usage
+    if cpu_idle > 0:
+        current_cpu = 100 - cpu_idle
+    else:
+        current_cpu = cpu_user + cpu_sys + cpu_iowait
 
-        # PREDICTED CPU RISK (early warning)
-        if max_cpu_p90 >= 98:
-            predicted_risk += 30  # Will become critical
-        elif max_cpu_p90 >= 95:
-            predicted_risk += 20  # Will degrade
-        elif max_cpu_p90 >= 90:
-            predicted_risk += 10  # Will be high
+    # Calculate predicted CPU (use idle if available, otherwise sum components)
+    if 'cpu_idle_pct' in server_pred:
+        idle_p90 = server_pred['cpu_idle_pct'].get('p90', [])
+        min_idle_p90 = min(idle_p90[:6]) if idle_p90 and len(idle_p90) >= 6 else cpu_idle
+        max_cpu_p90 = 100 - min_idle_p90
+    else:
+        max_cpu_p90 = current_cpu  # Fallback
+
+    # CURRENT CPU RISK (what matters most to executives)
+    if current_cpu >= 98:
+        current_risk += 60  # CRITICAL - System will hang
+    elif current_cpu >= 95:
+        current_risk += 40  # Severe degradation
+    elif current_cpu >= 90:
+        current_risk += 20  # High load
+
+    # PREDICTED CPU RISK (early warning)
+    if max_cpu_p90 >= 98:
+        predicted_risk += 30  # Will become critical
+    elif max_cpu_p90 >= 95:
+        predicted_risk += 20  # Will degrade
+    elif max_cpu_p90 >= 90:
+        predicted_risk += 10  # Will be high
 
     # =========================================================================
-    # MEMORY RISK ASSESSMENT
+    # I/O WAIT RISK ASSESSMENT (CRITICAL - "System troubleshooting 101")
     # =========================================================================
-    if 'memory_percent' in server_pred:
-        mem = server_pred['memory_percent']
+    if 'cpu_iowait_pct' in server_pred:
+        iowait = server_pred['cpu_iowait_pct']
+        current_iowait = iowait.get('current', 0)
+        p90 = iowait.get('p90', [])
+        max_iowait_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_iowait
+
+        # I/O wait is a critical indicator - high iowait = disk/storage bottleneck
+        # CURRENT
+        if current_iowait >= 30:
+            current_risk += 50  # CRITICAL - severe I/O bottleneck
+        elif current_iowait >= 20:
+            current_risk += 30  # High I/O contention
+        elif current_iowait >= 10:
+            current_risk += 15  # Elevated I/O wait
+        elif current_iowait >= 5:
+            current_risk += 5   # Noticeable
+
+        # PREDICTED
+        if max_iowait_p90 >= 30:
+            predicted_risk += 25  # Will have severe bottleneck
+        elif max_iowait_p90 >= 20:
+            predicted_risk += 15  # Will have high contention
+        elif max_iowait_p90 >= 10:
+            predicted_risk += 8   # Will be elevated
+
+    # =========================================================================
+    # MEMORY RISK ASSESSMENT (LINBORG: mem_used_pct)
+    # =========================================================================
+    if 'mem_used_pct' in server_pred:
+        mem = server_pred['mem_used_pct']
         current_mem = mem.get('current', 0)
         p90 = mem.get('p90', [])
         max_mem_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_mem
 
         # Profile-specific thresholds
         if profile == 'Database':
-            # Databases: 100% memory is normal (page cache), only >100% is bad
+            # Databases: high memory is normal (page cache), only >95% concerning
             # CURRENT
-            if current_mem > 100:
-                current_risk += 50  # Impossible/error
-            elif current_mem > 99:
-                current_risk += 20  # Starting to struggle
+            if current_mem >= 98:
+                current_risk += 40  # Very high
+            elif current_mem >= 95:
+                current_risk += 15  # Elevated
             # PREDICTED
-            if max_mem_p90 > 100:
-                predicted_risk += 25  # Will struggle
+            if max_mem_p90 >= 98:
+                predicted_risk += 20  # Will be very high
         else:
-            # Non-DB servers: 100% memory = OOM kill imminent
+            # Non-DB servers: high memory = OOM risk
             # CURRENT
             if current_mem >= 98:
                 current_risk += 60  # CRITICAL - OOM imminent
@@ -305,48 +347,27 @@ def calculate_server_risk_score(server_pred: Dict) -> float:
                 predicted_risk += 20  # Will have pressure
 
     # =========================================================================
-    # LATENCY RISK ASSESSMENT
+    # LOAD AVERAGE RISK ASSESSMENT (System load indicator)
     # =========================================================================
     if 'load_average' in server_pred:
-        lat = server_pred['load_average']
-        current_lat = lat.get('current', 0)
-        p90 = lat.get('p90', [])
-        max_lat_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_lat
+        load = server_pred['load_average']
+        current_load = load.get('current', 0)
+        p90 = load.get('p90', [])
+        max_load_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_load
 
+        # Load average > 8 on typical servers indicates heavy queuing
         # CURRENT
-        if current_lat > 500:
-            current_risk += 30  # System unresponsive
-        elif current_lat > 200:
-            current_risk += 15  # Severe degradation
-        elif current_lat > 100:
-            current_risk += 5   # Noticeable
+        if current_load > 12:
+            current_risk += 25  # Severe load
+        elif current_load > 8:
+            current_risk += 15  # High load
+        elif current_load > 6:
+            current_risk += 5   # Elevated
         # PREDICTED
-        if max_lat_p90 > 500:
-            predicted_risk += 15  # Will be unresponsive
-        elif max_lat_p90 > 200:
-            predicted_risk += 8   # Will degrade
-
-    # =========================================================================
-    # DISK RISK ASSESSMENT
-    # =========================================================================
-    if 'disk_percent' in server_pred:
-        disk = server_pred['disk_percent']
-        current_disk = disk.get('current', 0)
-        p90 = disk.get('p90', [])
-        max_disk_p90 = max(p90[:6]) if p90 and len(p90) >= 6 else current_disk
-
-        # CURRENT
-        if current_disk >= 98:
-            current_risk += 40  # CRITICAL - out of space
-        elif current_disk >= 95:
-            current_risk += 20  # Very low space
-        elif current_disk >= 90:
-            current_risk += 10  # Low space
-        # PREDICTED
-        if max_disk_p90 >= 98:
-            predicted_risk += 20  # Will run out
-        elif max_disk_p90 >= 95:
-            predicted_risk += 10  # Will be low
+        if max_load_p90 > 12:
+            predicted_risk += 12  # Will be severely loaded
+        elif max_load_p90 > 8:
+            predicted_risk += 8   # Will be high
 
     # =========================================================================
     # WEIGHTED FINAL SCORE
@@ -946,18 +967,30 @@ with tab1:
                     else:
                         continue
 
-                    # Get actual vs predicted for key metrics
-                    cpu_actual = server_pred.get('cpu_percent', {}).get('current', 0)
-                    cpu_p50 = server_pred.get('cpu_percent', {}).get('p50', [])
-                    cpu_predicted = np.mean(cpu_p50[:6]) if cpu_p50 and len(cpu_p50) >= 6 else cpu_actual
+                    # Get actual vs predicted for key LINBORG metrics
+                    # CPU: Calculate from idle (100 - idle) or sum components
+                    cpu_idle_cur = server_pred.get('cpu_idle_pct', {}).get('current', 0)
+                    cpu_user_cur = server_pred.get('cpu_user_pct', {}).get('current', 0)
+                    cpu_sys_cur = server_pred.get('cpu_sys_pct', {}).get('current', 0)
+                    cpu_iowait_cur = server_pred.get('cpu_iowait_pct', {}).get('current', 0)
 
-                    mem_actual = server_pred.get('memory_percent', {}).get('current', 0)
-                    mem_p50 = server_pred.get('memory_percent', {}).get('p50', [])
+                    cpu_actual = 100 - cpu_idle_cur if cpu_idle_cur > 0 else (cpu_user_cur + cpu_sys_cur + cpu_iowait_cur)
+
+                    cpu_idle_p50 = server_pred.get('cpu_idle_pct', {}).get('p50', [])
+                    if cpu_idle_p50 and len(cpu_idle_p50) >= 6:
+                        cpu_predicted = 100 - np.mean(cpu_idle_p50[:6])
+                    else:
+                        cpu_predicted = cpu_actual
+
+                    # I/O Wait - CRITICAL metric
+                    iowait_actual = cpu_iowait_cur
+                    iowait_p50 = server_pred.get('cpu_iowait_pct', {}).get('p50', [])
+                    iowait_predicted = np.mean(iowait_p50[:6]) if iowait_p50 and len(iowait_p50) >= 6 else iowait_actual
+
+                    # Memory
+                    mem_actual = server_pred.get('mem_used_pct', {}).get('current', 0)
+                    mem_p50 = server_pred.get('mem_used_pct', {}).get('p50', [])
                     mem_predicted = np.mean(mem_p50[:6]) if mem_p50 and len(mem_p50) >= 6 else mem_actual
-
-                    lat_actual = server_pred.get('load_average', {}).get('current', 0)
-                    lat_p50 = server_pred.get('load_average', {}).get('p50', [])
-                    lat_predicted = np.mean(lat_p50[:6]) if lat_p50 and len(lat_p50) >= 6 else lat_actual
 
                     alert_rows.append({
                         'Priority': priority,
@@ -967,12 +1000,12 @@ with tab1:
                         'CPU Now': f"{cpu_actual:.1f}%",
                         'CPU Predicted (30m)': f"{cpu_predicted:.1f}%",
                         'CPU Δ': f"{(cpu_predicted - cpu_actual):+.1f}%",
+                        'I/O Wait Now': f"{iowait_actual:.1f}%",
+                        'I/O Wait Predicted (30m)': f"{iowait_predicted:.1f}%",
+                        'I/O Wait Δ': f"{(iowait_predicted - iowait_actual):+.1f}%",
                         'Mem Now': f"{mem_actual:.1f}%",
                         'Mem Predicted (30m)': f"{mem_predicted:.1f}%",
-                        'Mem Δ': f"{(mem_predicted - mem_actual):+.1f}%",
-                        'Latency Now': f"{lat_actual:.0f}ms",
-                        'Latency Predicted (30m)': f"{lat_predicted:.0f}ms",
-                        'Latency Δ': f"{(lat_predicted - lat_actual):+.0f}ms"
+                        'Mem Δ': f"{(mem_predicted - mem_actual):+.1f}%"
                     })
 
             if alert_rows:
@@ -992,15 +1025,15 @@ with tab1:
                         'Server': st.column_config.TextColumn('Server', width='medium', help='Server hostname'),
                         'Profile': st.column_config.TextColumn('Profile', width='medium', help='Server workload type (ML Compute, Database, Web API, etc.)'),
                         'Risk': st.column_config.TextColumn('Risk', width='small', help='Overall risk score (0-100). Higher = more urgent'),
-                        'CPU Now': st.column_config.TextColumn('CPU Now', width='small', help='Current CPU utilization'),
+                        'CPU Now': st.column_config.TextColumn('CPU Now', width='small', help='Current CPU utilization (% Used = 100 - Idle)'),
                         'CPU Predicted (30m)': st.column_config.TextColumn('CPU Pred', width='small', help='AI predicted CPU in next 30 minutes'),
                         'CPU Δ': st.column_config.TextColumn('CPU Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing/degrading, Negative (-) = decreasing/improving'),
+                        'I/O Wait Now': st.column_config.TextColumn('I/O Wait Now', width='small', help='Current I/O wait % - CRITICAL troubleshooting metric. High values indicate disk/storage bottleneck'),
+                        'I/O Wait Predicted (30m)': st.column_config.TextColumn('I/O Wait Pred', width='small', help='AI predicted I/O wait in next 30 minutes'),
+                        'I/O Wait Δ': st.column_config.TextColumn('I/O Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing I/O contention'),
                         'Mem Now': st.column_config.TextColumn('Mem Now', width='small', help='Current memory utilization'),
                         'Mem Predicted (30m)': st.column_config.TextColumn('Mem Pred', width='small', help='AI predicted memory in next 30 minutes'),
-                        'Mem Δ': st.column_config.TextColumn('Mem Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing/degrading, Negative (-) = decreasing/improving'),
-                        'Latency Now': st.column_config.TextColumn('Lat Now', width='small', help='Current system latency'),
-                        'Latency Predicted (30m)': st.column_config.TextColumn('Lat Pred', width='small', help='AI predicted latency in next 30 minutes'),
-                        'Latency Δ': st.column_config.TextColumn('Lat Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing/degrading, Negative (-) = decreasing/improving')
+                        'Mem Δ': st.column_config.TextColumn('Mem Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing/degrading, Negative (-) = decreasing/improving')
                     }
                 )
 
@@ -1289,28 +1322,48 @@ with tab3:
                     # Show current vs predicted side-by-side
                     st.markdown("**Current State vs Predictions (30min ahead)**")
 
-                    # Create comparison table
+                    # Create comparison table - LINBORG metrics
                     metric_rows = []
 
-                    # CPU
-                    if 'cpu_percent' in server_pred:
-                        cpu = server_pred['cpu_percent']
-                        current = cpu.get('current', 0)
-                        p50 = cpu.get('p50', [])
+                    # CPU Used (100 - idle)
+                    cpu_idle_cur = server_pred.get('cpu_idle_pct', {}).get('current', 0)
+                    cpu_user_cur = server_pred.get('cpu_user_pct', {}).get('current', 0)
+                    cpu_sys_cur = server_pred.get('cpu_sys_pct', {}).get('current', 0)
+                    cpu_iowait_cur = server_pred.get('cpu_iowait_pct', {}).get('current', 0)
+
+                    cpu_current = 100 - cpu_idle_cur if cpu_idle_cur > 0 else (cpu_user_cur + cpu_sys_cur + cpu_iowait_cur)
+
+                    cpu_idle_p50 = server_pred.get('cpu_idle_pct', {}).get('p50', [])
+                    if cpu_idle_p50 and len(cpu_idle_p50) >= 6:
+                        cpu_future = 100 - np.mean(cpu_idle_p50[:6])
+                        cpu_delta = cpu_future - cpu_current
+                        cpu_delta_str = f"+{cpu_delta:.1f}%" if cpu_delta > 0 else f"{cpu_delta:.1f}%"
+                        metric_rows.append({
+                            'Metric': 'CPU Used',
+                            'Current': f"{cpu_current:.1f}%",
+                            'Predicted': f"{cpu_future:.1f}%",
+                            'Δ': cpu_delta_str
+                        })
+
+                    # I/O Wait - CRITICAL
+                    if 'cpu_iowait_pct' in server_pred:
+                        iowait = server_pred['cpu_iowait_pct']
+                        current = iowait.get('current', 0)
+                        p50 = iowait.get('p50', [])
                         if p50:
                             future = np.mean(p50[:6]) if len(p50) >= 6 else np.mean(p50)
                             delta = future - current
                             delta_str = f"+{delta:.1f}%" if delta > 0 else f"{delta:.1f}%"
                             metric_rows.append({
-                                'Metric': 'CPU',
+                                'Metric': 'I/O Wait',
                                 'Current': f"{current:.1f}%",
                                 'Predicted': f"{future:.1f}%",
                                 'Δ': delta_str
                             })
 
                     # Memory
-                    if 'memory_percent' in server_pred:
-                        mem = server_pred['memory_percent']
+                    if 'mem_used_pct' in server_pred:
+                        mem = server_pred['mem_used_pct']
                         current = mem.get('current', 0)
                         p50 = mem.get('p50', [])
                         if p50:
@@ -1324,35 +1377,19 @@ with tab3:
                                 'Δ': delta_str
                             })
 
-                    # Latency (load_average)
+                    # Load Average
                     if 'load_average' in server_pred:
-                        lat = server_pred['load_average']
-                        current = lat.get('current', 0)
-                        p50 = lat.get('p50', [])
-                        if p50:
-                            future = np.mean(p50[:6]) if len(p50) >= 6 else np.mean(p50)
-                            delta = future - current
-                            delta_str = f"+{delta:.1f}ms" if delta > 0 else f"{delta:.1f}ms"
-                            metric_rows.append({
-                                'Metric': 'Latency',
-                                'Current': f"{current:.1f}ms",
-                                'Predicted': f"{future:.1f}ms",
-                                'Δ': delta_str
-                            })
-
-                    # Disk
-                    if 'disk_percent' in server_pred:
-                        disk = server_pred['disk_percent']
-                        current = disk.get('current', 0)
-                        p50 = disk.get('p50', [])
+                        load = server_pred['load_average']
+                        current = load.get('current', 0)
+                        p50 = load.get('p50', [])
                         if p50:
                             future = np.mean(p50[:6]) if len(p50) >= 6 else np.mean(p50)
                             delta = future - current
                             delta_str = f"+{delta:.1f}" if delta > 0 else f"{delta:.1f}"
                             metric_rows.append({
-                                'Metric': 'Disk I/O',
-                                'Current': f"{current:.1f} MB/s",
-                                'Predicted': f"{future:.1f} MB/s",
+                                'Metric': 'Load Avg',
+                                'Current': f"{current:.1f}",
+                                'Predicted': f"{future:.1f}",
                                 'Δ': delta_str
                             })
 
@@ -1369,12 +1406,18 @@ with tab3:
                 # Prediction timeline
                 st.markdown("**Prediction Timeline (Next 8 hours)**")
 
-                # Create timeline chart for CPU
-                if 'cpu_percent' in server_pred:
-                    cpu = server_pred['cpu_percent']
-                    p10 = cpu.get('p10', [])
-                    p50 = cpu.get('p50', [])
-                    p90 = cpu.get('p90', [])
+                # Create timeline chart for CPU (calculated from idle)
+                if 'cpu_idle_pct' in server_pred:
+                    cpu_idle = server_pred['cpu_idle_pct']
+                    # Convert idle predictions to CPU used (100 - idle)
+                    p10_idle = cpu_idle.get('p10', [])
+                    p50_idle = cpu_idle.get('p50', [])
+                    p90_idle = cpu_idle.get('p90', [])
+
+                    # Invert: higher idle = lower CPU used, so p10 idle = p90 CPU, p90 idle = p10 CPU
+                    p10 = [100 - x for x in p90_idle] if p90_idle else []
+                    p50 = [100 - x for x in p50_idle] if p50_idle else []
+                    p90 = [100 - x for x in p10_idle] if p10_idle else []
 
                     if p10 and p50 and p90:
                         # Create time axis (5-min intervals for 8 hours = 96 steps)

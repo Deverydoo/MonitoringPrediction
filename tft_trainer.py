@@ -277,21 +277,11 @@ class TFTTrainer:
         df['day_of_week'] = df['timestamp'].dt.dayofweek
         df['month'] = df['timestamp'].dt.month
         df['is_weekend'] = df['day_of_week'].isin([5, 6]).astype(int)
-        
-        # Map column names to standard format
-        column_mapping = {
-            'cpu_pct': 'cpu_percent',
-            'mem_pct': 'memory_percent',
-            'disk_io_mb_s': 'disk_percent',  # Using disk I/O as proxy for disk usage
-            'latency_ms': 'load_average',    # Using latency as proxy for load
-            'state': 'status'
-        }
 
-        # Apply column mapping
-        for old_col, new_col in column_mapping.items():
-            if old_col in df.columns:
-                df[new_col] = df[old_col]
-                print(f"[INFO] Mapped {old_col} -> {new_col}")
+        # Map status column (state -> status for TFT compatibility)
+        if 'state' in df.columns and 'status' not in df.columns:
+            df['status'] = df['state']
+            print(f"[INFO] Mapped state -> status")
 
         # Encode server_name to hash-based server_id (production-ready)
         if 'server_name' in df.columns:
@@ -311,48 +301,45 @@ class TFTTrainer:
             else:
                 df['status'] = 'normal'  # Default value
         df['status'] = df['status'].fillna('normal').astype(str)
-        
-        # Define required metrics (after mapping)
-        required_metrics = ['cpu_percent', 'memory_percent', 'disk_percent', 'load_average']
-        
-        # Check which metrics we have after mapping
+
+        # Define required LINBORG metrics
+        required_metrics = [
+            'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+            'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+            'net_in_mb_s', 'net_out_mb_s',
+            'back_close_wait', 'front_close_wait',
+            'load_average', 'uptime_days'
+        ]
+
+        # Check which metrics are available
         available_metrics = [m for m in required_metrics if m in df.columns]
         missing_metrics = [m for m in required_metrics if m not in df.columns]
-        
-        print(f"[INFO] Available metrics: {available_metrics}")
+
+        print(f"[INFO] Available LINBORG metrics: {len(available_metrics)}/{len(required_metrics)}")
         if missing_metrics:
-            print(f"[WARNING] Missing metrics: {missing_metrics}")
-            
-            # Try to use alternative columns
-            if 'cpu_percent' not in df.columns and 'cpu_pct' in df.columns:
-                df['cpu_percent'] = df['cpu_pct']
-            if 'memory_percent' not in df.columns and 'mem_pct' in df.columns:
-                df['memory_percent'] = df['mem_pct']
-            if 'disk_percent' not in df.columns:
-                # Use any available disk/io metric
-                disk_candidates = [col for col in df.columns if 'disk' in col.lower() or 'io' in col.lower()]
-                if disk_candidates:
-                    df['disk_percent'] = df[disk_candidates[0]]
-                    print(f"[INFO] Using {disk_candidates[0]} as disk_percent")
-                else:
-                    df['disk_percent'] = 50.0  # Default value
-                    print("[WARNING] No disk metric found, using default value")
-            
-            if 'load_average' not in df.columns:
-                # Use any available network/load metric
-                load_candidates = [col for col in df.columns if any(x in col.lower() for x in ['net', 'load', 'latency'])]
-                if load_candidates:
-                    df['load_average'] = df[load_candidates[0]] / 100  # Scale down network values
-                    print(f"[INFO] Using {load_candidates[0]} as load_average")
-                else:
-                    df['load_average'] = 1.0  # Default value
-                    print("[WARNING] No load metric found, using default value")
-        
+            print(f"[WARNING] Missing LINBORG metrics: {missing_metrics}")
+            raise ValueError(
+                f"Data is missing {len(missing_metrics)} required LINBORG metrics.\n"
+                f"Please regenerate training data with metrics_generator.py to include all 14 metrics."
+            )
+
         # Fill any NaN values and ensure numeric types
         for col in required_metrics:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-                df[col] = df[col].fillna(df[col].median() if not df[col].isna().all() else 50.0)
+                # Use median for filling, or reasonable defaults
+                if col.endswith('_pct'):
+                    default_val = 50.0  # Percentage metrics
+                elif col in ['back_close_wait', 'front_close_wait']:
+                    default_val = 2  # Connection counts
+                elif col == 'uptime_days':
+                    default_val = 25  # Typical uptime
+                elif col == 'load_average':
+                    default_val = 2.0
+                else:
+                    default_val = 5.0  # Network metrics
+
+                df[col] = df[col].fillna(df[col].median() if not df[col].isna().all() else default_val)
         
         # Ensure server_id column exists for grouping
         if 'server_id' not in df.columns:
@@ -398,8 +385,14 @@ class TFTTrainer:
         print(f"[INFO] Using encoder length: {max_encoder_length}, prediction length: {max_prediction_length}")
         print(f"[INFO] Validation split: {validation_split:.1%} | Training cutoff: {training_cutoff}")
         
-        # Define features
-        time_varying_unknown_reals = ['cpu_percent', 'memory_percent', 'disk_percent', 'load_average']
+        # Define features - LINBORG-compatible metrics (14 metrics)
+        time_varying_unknown_reals = [
+            'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+            'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+            'net_in_mb_s', 'net_out_mb_s',
+            'back_close_wait', 'front_close_wait',
+            'load_average', 'uptime_days'
+        ]
         time_varying_known_reals = ['hour', 'day_of_week', 'month', 'is_weekend']
         time_varying_unknown_categoricals = ['status']
 
@@ -413,17 +406,21 @@ class TFTTrainer:
         else:
             print("[WARNING] No profile column - transfer learning disabled")
 
-        # Phase 3: Multi-target prediction support
+        # Phase 3: Multi-target prediction support with LINBORG metrics
         multi_target = self.config.get('multi_target', False)
         if multi_target:
-            # Use all metrics as targets
-            target_metrics = self.config.get('target_metrics', ['cpu_percent', 'memory_percent', 'disk_percent', 'load_average'])
+            # Use key LINBORG metrics as targets (subset for manageability)
+            target_metrics = self.config.get('target_metrics', [
+                'cpu_user_pct', 'cpu_iowait_pct', 'mem_used_pct',
+                'swap_used_pct', 'load_average'
+            ])
             # Filter to only metrics that exist in the data
             available_targets = [m for m in target_metrics if m in df.columns]
-            target = available_targets if len(available_targets) > 1 else 'cpu_percent'
+            target = available_targets if len(available_targets) > 1 else 'cpu_user_pct'
             print(f"[INFO] Multi-target mode: {available_targets if isinstance(target, list) else [target]}")
         else:
-            target = 'cpu_percent'  # Single target (default)
+            # Single target: use cpu_user as primary indicator (most directly actionable)
+            target = 'cpu_user_pct'
             print(f"[INFO] Single-target mode: {target}")
 
         # Create categorical encoders that support unknown categories (production-ready)

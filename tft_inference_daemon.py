@@ -188,16 +188,23 @@ class TFTInference:
                     'profile': NaNLabelEncoder(add_nan=True)
                 }
 
+                # LINBORG-compatible metrics (14 metrics)
                 self.training_data = TimeSeriesDataSet(
                     dummy_df,
                     time_idx='time_idx',
-                    target='cpu_percent',
+                    target='cpu_user_pct',  # Primary indicator
                     group_ids=['server_id'],
                     max_encoder_length=24,
                     max_prediction_length=96,
                     min_encoder_length=12,
                     min_prediction_length=1,
-                    time_varying_unknown_reals=['cpu_percent', 'memory_percent', 'disk_percent', 'load_average'],
+                    time_varying_unknown_reals=[
+                        'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+                        'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+                        'net_in_mb_s', 'net_out_mb_s',
+                        'back_close_wait', 'front_close_wait',
+                        'load_average', 'uptime_days'
+                    ],
                     time_varying_known_reals=['hour', 'day_of_week', 'month', 'is_weekend'],
                     time_varying_unknown_categoricals=['status'],
                     static_categoricals=['profile'],
@@ -270,10 +277,21 @@ class TFTInference:
                         'time_idx': time_idx,
                         'server_id': server_id,
                         'profile': profile,
-                        'cpu_percent': 50.0,
-                        'memory_percent': 60.0,
-                        'disk_percent': 40.0,
+                        # LINBORG-compatible metrics (14 metrics)
+                        'cpu_user_pct': 45.0,
+                        'cpu_sys_pct': 8.0,
+                        'cpu_iowait_pct': 2.0,
+                        'cpu_idle_pct': 45.0,
+                        'java_cpu_pct': 30.0,
+                        'mem_used_pct': 65.0,
+                        'swap_used_pct': 3.0,
+                        'disk_usage_pct': 50.0,
+                        'net_in_mb_s': 8.0,
+                        'net_out_mb_s': 5.0,
+                        'back_close_wait': 2,
+                        'front_close_wait': 2,
                         'load_average': 2.0,
+                        'uptime_days': 25,
                         'hour': time_idx % 24,
                         'day_of_week': time_idx % 7,
                         'month': 1,
@@ -294,10 +312,21 @@ class TFTInference:
                         'time_idx': time_idx,
                         'server_id': server_id,
                         'profile': profile,
-                        'cpu_percent': 50.0,
-                        'memory_percent': 60.0,
-                        'disk_percent': 40.0,
+                        # LINBORG-compatible metrics (14 metrics)
+                        'cpu_user_pct': 45.0,
+                        'cpu_sys_pct': 8.0,
+                        'cpu_iowait_pct': 2.0,
+                        'cpu_idle_pct': 45.0,
+                        'java_cpu_pct': 30.0,
+                        'mem_used_pct': 65.0,
+                        'swap_used_pct': 3.0,
+                        'disk_usage_pct': 50.0,
+                        'net_in_mb_s': 8.0,
+                        'net_out_mb_s': 5.0,
+                        'back_close_wait': 2,
+                        'front_close_wait': 2,
                         'load_average': 2.0,
+                        'uptime_days': 25,
                         'hour': time_idx % 24,
                         'day_of_week': time_idx % 7,
                         'month': 1,
@@ -412,28 +441,22 @@ class TFTInference:
             return self._predict_heuristic(df, horizon)
 
     def _prepare_data_for_tft(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare input data for TFT prediction."""
+        """Prepare input data for TFT prediction with LINBORG metrics."""
         prediction_df = df.copy()
 
-        # Map DATA_CONTRACT names to internal model names
-        column_mapping = {
-            'cpu_pct': 'cpu_percent',
-            'mem_pct': 'memory_percent',
-            'disk_io_mb_s': 'disk_percent',
-            'latency_ms': 'load_average'
-        }
-
-        # Apply column name mapping
-        for contract_name, model_name in column_mapping.items():
-            if contract_name in prediction_df.columns and model_name not in prediction_df.columns:
-                prediction_df[model_name] = prediction_df[contract_name]
-
-        required_cols = ['server_name', 'timestamp', 'cpu_percent', 'memory_percent',
-                        'disk_percent', 'load_average']
+        # LINBORG metrics should be passed directly - no mapping needed
+        # Data from metrics_generator.py already has correct column names
+        required_cols = ['server_name', 'timestamp'] + [
+            'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+            'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+            'net_in_mb_s', 'net_out_mb_s',
+            'back_close_wait', 'front_close_wait',
+            'load_average', 'uptime_days'
+        ]
 
         missing = [col for col in required_cols if col not in prediction_df.columns]
         if missing:
-            raise ValueError(f"Missing required columns: {missing}")
+            raise ValueError(f"Missing required LINBORG metrics: {missing}")
 
         # Convert server_name to server_id
         if 'server_name' in prediction_df.columns and self.server_encoder:
@@ -610,22 +633,24 @@ class TFTInference:
                     continue
 
                 server_data = input_df[input_df['server_id'] == server_id]
-                current_cpu = server_data['cpu_percent'].iloc[-1] if len(server_data) > 0 else 50.0
+                current_cpu_user = server_data['cpu_user_pct'].iloc[-1] if len(server_data) > 0 else 45.0
 
-                trend = (p50_values[-1] - current_cpu) / len(p50_values) if len(p50_values) > 0 else 0.0
+                trend = (p50_values[-1] - current_cpu_user) / len(p50_values) if len(p50_values) > 0 else 0.0
 
-                server_preds['cpu_percent'] = {
+                # TFT predicts cpu_user_pct (primary indicator)
+                server_preds['cpu_user_pct'] = {
                     'p50': p50_values,
                     'p10': p10_values,
                     'p90': p90_values,
-                    'current': float(current_cpu),
+                    'current': float(current_cpu_user),
                     'trend': float(trend)
                 }
 
-            # Heuristic for other metrics
+            # Heuristic for other LINBORG metrics (TFT doesn't predict these yet)
             server_data = input_df[input_df['server_id'] == server_id]
 
-            for metric in ['memory_percent', 'disk_percent', 'load_average']:
+            for metric in ['cpu_sys_pct', 'cpu_iowait_pct', 'mem_used_pct', 'swap_used_pct',
+                          'disk_usage_pct', 'load_average', 'net_in_mb_s', 'net_out_mb_s']:
                 if metric in server_data.columns:
                     values = server_data[metric].values[-24:]
                     if len(values) > 0:
@@ -635,8 +660,14 @@ class TFTInference:
                         p50_forecast = [current + (trend * i) for i in range(1, horizon + 1)]
                         noise = np.std(values) if len(values) > 2 else 2.0
                         p10_forecast = [max(0, v - noise * np.sqrt(i)) for i, v in enumerate(p50_forecast, 1)]
-                        p90_forecast = [min(100 if metric.endswith('_percent') else 16,
-                                          v + noise * np.sqrt(i)) for i, v in enumerate(p50_forecast, 1)]
+
+                        # Apply appropriate upper bounds
+                        if metric.endswith('_pct'):
+                            p90_forecast = [min(100, v + noise * np.sqrt(i)) for i, v in enumerate(p50_forecast, 1)]
+                        elif metric in ['net_in_mb_s', 'net_out_mb_s']:
+                            p90_forecast = [min(200, v + noise * np.sqrt(i)) for i, v in enumerate(p50_forecast, 1)]  # Cap at 200 MB/s
+                        else:  # load_average
+                            p90_forecast = [min(16, v + noise * np.sqrt(i)) for i, v in enumerate(p50_forecast, 1)]
 
                         server_preds[metric] = {
                             'p50': p50_forecast,
@@ -651,17 +682,17 @@ class TFTInference:
         return predictions
 
     def _predict_heuristic(self, df: pd.DataFrame, horizon: int) -> Dict:
-        """Enhanced heuristic predictions (fallback)."""
+        """Enhanced heuristic predictions (fallback) using LINBORG metrics."""
         predictions = {}
 
-        metrics_mapping = {
-            'cpu_pct': 'cpu_percent',
-            'mem_pct': 'memory_percent',
-            'disk_io_mb_s': 'disk_percent',
-            'latency_ms': 'load_average',
-            'error_rate': 'network_errors',
-            'gc_pause_ms': 'java_heap_usage'
-        }
+        # LINBORG metrics - direct usage (no mapping needed)
+        linborg_metrics = [
+            'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+            'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+            'net_in_mb_s', 'net_out_mb_s',
+            'back_close_wait', 'front_close_wait',
+            'load_average', 'uptime_days'
+        ]
 
         servers = df['server_name'].unique() if 'server_name' in df.columns else ['default']
 
@@ -673,11 +704,11 @@ class TFTInference:
 
             server_preds = {}
 
-            for input_col, output_name in metrics_mapping.items():
-                if input_col not in server_data.columns:
+            for metric_name in linborg_metrics:
+                if metric_name not in server_data.columns:
                     continue
 
-                values = server_data[input_col].values[-24:]
+                values = server_data[metric_name].values[-24:]
                 values = values[np.isfinite(values)]
 
                 if len(values) == 0:
@@ -706,8 +737,17 @@ class TFTInference:
                 for i in range(1, horizon + 1):
                     pred = current + (trend * i)
 
-                    if output_name.endswith('_percent'):
+                    # Apply appropriate bounds based on metric type
+                    if metric_name.endswith('_pct'):
                         pred = max(0, min(100, pred))
+                    elif metric_name in ['net_in_mb_s', 'net_out_mb_s']:
+                        pred = max(0, min(200, pred))  # Cap at 200 MB/s
+                    elif metric_name in ['back_close_wait', 'front_close_wait']:
+                        pred = max(0, int(pred))  # Integer connection counts
+                    elif metric_name == 'uptime_days':
+                        pred = max(0, min(30, int(pred)))  # Cap at 30 days
+                    elif metric_name == 'load_average':
+                        pred = max(0, min(16, pred))  # Cap at 16 (typical max for load)
                     else:
                         pred = max(0, pred)
 
@@ -715,15 +755,20 @@ class TFTInference:
                     p10 = max(0, pred - 1.28 * uncertainty)
                     p90 = pred + 1.28 * uncertainty
 
-                    if output_name.endswith('_percent'):
+                    # Apply same bounds to uncertainty ranges
+                    if metric_name.endswith('_pct'):
                         p10 = min(100, p10)
                         p90 = min(100, p90)
+                    elif metric_name in ['net_in_mb_s', 'net_out_mb_s']:
+                        p90 = min(200, p90)
+                    elif metric_name == 'load_average':
+                        p90 = min(16, p90)
 
                     p50_forecast.append(float(pred))
                     p10_forecast.append(float(p10))
                     p90_forecast.append(float(p90))
 
-                server_preds[output_name] = {
+                server_preds[metric_name] = {
                     'p50': p50_forecast,
                     'p10': p10_forecast,
                     'p90': p90_forecast,

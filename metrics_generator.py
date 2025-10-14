@@ -692,50 +692,66 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
     
     df = state_df.copy()
     
-    # Initialize metric columns
-    metric_columns = ['cpu_pct', 'mem_pct', 'disk_io_mb_s', 'net_in_mb_s', 
-                     'net_out_mb_s', 'latency_ms', 'error_rate', 'gc_pause_ms', 
-                     'container_oom', 'notes']
-    
+    # Initialize LINBORG metric columns (14 metrics matching production monitoring)
+    metric_columns = [
+        'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+        'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+        'net_in_mb_s', 'net_out_mb_s',
+        'back_close_wait', 'front_close_wait',
+        'load_average', 'uptime_days',
+        'notes'
+    ]
+
     for col in metric_columns:
-        df[col] = 0.0
-    
+        if col == 'notes':
+            df[col] = ''
+        else:
+            df[col] = 0.0
+
     # Process by server for temporal continuity
     for server_name in df['server_name'].unique():
         server_mask = df['server_name'] == server_name
         server_data = df[server_mask].copy()
-        
+
         profile_str = server_data.iloc[0]['profile']
         profile = ServerProfile(profile_str)
-        
+
         # Get baseline parameters
         baselines = PROFILE_BASELINES[profile]
-        
+
         n_points = len(server_data)
-        
-        # Generate base metrics for each column
-        for metric in ['cpu', 'mem', 'disk_io_mb_s', 'net_in_mb_s', 'net_out_mb_s', 
-                      'latency_ms', 'error_rate', 'gc_pause_ms']:
-            
+
+        # Generate base metrics for each LINBORG metric
+        for metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
+                      'mem_used', 'swap_used', 'disk_usage',
+                      'net_in_mb_s', 'net_out_mb_s',
+                      'back_close_wait', 'front_close_wait',
+                      'load_average', 'uptime_days']:
+
             if metric in baselines:
                 mean, std = baselines[metric]
-                
+
                 # Generate base series
                 base_values = np.random.normal(mean, std, n_points)
-                
+
                 # Apply state multipliers
                 for i, (_, row) in enumerate(server_data.iterrows()):
                     state = ServerState(row['state'])
                     multiplier = STATE_MULTIPLIERS[state].get(metric, 1.0)
-                    
-                    # Add diurnal effect
-                    hour = row['timestamp'].hour
-                    diurnal_mult = diurnal_multiplier(hour, profile, state)
-                    
-                    base_values[i] *= multiplier * diurnal_mult
-                
-                # Apply AR(1) smoothing for temporal continuity
-                smoothed_values = ar1_series(base_values, phi=0.85, sigma=std*0.1, seed=config.seed)
+
+                    # Add diurnal effect (except uptime)
+                    if metric != 'uptime_days':
+                        hour = row['timestamp'].hour
+                        diurnal_mult = diurnal_multiplier(hour, profile, state)
+                        base_values[i] *= multiplier * diurnal_mult
+                    else:
+                        base_values[i] *= multiplier
+
+                # Apply AR(1) smoothing for temporal continuity (except uptime)
+                if metric == 'uptime_days':
+                    smoothed_values = base_values  # Uptime doesn't need smoothing
+                else:
+                    smoothed_values = ar1_series(base_values, phi=0.85, sigma=std*0.1, seed=config.seed)
 
                 # Handle offline state (only in dense mode - sparse mode already filtered)
                 if config.offline_mode == "dense":
@@ -743,30 +759,28 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
                     if config.offline_fill == "nan":
                         smoothed_values[offline_mask] = np.nan
                     else:  # zeros
-                        smoothed_values[offline_mask] = 0.0
-                
+                        if metric != 'uptime_days':  # Uptime persists even offline
+                            smoothed_values[offline_mask] = 0.0
+
                 # Apply bounds and store
-                if metric in ['cpu', 'mem']:
-                    # Percentage metrics
+                if metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
+                             'mem_used', 'swap_used', 'disk_usage']:
+                    # Percentage metrics (0-100%)
                     smoothed_values = np.clip(smoothed_values * 100, 0, 100)
                     df.loc[server_mask, f'{metric}_pct'] = smoothed_values
-                else:
-                    # Other metrics
-                    smoothed_values = np.maximum(smoothed_values, 0)  # Non-negative
+                elif metric in ['back_close_wait', 'front_close_wait']:
+                    # Integer connection counts
+                    smoothed_values = np.maximum(smoothed_values, 0).astype(int)
                     df.loc[server_mask, metric] = smoothed_values
-        
-        # Special handling for profile-specific incidents
-        if profile == ServerProfile.ML_COMPUTE:
-            # Higher chance of OOM during high memory usage (ML models)
-            mem_values = df.loc[server_mask, 'mem_pct']
-            oom_prob = np.where(mem_values > 85, 0.08, 0.001)  # 8% chance when mem > 85%
-            df.loc[server_mask, 'container_oom'] = np.random.binomial(1, oom_prob)
-        elif profile == ServerProfile.RISK_ANALYTICS:
-            # OOM risk from large matrix operations
-            mem_values = df.loc[server_mask, 'mem_pct']
-            oom_prob = np.where(mem_values > 88, 0.06, 0.0005)
-            df.loc[server_mask, 'container_oom'] = np.random.binomial(1, oom_prob)
-        
+                elif metric == 'uptime_days':
+                    # Integer days, capped at reasonable max
+                    smoothed_values = np.clip(smoothed_values, 0, 30).astype(int)
+                    df.loc[server_mask, metric] = smoothed_values
+                else:
+                    # Other metrics (load_average, network MB/s)
+                    smoothed_values = np.maximum(smoothed_values, 0)
+                    df.loc[server_mask, metric] = smoothed_values
+
         # Add notes for interesting states
         notes = []
         for _, row in server_data.iterrows():
@@ -774,7 +788,7 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
             if state == 'morning_spike':
                 notes.append("auth surge" if np.random.random() < 0.3 else "batch warmup")
             elif state == 'critical_issue':
-                issues = ["high cpu", "memory leak", "network timeout", "disk full"]
+                issues = ["high cpu", "high iowait", "memory pressure", "swap thrashing", "network timeout"]
                 notes.append(np.random.choice(issues))
             elif state == 'maintenance':
                 notes.append("scheduled maintenance")
@@ -782,7 +796,7 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
                 notes.append("service restart")
             else:
                 notes.append("")
-        
+
         df.loc[server_mask, 'notes'] = notes
     
     return df
@@ -881,14 +895,25 @@ def validate_output(df: pd.DataFrame, config: Config) -> bool:
         
         assert 0.08 <= problem_pct <= 0.12, f"Problem children % {problem_pct:.3f} outside [8%, 12%]"
         
-        # Check profile baselines (sample ML compute servers - highest resource usage)
+        # Check profile baselines with LINBORG metrics (sample ML compute servers)
         ml_data = df[df['profile'] == 'ml_compute']
         if not ml_data.empty:
-            mean_cpu = ml_data['cpu_pct'].mean()
-            mean_mem = ml_data['mem_pct'].mean()
-            assert 60 <= mean_cpu <= 90, f"ML Compute CPU mean {mean_cpu:.1f}% outside [60%, 90%]"
-            assert 70 <= mean_mem <= 95, f"ML Compute mem mean {mean_mem:.1f}% outside [70%, 95%]"
-        
+            # Total CPU usage (user + sys + iowait should be reasonable)
+            mean_cpu_user = ml_data['cpu_user_pct'].mean()
+            mean_cpu_sys = ml_data['cpu_sys_pct'].mean()
+            mean_cpu_iowait = ml_data['cpu_iowait_pct'].mean()
+            total_cpu_usage = mean_cpu_user + mean_cpu_sys + mean_cpu_iowait
+
+            # Memory usage
+            mean_mem = ml_data['mem_used_pct'].mean()
+
+            # ML compute should have moderate to high CPU and high memory
+            assert 30 <= total_cpu_usage <= 85, f"ML Compute total CPU {total_cpu_usage:.1f}% outside [30%, 85%]"
+            assert 60 <= mean_mem <= 90, f"ML Compute memory {mean_mem:.1f}% outside [60%, 90%]"
+
+            # I/O wait should be low for ML compute (not I/O bound)
+            assert mean_cpu_iowait <= 10, f"ML Compute I/O wait {mean_cpu_iowait:.1f}% too high (should be <10%)"
+
         print("✅ All validation checks passed")
         return True
         
@@ -975,13 +1000,16 @@ def stream_to_daemon(config: Config, daemon_url: str = "http://localhost:8000", 
                 if next_state == ServerState.OFFLINE:
                     continue
 
-                # Generate metrics
+                # Generate LINBORG metrics (14 metrics matching production monitoring)
                 profile_enum = ServerProfile(profile)
                 baselines = PROFILE_BASELINES[profile_enum]
 
                 metrics = {}
-                for metric in ['cpu', 'mem', 'disk_io_mb_s', 'net_in_mb_s', 'net_out_mb_s',
-                              'latency_ms', 'error_rate', 'gc_pause_ms']:
+                for metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
+                              'mem_used', 'swap_used', 'disk_usage',
+                              'net_in_mb_s', 'net_out_mb_s',
+                              'back_close_wait', 'front_close_wait',
+                              'load_average', 'uptime_days']:
                     if metric in baselines:
                         mean, std = baselines[metric]
                         value = np.random.normal(mean, std)
@@ -990,24 +1018,49 @@ def stream_to_daemon(config: Config, daemon_url: str = "http://localhost:8000", 
                         multiplier = STATE_MULTIPLIERS[next_state].get(metric, 1.0)
                         value *= multiplier
 
-                        # Apply diurnal pattern
-                        diurnal_mult = diurnal_multiplier(hour, profile_enum, next_state)
-                        value *= diurnal_mult
+                        # Apply diurnal pattern (except uptime)
+                        if metric != 'uptime_days':
+                            diurnal_mult = diurnal_multiplier(hour, profile_enum, next_state)
+                            value *= diurnal_mult
 
-                        # Apply scenario degradation for affected servers
+                        # Apply scenario degradation for affected servers (stress metrics only)
                         if is_affected and scenario != 'healthy':
-                            if metric in ['cpu', 'mem', 'latency_ms', 'error_rate', 'gc_pause_ms']:
+                            if metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'java_cpu',
+                                        'mem_used', 'swap_used', 'load_average']:
                                 value *= scenario_mult
 
-                        # Apply bounds
-                        if metric in ['cpu', 'mem']:
+                        # Apply bounds and format
+                        if metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
+                                     'mem_used', 'swap_used', 'disk_usage']:
+                            # Percentage metrics (0-100%)
                             value = np.clip(value * 100, 0, 100)
                             metrics[f'{metric}_pct'] = round(value, 2)
+                        elif metric in ['back_close_wait', 'front_close_wait']:
+                            # Integer connection counts
+                            value = max(0, int(value))
+                            metrics[metric] = value
+                        elif metric == 'uptime_days':
+                            # Integer days, capped at reasonable max
+                            value = np.clip(value, 0, 30)
+                            metrics[metric] = int(value)
                         else:
+                            # Other metrics (load_average, network MB/s)
                             value = max(0, value)
                             metrics[metric] = round(value, 2)
 
-                # Build record
+                # Add notes for interesting states
+                notes = ''
+                if next_state == ServerState.MORNING_SPIKE:
+                    notes = "auth surge" if np.random.random() < 0.3 else "batch warmup"
+                elif next_state == ServerState.CRITICAL_ISSUE:
+                    issues = ["high cpu", "high iowait", "memory pressure", "swap thrashing", "network timeout"]
+                    notes = np.random.choice(issues)
+                elif next_state == ServerState.MAINTENANCE:
+                    notes = "scheduled maintenance"
+                elif next_state == ServerState.RECOVERY:
+                    notes = "service restart"
+
+                # Build record with LINBORG-compatible metrics
                 record = {
                     'timestamp': current_time.isoformat(),
                     'server_name': server_name,
@@ -1015,8 +1068,7 @@ def stream_to_daemon(config: Config, daemon_url: str = "http://localhost:8000", 
                     'state': next_state.value,
                     'problem_child': bool(is_problem_child),
                     **metrics,
-                    'container_oom': int(np.random.random() < 0.01 if metrics.get('mem_pct', 0) > 85 else 0),
-                    'notes': ''
+                    'notes': notes
                 }
 
                 batch.append(record)
