@@ -14,8 +14,8 @@ from typing import List, Tuple, Dict, Any
 import pandas as pd
 
 
-# Data Contract Constants (v1.0.0)
-CONTRACT_VERSION = "1.0.0"
+# Data Contract Constants (v2.0.0 - LINBORG Metrics)
+CONTRACT_VERSION = "2.0.0"
 
 VALID_STATES = [
     'critical_issue',
@@ -28,21 +28,54 @@ VALID_STATES = [
     'recovery'
 ]
 
+# LINBORG Metrics (14 total)
 REQUIRED_COLUMNS = [
     'timestamp',
     'server_name',
-    'cpu_pct',
-    'mem_pct',
-    'disk_io_mb_s',
-    'latency_ms',
-    'state'
+    'state',
+    # CPU metrics (5)
+    'cpu_user_pct',
+    'cpu_sys_pct',
+    'cpu_iowait_pct',
+    'cpu_idle_pct',
+    'java_cpu_pct',
+    # Memory metrics (2)
+    'mem_used_pct',
+    'swap_used_pct',
+    # Disk metrics (1)
+    'disk_usage_pct',
+    # Network metrics (2)
+    'net_in_mb_s',
+    'net_out_mb_s',
+    # Connection metrics (2)
+    'back_close_wait',
+    'front_close_wait',
+    # System metrics (2)
+    'load_average',
+    'uptime_days'
 ]
 
 NUMERIC_RANGES = {
-    'cpu_pct': (0.0, 100.0),
-    'mem_pct': (0.0, 100.0),
-    'disk_io_mb_s': (0.0, float('inf')),
-    'latency_ms': (0.0, float('inf'))
+    # CPU percentages
+    'cpu_user_pct': (0.0, 100.0),
+    'cpu_sys_pct': (0.0, 100.0),
+    'cpu_iowait_pct': (0.0, 100.0),
+    'cpu_idle_pct': (0.0, 100.0),
+    'java_cpu_pct': (0.0, 100.0),
+    # Memory percentages
+    'mem_used_pct': (0.0, 100.0),
+    'swap_used_pct': (0.0, 100.0),
+    # Disk percentage
+    'disk_usage_pct': (0.0, 100.0),
+    # Network throughput (MB/s)
+    'net_in_mb_s': (0.0, float('inf')),
+    'net_out_mb_s': (0.0, float('inf')),
+    # Connection counts (integers)
+    'back_close_wait': (0, float('inf')),
+    'front_close_wait': (0, float('inf')),
+    # System metrics
+    'load_average': (0.0, float('inf')),
+    'uptime_days': (0, 365)
 }
 
 
@@ -112,9 +145,10 @@ class DataValidator:
         if missing:
             self.errors.append(f"Missing required columns: {sorted(missing)}")
 
+        # Allow profile and training-related columns
         extra = set(df.columns) - set(REQUIRED_COLUMNS) - {
-            'server_id', 'hour', 'day_of_week', 'month', 'is_weekend',
-            'is_business_hours', 'time_idx'  # Allow training features
+            'server_id', 'profile', 'hour', 'day_of_week', 'month', 'is_weekend',
+            'is_business_hours', 'time_idx', 'notes', 'problem_child', 'status'
         }
         if extra:
             self.warnings.append(f"Extra columns present: {sorted(extra)}")
@@ -163,10 +197,17 @@ class DataValidator:
                 )
 
             # Check for unrealistic values (warnings only)
-            if col == 'cpu_pct' and (df[col] > 99.9).sum() > len(df) * 0.05:
+            if col == 'cpu_user_pct' and (df[col] > 99.9).sum() > len(df) * 0.05:
                 self.warnings.append(
-                    f"More than 5% of samples have cpu_pct > 99.9% "
+                    f"More than 5% of samples have cpu_user_pct > 99.9% "
                     f"(may indicate data quality issues)"
+                )
+
+            # I/O Wait validation - CRITICAL metric
+            if col == 'cpu_iowait_pct' and (df[col] > 50).sum() > len(df) * 0.01:
+                self.warnings.append(
+                    f"More than 1% of samples have cpu_iowait_pct > 50% "
+                    f"(CRITICAL: severe I/O bottleneck - 'system troubleshooting 101')"
                 )
 
     def _validate_timestamps(self, df: pd.DataFrame) -> None:

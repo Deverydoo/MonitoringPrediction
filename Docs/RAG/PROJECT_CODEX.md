@@ -1,8 +1,8 @@
 # PROJECT CODEX - Rules & Conventions
 
-**Version:** 1.0.0
+**Version:** 2.0.0 (LINBORG Metrics)
 **Status:** ⚠️ AUTHORITATIVE - All development must follow these rules
-**Last Updated:** 2025-10-11
+**Last Updated:** 2025-10-14
 
 ---
 
@@ -121,18 +121,50 @@ This document defines the immutable rules, conventions, and standards for the TF
 
 ## 🔒 Schema Rules
 
-### Immutable Columns (REQUIRED)
+### Immutable Columns (REQUIRED) - LINBORG Metrics v2.0
+
 ```python
 REQUIRED_COLUMNS = [
-    'timestamp',      # datetime - ISO8601 format
-    'server_name',    # string - Original hostname
-    'cpu_pct',        # float - 0.0 to 100.0
-    'mem_pct',        # float - 0.0 to 100.0
-    'disk_io_mb_s',   # float - 0.0+
-    'latency_ms',     # float - 0.0+
-    'state',          # string - One of VALID_STATES
-    'profile'         # string - One of 7 profiles (NEW)
+    # Core identification
+    'timestamp',         # datetime - ISO8601 format
+    'server_name',       # string - Original hostname
+    'profile',           # string - One of 7 profiles
+    'state',             # string - One of VALID_STATES
+
+    # LINBORG CPU Metrics (5 metrics)
+    'cpu_user_pct',      # float - 0.0 to 100.0 - User space CPU
+    'cpu_sys_pct',       # float - 0.0 to 100.0 - System/kernel CPU
+    'cpu_iowait_pct',    # float - 0.0 to 100.0 - I/O wait (CRITICAL)
+    'cpu_idle_pct',      # float - 0.0 to 100.0 - Idle CPU
+    'java_cpu_pct',      # float - 0.0 to 100.0 - Java/Spark CPU
+
+    # LINBORG Memory Metrics (2 metrics)
+    'mem_used_pct',      # float - 0.0 to 100.0 - Memory utilization
+    'swap_used_pct',     # float - 0.0 to 100.0 - Swap usage
+
+    # LINBORG Disk Metrics (1 metric)
+    'disk_usage_pct',    # float - 0.0 to 100.0 - Disk space usage
+
+    # LINBORG Network Metrics (2 metrics)
+    'net_in_mb_s',       # float - 0.0+ - Network ingress MB/s
+    'net_out_mb_s',      # float - 0.0+ - Network egress MB/s
+
+    # LINBORG Connection Metrics (2 metrics)
+    'back_close_wait',   # int - TCP backend connections
+    'front_close_wait',  # int - TCP frontend connections
+
+    # LINBORG System Metrics (2 metrics)
+    'load_average',      # float - 0.0+ - System load average
+    'uptime_days'        # int - 0-30 - Days since reboot
 ]
+
+# Total: 4 core + 14 LINBORG metrics = 18 required columns
+```
+
+### DEPRECATED Columns (DO NOT USE):
+```python
+# OLD SYSTEM - WILL CAUSE ERRORS
+DEPRECATED_COLUMNS = ['cpu_pct', 'mem_pct', 'disk_io_mb_s', 'latency_ms']  # ❌
 ```
 
 ### Immutable States (EXACTLY 8)
@@ -168,6 +200,82 @@ VALID_PROFILES = [
 3. Regenerate ALL training data
 4. Retrain ALL models
 5. Update ALL documentation
+
+---
+
+## 🚨 LINBORG Metrics Rules
+
+### 1. LINBORG Metric Naming (Immutable)
+> **All 14 LINBORG metrics must use exact names. No variations allowed.**
+
+```python
+# ✅ CORRECT
+time_varying_unknown_reals = [
+    'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+    'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+    'net_in_mb_s', 'net_out_mb_s',
+    'back_close_wait', 'front_close_wait',
+    'load_average', 'uptime_days'
+]
+
+# ❌ WRONG - Will cause errors
+time_varying_unknown_reals = ['cpu_pct', 'mem_pct', 'disk_io_mb_s', 'latency_ms']
+time_varying_unknown_reals = ['cpu_percent', 'memory_percent', ...]  # Wrong names
+```
+
+### 2. CPU Display Rule
+> **Always display "% CPU Used = 100 - cpu_idle_pct", never show raw idle**
+
+```python
+# ✅ CORRECT - User-facing display
+cpu_used = 100 - cpu_idle_pct
+print(f"CPU: {cpu_used:.1f}%")
+
+# ❌ WRONG - Backwards for humans
+print(f"CPU Idle: {cpu_idle_pct:.1f}%")  # Confusing
+```
+
+### 3. I/O Wait Priority Rule
+> **I/O Wait is CRITICAL metric. Always include in risk scoring and alerts.**
+
+```python
+# ✅ REQUIRED - I/O wait must have high weight in risk calculation
+if cpu_iowait >= 30:
+    current_risk += 50  # CRITICAL - severe I/O bottleneck
+elif cpu_iowait >= 20:
+    current_risk += 30  # High I/O contention
+elif cpu_iowait >= 10:
+    current_risk += 15  # Elevated I/O wait
+
+# ❌ WRONG - Omitting I/O wait from risk calculation
+# (This misses critical bottleneck indicator)
+```
+
+### 4. Profile-Specific I/O Wait Thresholds
+> **Database servers have different I/O wait "normal" than ML servers**
+
+```python
+# ✅ CORRECT - Profile-aware thresholds
+if profile == 'database':
+    iowait_threshold = 20  # Databases are I/O intensive
+elif profile == 'ml_compute':
+    iowait_threshold = 5   # ML should be compute-bound
+
+# ❌ WRONG - One-size-fits-all threshold
+iowait_threshold = 10  # Misses DB normal behavior
+```
+
+### 5. Integer vs Float Types
+> **Connection counts are integers, percentages are floats**
+
+```python
+# ✅ CORRECT - Proper types
+back_close_wait = int(value)      # TCP connections
+cpu_iowait_pct = float(value)     # Percentage
+
+# ❌ WRONG - Type mismatch
+back_close_wait = 5.7  # Connections must be whole numbers
+```
 
 ---
 

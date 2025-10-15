@@ -1,14 +1,57 @@
 # ESSENTIAL RAG - TFT Monitoring Prediction System
 
-**Version:** 3.0.0 (Profile-Based Transfer Learning)
-**Last Updated:** 2025-10-11
-**Status:** Production Ready
+**Version:** 4.0.0 (LINBORG Metrics Integration)
+**Last Updated:** 2025-10-14
+**Status:** Production Ready with 14 LINBORG Metrics
 
 ---
 
 ## 🎯 System Purpose
 
-Temporal Fusion Transformer (TFT) based predictive monitoring system that predicts server incidents **30 minutes to 8 hours in advance** for financial ML platforms using **profile-based transfer learning**.
+Temporal Fusion Transformer (TFT) based predictive monitoring system that predicts server incidents **30 minutes to 8 hours in advance** for financial ML platforms using **profile-based transfer learning** and **14 LINBORG production metrics**.
+
+**Key Innovation**: Real-time prediction of I/O bottlenecks, swap thrashing, and Java/Spark resource exhaustion using production-grade LINBORG monitoring data.
+
+---
+
+## 🚨 LINBORG Metrics (CRITICAL - READ FIRST)
+
+**System uses 14 production LINBORG metrics. Old 4-metric system is DEPRECATED.**
+
+### LINBORG Metric Structure:
+```python
+# REQUIRED - All training/inference must use these exact names
+LINBORG_METRICS = [
+    'cpu_user_pct',      # User space CPU (Spark workers)
+    'cpu_sys_pct',       # System/kernel CPU
+    'cpu_iowait_pct',    # ⚠️ CRITICAL: I/O wait (system troubleshooting 101)
+    'cpu_idle_pct',      # Idle CPU (calculate: % Used = 100 - idle)
+    'java_cpu_pct',      # Java/Spark CPU usage
+    'mem_used_pct',      # Memory utilization
+    'swap_used_pct',     # Swap usage (thrashing indicator)
+    'disk_usage_pct',    # Disk space usage
+    'net_in_mb_s',       # Network ingress (MB/s)
+    'net_out_mb_s',      # Network egress (MB/s)
+    'back_close_wait',   # TCP backend connection count
+    'front_close_wait',  # TCP frontend connection count
+    'load_average',      # System load average
+    'uptime_days'        # Days since last reboot (maintenance tracking)
+]
+```
+
+### Key Design Decisions:
+- **I/O Wait**: "System troubleshooting 101" - CRITICAL for diagnosing storage bottlenecks
+- **CPU Display**: Always show "% CPU Used = 100 - cpu_idle_pct" (idle is backwards for humans)
+- **Database Servers**: Expect high I/O wait (~15%) - this is normal for disk-intensive workloads
+- **ML Compute**: Should have LOW I/O wait (<2%) - high values indicate misconfiguration
+
+### Old System (DO NOT USE):
+```python
+# DEPRECATED - Will cause errors
+OLD_METRICS = ['cpu_pct', 'mem_pct', 'disk_io_mb_s', 'latency_ms']  # ❌ Don't use
+```
+
+**Migration**: All old data must be regenerated. All models must be retrained.
 
 ---
 
@@ -131,9 +174,15 @@ def encode_server_name(server_name: str) -> str:
 - **Parameters:** ~88K (including profile embeddings)
 - **Storage:** Safetensors format
 - **Features:**
-  - Time-varying unknown: cpu_pct, mem_pct, disk_io_mb_s, latency_ms
+  - Time-varying unknown (14 LINBORG metrics):
+    - **CPU**: cpu_user_pct, cpu_sys_pct, cpu_iowait_pct, cpu_idle_pct, java_cpu_pct
+    - **Memory**: mem_used_pct, swap_used_pct
+    - **Disk**: disk_usage_pct
+    - **Network**: net_in_mb_s, net_out_mb_s
+    - **Connections**: back_close_wait, front_close_wait
+    - **System**: load_average, uptime_days
   - Time-varying known: hour, day_of_week, is_weekend
-  - Static categorical: **profile** (NEW)
+  - Static categorical: **profile** (transfer learning enabled)
   - Categorical: server_id, state
 
 ---

@@ -1,7 +1,8 @@
 # DATA CONTRACT - Single Source of Truth
 
-**Version:** 1.0.0
+**Version:** 2.0.0 (LINBORG Metrics)
 **Created:** 2025-10-11
+**Updated:** 2025-10-14
 **Status:** ⚠️ AUTHORITATIVE - All code must conform to this contract
 
 ---
@@ -25,17 +26,68 @@ This document defines the **immutable data contract** for the TFT Monitoring Pre
 
 ## 🔑 Core Schema Definition
 
-### Required Columns (All Stages)
+### Required Columns (All Stages) - LINBORG Metrics v2.0
 
-| Column | Type | Description | Range/Values | Source Field |
-|--------|------|-------------|--------------|--------------|
-| `timestamp` | datetime | ISO8601 timestamp | Any valid datetime | Timestamp |
-| `server_name` | string | Unique hostname | e.g., `ppvra00a0018` | Host Name |
-| `cpu_pct` | float | CPU utilization percentage | 0.0 - 100.0 | Derived from %CPU columns |
-| `mem_pct` | float | Memory utilization percentage | 0.0 - 100.0 | %Mem Used |
-| `disk_io_mb_s` | float | Disk I/O throughput | 0.0+ | Mb/s In + Mb/s Out |
-| `latency_ms` | float | Network/system latency | 0.0+ | Derived metric |
-| `state` | string | Operational state | See State Contract below | Derived from metrics |
+**Core Identification (3 columns):**
+
+| Column | Type | Description | Range/Values |
+|--------|------|-------------|--------------|
+| `timestamp` | datetime | ISO8601 timestamp | Any valid datetime |
+| `server_name` | string | Unique hostname | e.g., `ppml0001`, `ppdb001` |
+| `state` | string | Operational state | See State Contract below |
+
+**LINBORG CPU Metrics (5 columns):**
+
+| Column | Type | Description | Range/Values |
+|--------|------|-------------|--------------|
+| `cpu_user_pct` | float | User space CPU | 0.0 - 100.0 |
+| `cpu_sys_pct` | float | System/kernel CPU | 0.0 - 100.0 |
+| `cpu_iowait_pct` | float | **I/O wait (CRITICAL)** | 0.0 - 100.0 |
+| `cpu_idle_pct` | float | Idle CPU (% Used = 100 - idle) | 0.0 - 100.0 |
+| `java_cpu_pct` | float | Java/Spark CPU usage | 0.0 - 100.0 |
+
+**LINBORG Memory Metrics (2 columns):**
+
+| Column | Type | Description | Range/Values |
+|--------|------|-------------|--------------|
+| `mem_used_pct` | float | Memory utilization | 0.0 - 100.0 |
+| `swap_used_pct` | float | Swap usage (thrashing indicator) | 0.0 - 100.0 |
+
+**LINBORG Disk Metrics (1 column):**
+
+| Column | Type | Description | Range/Values |
+|--------|------|-------------|--------------|
+| `disk_usage_pct` | float | Disk space usage | 0.0 - 100.0 |
+
+**LINBORG Network Metrics (2 columns):**
+
+| Column | Type | Description | Range/Values |
+|--------|------|-------------|--------------|
+| `net_in_mb_s` | float | Network ingress (MB/s) | 0.0+ |
+| `net_out_mb_s` | float | Network egress (MB/s) | 0.0+ |
+
+**LINBORG Connection Metrics (2 columns):**
+
+| Column | Type | Description | Range/Values |
+|--------|------|-------------|--------------|
+| `back_close_wait` | int | TCP backend connections | 0+ |
+| `front_close_wait` | int | TCP frontend connections | 0+ |
+
+**LINBORG System Metrics (2 columns):**
+
+| Column | Type | Description | Range/Values |
+|--------|------|-------------|--------------|
+| `load_average` | float | System load average | 0.0+ |
+| `uptime_days` | int | Days since reboot | 0-365 |
+
+**Total:** 3 core + 14 LINBORG metrics = **17 required columns**
+
+### DEPRECATED Columns (DO NOT USE):
+
+❌ `cpu_pct` - Replaced by cpu_user_pct, cpu_sys_pct, cpu_iowait_pct, cpu_idle_pct, java_cpu_pct
+❌ `mem_pct` - Replaced by mem_used_pct, swap_used_pct
+❌ `disk_io_mb_s` - Replaced by net_in_mb_s, net_out_mb_s
+❌ `latency_ms` - Replaced by load_average
 
 ### State Contract (IMMUTABLE)
 
@@ -439,24 +491,42 @@ VALID_STATES = [
 ]
 ```
 
-### Required Columns (Copy-Paste)
+### Required Columns (Copy-Paste) - LINBORG v2.0
 ```python
 REQUIRED_COLUMNS = [
     'timestamp',
     'server_name',
-    'cpu_pct',
-    'mem_pct',
-    'disk_io_mb_s',
-    'latency_ms',
-    'state'
+    'state',
+    # CPU metrics (5)
+    'cpu_user_pct',
+    'cpu_sys_pct',
+    'cpu_iowait_pct',  # CRITICAL - "system troubleshooting 101"
+    'cpu_idle_pct',
+    'java_cpu_pct',
+    # Memory metrics (2)
+    'mem_used_pct',
+    'swap_used_pct',
+    # Disk metrics (1)
+    'disk_usage_pct',
+    # Network metrics (2)
+    'net_in_mb_s',
+    'net_out_mb_s',
+    # Connection metrics (2)
+    'back_close_wait',
+    'front_close_wait',
+    # System metrics (2)
+    'load_average',
+    'uptime_days'
 ]
 ```
 
 ---
 
-**Contract Version:** 1.0.0
-**Last Updated:** 2025-10-11
+**Contract Version:** 2.0.0 (LINBORG Metrics)
+**Last Updated:** 2025-10-14
 **Maintained By:** Project Team
 **Review Frequency:** Before any schema changes
 
 ⚠️ **THIS IS THE SOURCE OF TRUTH - ALL CODE MUST CONFORM TO THIS CONTRACT**
+
+**Breaking Change from v1.0.0:** All old metrics (cpu_pct, mem_pct, disk_io_mb_s, latency_ms) replaced with 14 LINBORG production metrics.

@@ -1,16 +1,52 @@
 # Current State RAG - TFT Monitoring Dashboard
 
-**Last Updated**: October 13, 2025
+**Last Updated**: October 14, 2025
 **Purpose**: Context for new AI sessions to maintain momentum
-**Status**: 🎯 Demo-Ready, Feature Locked
+**Status**: 🎯 Post-Demo, Production-Ready with LINBORG Metrics
 
 ---
 
 ## 🎯 Project Status
 
-**What We Have**: Production-ready predictive monitoring dashboard
-**Demo Date**: Tuesday (36 hours away as of last session)
-**Current Phase**: Feature locked, documentation complete, testing phase
+**What We Have**: Production-ready predictive monitoring dashboard with 14 LINBORG metrics
+**Demo Date**: Completed (October 2025)
+**Current Phase**: Production deployment ready, LINBORG metrics validated
+
+---
+
+## 🚨 CRITICAL: LINBORG Metrics System (Oct 13 Refactor)
+
+**BREAKING CHANGE**: System now uses 14 LINBORG-compatible metrics instead of old 4-metric system.
+
+### Old System (DEPRECATED - Do Not Use):
+```python
+# OLD - DO NOT USE
+time_varying_unknown_reals = ['cpu_pct', 'mem_pct', 'disk_io_mb_s', 'latency_ms']
+```
+
+### New LINBORG System (REQUIRED):
+```python
+# NEW - REQUIRED for all training/inference
+time_varying_unknown_reals = [
+    'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+    'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+    'net_in_mb_s', 'net_out_mb_s',
+    'back_close_wait', 'front_close_wait',
+    'load_average', 'uptime_days'
+]
+```
+
+**Key LINBORG Metrics**:
+- **I/O Wait (`cpu_iowait_pct`)**: "System troubleshooting 101" - CRITICAL for diagnosing I/O bottlenecks
+- **CPU Display**: Show "% CPU Used = 100 - cpu_idle_pct" (not raw idle, which is backwards)
+- **Java CPU**: Separate tracking for Spark/JVM workloads
+- **Uptime Days**: Tracks maintenance cycles (25-day baseline)
+- **TCP Connections**: Back/front close wait for connection state monitoring
+
+**Migration Required**:
+- All old training data must be regenerated
+- All models must be retrained
+- Dashboard now displays: CPU Used, I/O Wait, Memory, Load Avg (not Latency)
 
 ---
 
@@ -121,10 +157,19 @@
 - Total: 25,265 lines
 
 **Development Time**:
-- Total: 150 hours (solo with AI assistance)
+- Total: 150+ hours (solo with AI assistance)
 - Equivalent: 800-1,200 hours traditional solo
 - Speed multiplier: 5-8x faster with AI
 - Cost reduction: 76-93%
+- Major refactor (Oct 13): LINBORG metrics integration (BREAKING CHANGE)
+
+**LINBORG Metrics (14 Total)**:
+- **CPU Components**: user, sys, iowait (CRITICAL), idle, java_cpu (5 metrics)
+- **Memory**: mem_used, swap_used (2 metrics)
+- **Disk**: disk_usage (1 metric)
+- **Network**: net_in_mb_s, net_out_mb_s (2 metrics)
+- **TCP Connections**: back_close_wait, front_close_wait (2 metrics)
+- **System**: load_average, uptime_days (2 metrics)
 
 **Fleet Configuration**:
 - 20 servers across 7 profiles:
@@ -306,16 +351,32 @@ def calculate_server_risk_score(server_pred: Dict) -> float:
     """
     70% current state + 30% predictions
     Profile-aware thresholds
-    Multi-metric correlation
+    Multi-metric correlation with LINBORG metrics
     """
     current_risk = 0.0   # What's on fire NOW
     predicted_risk = 0.0  # Early warning
+
+    # Calculate CPU Used from LINBORG components (100 - idle)
+    cpu_idle = server_pred.get('cpu_idle_pct', {}).get('current', 0)
+    cpu_user = server_pred.get('cpu_user_pct', {}).get('current', 0)
+    cpu_sys = server_pred.get('cpu_sys_pct', {}).get('current', 0)
+    cpu_iowait = server_pred.get('cpu_iowait_pct', {}).get('current', 0)
+    current_cpu = 100 - cpu_idle if cpu_idle > 0 else (cpu_user + cpu_sys + cpu_iowait)
 
     # CPU assessment
     if current_cpu >= 98:
         current_risk += 60  # Critical
 
-    # Profile-specific memory
+    # I/O Wait - CRITICAL troubleshooting metric
+    if current_iowait >= 30:
+        current_risk += 50  # CRITICAL - severe I/O bottleneck
+    elif current_iowait >= 20:
+        current_risk += 30  # High I/O contention
+    elif current_iowait >= 10:
+        current_risk += 15  # Elevated I/O wait
+
+    # Profile-specific memory (using mem_used_pct)
+    current_mem = server_pred.get('mem_used_pct', {}).get('current', 0)
     if profile == 'Database':
         if current_mem > 100:
             current_risk += 50  # Bad (swap)
@@ -343,19 +404,43 @@ elif risk_score >= 50:
     priority = "Degrading"
 ```
 
-### Metrics Baselines (`metrics_generator.py` lines 184-227)
+### Metrics Baselines (`metrics_generator.py` lines 184-227) - LINBORG Metrics
 
 ```python
 PROFILE_BASELINES = {
     ServerProfile.ML_COMPUTE: {
-        "cpu": (0.20, 0.08),  # 20% ± 8% = 12-28% range
-        "mem": (0.28, 0.08),  # 28% ± 8% = 20-36% range
+        "cpu_user": (0.45, 0.12),      # Spark workers
+        "cpu_sys": (0.08, 0.03),       # System/kernel
+        "cpu_iowait": (0.02, 0.01),    # I/O wait (CRITICAL) - should be LOW
+        "cpu_idle": (0.45, 0.15),      # Idle
+        "java_cpu": (0.50, 0.15),      # Java/Spark
+        "mem_used": (0.72, 0.10),      # High memory for models
+        "swap_used": (0.05, 0.03),     # Minimal swap
+        "disk_usage": (0.55, 0.08),    # Checkpoints, logs
+        "net_in_mb_s": (8.5, 3.0),     # Network ingress
+        "net_out_mb_s": (5.2, 2.0),    # Network egress
+        "back_close_wait": (2, 1),     # TCP connections
+        "front_close_wait": (2, 1),
+        "load_average": (6.5, 2.0),    # System load
+        "uptime_days": (25, 2)         # Monthly maintenance cycle
     },
     ServerProfile.DATABASE: {
-        "cpu": (0.18, 0.07),  # 18% ± 7% = 11-25% range
-        "mem": (0.30, 0.08),  # 30% ± 8% = 22-38% range
+        "cpu_user": (0.25, 0.08),
+        "cpu_sys": (0.12, 0.04),       # Higher system (I/O)
+        "cpu_iowait": (0.15, 0.05),    # ** HIGH - DBs are I/O intensive **
+        "cpu_idle": (0.48, 0.12),
+        "java_cpu": (0.10, 0.05),      # Minimal Java
+        "mem_used": (0.68, 0.10),      # Buffer pools
+        "swap_used": (0.03, 0.02),
+        "disk_usage": (0.70, 0.10),    # Databases fill disks
+        "net_in_mb_s": (35.0, 12.0),   # High network (queries)
+        "net_out_mb_s": (28.0, 10.0),
+        "back_close_wait": (8, 3),     # Many connections
+        "front_close_wait": (6, 2),
+        "load_average": (4.2, 1.5),
+        "uptime_days": (25, 2)
     },
-    # ... other profiles
+    # ... other profiles with 14 LINBORG metrics each
 }
 ```
 
