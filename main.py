@@ -14,6 +14,7 @@ from metrics_generator import generate_dataset
 from tft_trainer import train_model
 from tft_inference import predict
 from config import CONFIG
+from linborg_schema import LINBORG_METRICS, NUM_LINBORG_METRICS, validate_linborg_metrics
 
 
 def setup() -> bool:
@@ -76,8 +77,22 @@ def status():
             print(f"   Rows: {len(df):,}")
             if 'server_name' in df.columns:
                 print(f"   Servers: {df['server_name'].nunique()}")
+            if 'profile' in df.columns:
+                print(f"   Profiles: {df['profile'].nunique()} ({', '.join(sorted(df['profile'].unique()))})")
             if 'timestamp' in df.columns:
-                print(f"   Time range: {df['timestamp'].min()} to {df['timestamp'].max()}")
+                time_span_hours = (df['timestamp'].max() - df['timestamp'].min()).total_seconds() / 3600
+                print(f"   Time span: {time_span_hours:.1f} hours ({time_span_hours/24:.1f} days)")
+
+            # Check for LINBORG metrics (using centralized schema)
+            present, missing = validate_linborg_metrics(df.columns)
+            if len(missing) == 0:
+                print(f"   Metrics: {NUM_LINBORG_METRICS} LINBORG metrics ✅")
+            elif len(present) > 0:
+                print(f"   Metrics: {len(present)}/{NUM_LINBORG_METRICS} LINBORG metrics (partial)")
+            else:
+                # Legacy metrics check
+                if 'cpu_pct' in df.columns:
+                    print(f"   Metrics: Legacy format (needs regeneration)")
         except Exception as e:
             print(f"   Info unavailable: {e}")
     elif csv_files:

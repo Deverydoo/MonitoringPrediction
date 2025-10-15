@@ -39,6 +39,7 @@ import uvicorn
 from server_encoder import ServerEncoder
 from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
 from gpu_profiles import setup_gpu
+from linborg_schema import LINBORG_METRICS
 
 # Suppress warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='lightning.pytorch.utilities.parsing')
@@ -188,7 +189,7 @@ class TFTInference:
                     'profile': NaNLabelEncoder(add_nan=True)
                 }
 
-                # LINBORG-compatible metrics (14 metrics)
+                # LINBORG-compatible metrics - use centralized schema
                 self.training_data = TimeSeriesDataSet(
                     dummy_df,
                     time_idx='time_idx',
@@ -198,13 +199,7 @@ class TFTInference:
                     max_prediction_length=96,
                     min_encoder_length=12,
                     min_prediction_length=1,
-                    time_varying_unknown_reals=[
-                        'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
-                        'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
-                        'net_in_mb_s', 'net_out_mb_s',
-                        'back_close_wait', 'front_close_wait',
-                        'load_average', 'uptime_days'
-                    ],
+                    time_varying_unknown_reals=LINBORG_METRICS.copy(),
                     time_varying_known_reals=['hour', 'day_of_week', 'month', 'is_weekend'],
                     time_varying_unknown_categoricals=['status'],
                     static_categoricals=['profile'],
@@ -649,8 +644,12 @@ class TFTInference:
             # Heuristic for other LINBORG metrics (TFT doesn't predict these yet)
             server_data = input_df[input_df['server_id'] == server_id]
 
-            for metric in ['cpu_sys_pct', 'cpu_iowait_pct', 'mem_used_pct', 'swap_used_pct',
-                          'disk_usage_pct', 'load_average', 'net_in_mb_s', 'net_out_mb_s']:
+            # ALL 13 remaining LINBORG metrics (TFT only predicts cpu_user_pct)
+            for metric in ['cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+                          'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+                          'net_in_mb_s', 'net_out_mb_s',
+                          'back_close_wait', 'front_close_wait',
+                          'load_average', 'uptime_days']:
                 if metric in server_data.columns:
                     values = server_data[metric].values[-24:]
                     if len(values) > 0:
@@ -666,6 +665,10 @@ class TFTInference:
                             p90_forecast = [min(100, v + noise * np.sqrt(i)) for i, v in enumerate(p50_forecast, 1)]
                         elif metric in ['net_in_mb_s', 'net_out_mb_s']:
                             p90_forecast = [min(200, v + noise * np.sqrt(i)) for i, v in enumerate(p50_forecast, 1)]  # Cap at 200 MB/s
+                        elif metric in ['back_close_wait', 'front_close_wait']:
+                            p90_forecast = [max(0, int(v + noise * np.sqrt(i))) for i, v in enumerate(p50_forecast, 1)]  # Integer counts
+                        elif metric == 'uptime_days':
+                            p90_forecast = [min(30, max(0, int(v + noise * np.sqrt(i)))) for i, v in enumerate(p50_forecast, 1)]  # 0-30 days
                         else:  # load_average
                             p90_forecast = [min(16, v + noise * np.sqrt(i)) for i, v in enumerate(p50_forecast, 1)]
 
@@ -685,14 +688,8 @@ class TFTInference:
         """Enhanced heuristic predictions (fallback) using LINBORG metrics."""
         predictions = {}
 
-        # LINBORG metrics - direct usage (no mapping needed)
-        linborg_metrics = [
-            'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
-            'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
-            'net_in_mb_s', 'net_out_mb_s',
-            'back_close_wait', 'front_close_wait',
-            'load_average', 'uptime_days'
-        ]
+        # Use centralized LINBORG schema
+        linborg_metrics = LINBORG_METRICS
 
         servers = df['server_name'].unique() if 'server_name' in df.columns else ['default']
 

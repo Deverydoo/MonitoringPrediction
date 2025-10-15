@@ -679,7 +679,7 @@ def simulate_states(fleet: pd.DataFrame, schedule: pd.DatetimeIndex, config: Con
                 'timestamp': timestamp,
                 'server_name': server_name,
                 'profile': profile,
-                'state': next_state.value,
+                'status': next_state.value,  # Renamed from 'state' for consistency
                 'problem_child': is_problem_child
             })
 
@@ -736,13 +736,13 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
 
                 # Apply state multipliers
                 for i, (_, row) in enumerate(server_data.iterrows()):
-                    state = ServerState(row['state'])
-                    multiplier = STATE_MULTIPLIERS[state].get(metric, 1.0)
+                    status = ServerState(row['status'])  # Renamed from 'state'
+                    multiplier = STATE_MULTIPLIERS[status].get(metric, 1.0)
 
                     # Add diurnal effect (except uptime)
                     if metric != 'uptime_days':
                         hour = row['timestamp'].hour
-                        diurnal_mult = diurnal_multiplier(hour, profile, state)
+                        diurnal_mult = diurnal_multiplier(hour, profile, status)
                         base_values[i] *= multiplier * diurnal_mult
                     else:
                         base_values[i] *= multiplier
@@ -755,7 +755,7 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
 
                 # Handle offline state (only in dense mode - sparse mode already filtered)
                 if config.offline_mode == "dense":
-                    offline_mask = server_data['state'] == 'offline'
+                    offline_mask = server_data['status'] == 'offline'  # Renamed from 'state'
                     if config.offline_fill == "nan":
                         smoothed_values[offline_mask] = np.nan
                     else:  # zeros
@@ -784,15 +784,15 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
         # Add notes for interesting states
         notes = []
         for _, row in server_data.iterrows():
-            state = row['state']
-            if state == 'morning_spike':
+            status = row['status']  # Renamed from 'state'
+            if status == 'morning_spike':
                 notes.append("auth surge" if np.random.random() < 0.3 else "batch warmup")
-            elif state == 'critical_issue':
+            elif status == 'critical_issue':
                 issues = ["high cpu", "high iowait", "memory pressure", "swap thrashing", "network timeout"]
                 notes.append(np.random.choice(issues))
-            elif state == 'maintenance':
+            elif status == 'maintenance':
                 notes.append("scheduled maintenance")
-            elif state == 'recovery':
+            elif status == 'recovery':
                 notes.append("service restart")
             else:
                 notes.append("")
@@ -1065,7 +1065,7 @@ def stream_to_daemon(config: Config, daemon_url: str = "http://localhost:8000", 
                     'timestamp': current_time.isoformat(),
                     'server_name': server_name,
                     'profile': profile,
-                    'state': next_state.value,
+                    'status': next_state.value,  # Renamed from 'state' for consistency
                     'problem_child': bool(is_problem_child),
                     **metrics,
                     'notes': notes
@@ -1255,15 +1255,15 @@ def main():
             print(f"   {profile.value.title()}: {count}")
     
     print(f"\n👀 Sample Data (first 5 rows):")
-    display_cols = ['timestamp', 'server_name', 'profile', 'state', 
-                   'cpu_pct', 'mem_pct', 'latency_ms', 'error_rate']
+    display_cols = ['timestamp', 'server_name', 'profile', 'status',  # Renamed from 'state'
+                   'cpu_user_pct', 'mem_used_pct', 'load_average']  # LINBORG metrics
     sample_df = final_df[display_cols].head()
-    
+
     for _, row in sample_df.iterrows():
         ts = row['timestamp'].strftime('%H:%M:%S')
         print(f"   {ts} | {row['server_name']} | {row['profile'][:4]} | "
-              f"{row['state'][:8]:8s} | CPU:{row['cpu_pct']:5.1f}% | "
-              f"Mem:{row['mem_pct']:5.1f}% | Lat:{row['latency_ms']:5.1f}ms")
+              f"{row['status'][:8]:8s} | CPU:{row['cpu_user_pct']:5.1f}% | "
+              f"Mem:{row['mem_used_pct']:5.1f}% | Load:{row['load_average']:5.1f}")
     
     print(f"\n✅ Fleet telemetry generation complete!")
     return 0

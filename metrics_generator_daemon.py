@@ -225,13 +225,21 @@ class MetricsGeneratorDaemon:
             if next_state == ServerState.OFFLINE:
                 continue
 
-            # Generate metrics using profile baselines + state multipliers + diurnal
+            # Generate ALL 14 LINBORG metrics using profile baselines + state multipliers + diurnal
             profile_enum = ServerProfile(profile)
             baselines = PROFILE_BASELINES[profile_enum]
 
+            # LINBORG metrics - use exact names AS THEY APPEAR in PROFILE_BASELINES (no _pct suffix yet)
+            linborg_metrics = [
+                'cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
+                'mem_used', 'swap_used', 'disk_usage',
+                'net_in_mb_s', 'net_out_mb_s',
+                'back_close_wait', 'front_close_wait',
+                'load_average', 'uptime_days'
+            ]
+
             metrics = {}
-            for metric in ['cpu', 'mem', 'disk_io_mb_s', 'net_in_mb_s', 'net_out_mb_s',
-                          'latency_ms', 'error_rate', 'gc_pause_ms']:
+            for metric in linborg_metrics:
                 if metric in baselines:
                     mean, std = baselines[metric]
                     value = np.random.normal(mean, std)
@@ -246,13 +254,26 @@ class MetricsGeneratorDaemon:
 
                     # NO MORE SCENARIO MULTIPLIERS - state forcing handles scenarios!
 
-                    # Apply bounds
-                    if metric in ['cpu', 'mem']:
+                    # Apply bounds based on metric type
+                    # NOTE: PROFILE_BASELINES uses fractional values (0-1) for cpu/mem
+                    # We need to multiply by 100 and add _pct suffix for output
+                    if metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
+                                 'mem_used', 'swap_used', 'disk_usage']:
+                        # Fractional → Percentage: multiply by 100, add _pct suffix
                         value = np.clip(value * 100, 0, 100)
                         metrics[f'{metric}_pct'] = round(value, 2)
-                    else:
-                        value = max(0, value)
-                        metrics[metric] = round(value, 2)
+                    elif metric in ['back_close_wait', 'front_close_wait']:
+                        # Connection counts: integers, non-negative
+                        metrics[metric] = max(0, int(value))
+                    elif metric == 'uptime_days':
+                        # Uptime: 0-30 days, integer
+                        metrics[metric] = int(np.clip(value, 0, 30))
+                    elif metric in ['net_in_mb_s', 'net_out_mb_s']:
+                        # Network: MB/s, non-negative floats (baselines already in MB/s)
+                        metrics[metric] = round(max(0, value), 2)
+                    elif metric == 'load_average':
+                        # Load average: non-negative float (baselines already correct scale)
+                        metrics[metric] = round(max(0, value), 2)
 
             # Build record
             record = {
@@ -262,7 +283,8 @@ class MetricsGeneratorDaemon:
                 'state': next_state.value,
                 'problem_child': bool(is_problem_child),
                 **metrics,
-                'container_oom': int(np.random.random() < 0.01 if metrics.get('mem_pct', 0) > 85 else 0),
+                # OOM based on LINBORG mem_used_pct
+                'container_oom': int(np.random.random() < 0.01 if metrics.get('mem_used_pct', 0) > 85 else 0),
                 'notes': ''
             }
 

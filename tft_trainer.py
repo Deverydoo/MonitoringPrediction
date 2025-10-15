@@ -31,6 +31,7 @@ from config import CONFIG
 from server_encoder import ServerEncoder
 from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
 from gpu_profiles import setup_gpu
+from linborg_schema import LINBORG_METRICS, validate_linborg_metrics
 
 
 def set_random_seed(seed: int = 42):
@@ -278,11 +279,6 @@ class TFTTrainer:
         df['month'] = df['timestamp'].dt.month
         df['is_weekend'] = df['day_of_week'].isin([5, 6]).astype(int)
 
-        # Map status column (state -> status for TFT compatibility)
-        if 'state' in df.columns and 'status' not in df.columns:
-            df['status'] = df['state']
-            print(f"[INFO] Mapped state -> status")
-
         # Encode server_name to hash-based server_id (production-ready)
         if 'server_name' in df.columns:
             # Use hash-based encoder for stable, production-ready encoding
@@ -296,26 +292,13 @@ class TFTTrainer:
         
         # Ensure status column exists and is categorical string
         if 'status' not in df.columns:
-            if 'state' in df.columns:
-                df['status'] = df['state']
-            else:
-                df['status'] = 'normal'  # Default value
+            df['status'] = 'normal'  # Default value
         df['status'] = df['status'].fillna('normal').astype(str)
 
-        # Define required LINBORG metrics
-        required_metrics = [
-            'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
-            'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
-            'net_in_mb_s', 'net_out_mb_s',
-            'back_close_wait', 'front_close_wait',
-            'load_average', 'uptime_days'
-        ]
+        # Validate LINBORG metrics (using centralized schema)
+        available_metrics, missing_metrics = validate_linborg_metrics(df.columns)
 
-        # Check which metrics are available
-        available_metrics = [m for m in required_metrics if m in df.columns]
-        missing_metrics = [m for m in required_metrics if m not in df.columns]
-
-        print(f"[INFO] Available LINBORG metrics: {len(available_metrics)}/{len(required_metrics)}")
+        print(f"[INFO] Available LINBORG metrics: {len(available_metrics)}/{len(LINBORG_METRICS)}")
         if missing_metrics:
             print(f"[WARNING] Missing LINBORG metrics: {missing_metrics}")
             raise ValueError(
@@ -324,7 +307,7 @@ class TFTTrainer:
             )
 
         # Fill any NaN values and ensure numeric types
-        for col in required_metrics:
+        for col in LINBORG_METRICS:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 # Use median for filling, or reasonable defaults
@@ -385,14 +368,8 @@ class TFTTrainer:
         print(f"[INFO] Using encoder length: {max_encoder_length}, prediction length: {max_prediction_length}")
         print(f"[INFO] Validation split: {validation_split:.1%} | Training cutoff: {training_cutoff}")
         
-        # Define features - LINBORG-compatible metrics (14 metrics)
-        time_varying_unknown_reals = [
-            'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
-            'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
-            'net_in_mb_s', 'net_out_mb_s',
-            'back_close_wait', 'front_close_wait',
-            'load_average', 'uptime_days'
-        ]
+        # Define features - use centralized LINBORG schema
+        time_varying_unknown_reals = LINBORG_METRICS.copy()
         time_varying_known_reals = ['hour', 'day_of_week', 'month', 'is_weekend']
         time_varying_unknown_categoricals = ['status']
 

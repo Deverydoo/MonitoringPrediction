@@ -230,6 +230,118 @@ def get_server_profile(server_name: str) -> str:
     if server_name.startswith('pprisk'): return 'Risk Analytics'
     return 'Generic'
 
+def get_metric_color_indicator(value: float, metric_type: str, profile: str = 'Generic') -> str:
+    """
+    Return color indicator for a metric value based on thresholds.
+    Returns: '' (healthy), '🟡' (warning), '🟠' (danger), '🔴' (critical)
+    """
+    if metric_type == 'cpu':
+        if value >= 98:
+            return '🔴'
+        elif value >= 95:
+            return '🟠'
+        elif value >= 90:
+            return '🟡'
+    elif metric_type == 'iowait':
+        if value >= 30:
+            return '🔴'
+        elif value >= 20:
+            return '🟠'
+        elif value >= 10:
+            return '🟡'
+    elif metric_type == 'memory':
+        if profile == 'Database':
+            if value >= 98:
+                return '🟠'
+            elif value >= 95:
+                return '🟡'
+        else:
+            if value >= 98:
+                return '🔴'
+            elif value >= 95:
+                return '🟠'
+            elif value >= 90:
+                return '🟡'
+    elif metric_type == 'swap':
+        if value >= 50:
+            return '🔴'
+        elif value >= 30:
+            return '🟠'
+        elif value >= 10:
+            return '🟡'
+    elif metric_type == 'load':
+        if value > 12:
+            return '🔴'
+        elif value > 8:
+            return '🟠'
+        elif value > 6:
+            return '🟡'
+    return ''
+
+
+def extract_cpu_used(server_pred: Dict, metric_type: str = 'current') -> float:
+    """
+    Extract CPU Used % from LINBORG metrics.
+
+    LINBORG stores cpu_idle_pct, but we display as "CPU Used = 100 - idle" for human readability.
+
+    Args:
+        server_pred: Server prediction dictionary containing LINBORG metrics
+        metric_type: Type of value to extract:
+            - 'current': Current actual value (float)
+            - 'p50': P50 prediction list (list of floats)
+            - 'p90': P90 prediction list (list of floats)
+            - 'p10': P10 prediction list (list of floats)
+
+    Returns:
+        CPU used percentage (0-100)
+
+    Examples:
+        >>> extract_cpu_used(server_pred, 'current')
+        45.2  # Current CPU usage
+
+        >>> extract_cpu_used(server_pred, 'p90')
+        78.5  # P90 worst-case CPU (next 30min)
+    """
+    # Method 1 (Preferred): Calculate from cpu_idle_pct (100 - idle)
+    cpu_idle_data = server_pred.get('cpu_idle_pct', {})
+
+    if metric_type == 'current':
+        cpu_idle = cpu_idle_data.get('current', 0)
+        if isinstance(cpu_idle, (int, float)) and cpu_idle > 0:
+            return 100 - cpu_idle
+
+    elif metric_type in ['p50', 'p90', 'p10']:
+        prediction_list = cpu_idle_data.get(metric_type, [])
+        if isinstance(prediction_list, list) and len(prediction_list) > 0:
+            # For predictions, use first 6 values (next 30 minutes at 5-min intervals)
+            values = prediction_list[:6] if len(prediction_list) >= 6 else prediction_list
+
+            if metric_type == 'p90':
+                # P90 CPU used = P10 idle (lower idle = higher CPU)
+                return 100 - min(values)
+            elif metric_type == 'p10':
+                # P10 CPU used = P90 idle (higher idle = lower CPU)
+                return 100 - max(values)
+            else:  # p50
+                return 100 - np.mean(values)
+
+    # Method 2 (Fallback): Sum components (user + sys + iowait)
+    cpu_user = server_pred.get('cpu_user_pct', {}).get(metric_type, 0)
+    cpu_sys = server_pred.get('cpu_sys_pct', {}).get(metric_type, 0)
+    cpu_iowait = server_pred.get('cpu_iowait_pct', {}).get(metric_type, 0)
+
+    # Handle prediction lists
+    if isinstance(cpu_user, list):
+        cpu_user = np.mean(cpu_user[:6]) if len(cpu_user) >= 6 else (np.mean(cpu_user) if cpu_user else 0)
+    if isinstance(cpu_sys, list):
+        cpu_sys = np.mean(cpu_sys[:6]) if len(cpu_sys) >= 6 else (np.mean(cpu_sys) if cpu_sys else 0)
+    if isinstance(cpu_iowait, list):
+        cpu_iowait = np.mean(cpu_iowait[:6]) if len(cpu_iowait) >= 6 else (np.mean(cpu_iowait) if cpu_iowait else 0)
+
+    return float(cpu_user + cpu_sys + cpu_iowait)
+
+
 def calculate_server_risk_score(server_pred: Dict) -> float:
     """
     Calculate aggregated risk score for a server (0-100).
@@ -245,27 +357,10 @@ def calculate_server_risk_score(server_pred: Dict) -> float:
     profile = get_server_profile(server_pred.get('server_name', ''))
 
     # =========================================================================
-    # CPU RISK ASSESSMENT (LINBORG: calculate % CPU Used from components)
+    # CPU RISK ASSESSMENT (LINBORG: using centralized helper)
     # =========================================================================
-    # Calculate total CPU usage: 100 - idle, or sum(user + sys + iowait)
-    cpu_idle = server_pred.get('cpu_idle_pct', {}).get('current', 0) if 'cpu_idle_pct' in server_pred else 0
-    cpu_user = server_pred.get('cpu_user_pct', {}).get('current', 0) if 'cpu_user_pct' in server_pred else 0
-    cpu_sys = server_pred.get('cpu_sys_pct', {}).get('current', 0) if 'cpu_sys_pct' in server_pred else 0
-    cpu_iowait = server_pred.get('cpu_iowait_pct', {}).get('current', 0) if 'cpu_iowait_pct' in server_pred else 0
-
-    # Calculate current CPU usage
-    if cpu_idle > 0:
-        current_cpu = 100 - cpu_idle
-    else:
-        current_cpu = cpu_user + cpu_sys + cpu_iowait
-
-    # Calculate predicted CPU (use idle if available, otherwise sum components)
-    if 'cpu_idle_pct' in server_pred:
-        idle_p90 = server_pred['cpu_idle_pct'].get('p90', [])
-        min_idle_p90 = min(idle_p90[:6]) if idle_p90 and len(idle_p90) >= 6 else cpu_idle
-        max_cpu_p90 = 100 - min_idle_p90
-    else:
-        max_cpu_p90 = current_cpu  # Fallback
+    current_cpu = extract_cpu_used(server_pred, 'current')
+    max_cpu_p90 = extract_cpu_used(server_pred, 'p90')
 
     # CURRENT CPU RISK (what matters most to executives)
     if current_cpu >= 98:
@@ -881,7 +976,12 @@ with tab1:
         st.divider()
 
         # Server Risk Distribution
-        st.subheader("📊 Fleet Risk Distribution")
+        col_header1, col_header2 = st.columns([3, 1])
+        with col_header1:
+            st.subheader("📊 Fleet Risk Distribution")
+        with col_header2:
+            st.markdown("")  # Spacer
+            st.caption("ℹ️ No visible data? **No news is good news!** An empty/flat chart means all servers are healthy (Risk=0).")
 
         if server_preds:
             # Calculate risk scores
@@ -967,20 +1067,12 @@ with tab1:
                     else:
                         continue
 
-                    # Get actual vs predicted for key LINBORG metrics
-                    # CPU: Calculate from idle (100 - idle) or sum components
-                    cpu_idle_cur = server_pred.get('cpu_idle_pct', {}).get('current', 0)
-                    cpu_user_cur = server_pred.get('cpu_user_pct', {}).get('current', 0)
-                    cpu_sys_cur = server_pred.get('cpu_sys_pct', {}).get('current', 0)
+                    # Get actual vs predicted for key LINBORG metrics (using helper)
+                    cpu_actual = extract_cpu_used(server_pred, 'current')
+                    cpu_predicted = extract_cpu_used(server_pred, 'p50')
+
+                    # Still need iowait for direct access
                     cpu_iowait_cur = server_pred.get('cpu_iowait_pct', {}).get('current', 0)
-
-                    cpu_actual = 100 - cpu_idle_cur if cpu_idle_cur > 0 else (cpu_user_cur + cpu_sys_cur + cpu_iowait_cur)
-
-                    cpu_idle_p50 = server_pred.get('cpu_idle_pct', {}).get('p50', [])
-                    if cpu_idle_p50 and len(cpu_idle_p50) >= 6:
-                        cpu_predicted = 100 - np.mean(cpu_idle_p50[:6])
-                    else:
-                        cpu_predicted = cpu_actual
 
                     # I/O Wait - CRITICAL metric
                     iowait_actual = cpu_iowait_cur
@@ -992,19 +1084,38 @@ with tab1:
                     mem_p50 = server_pred.get('mem_used_pct', {}).get('p50', [])
                     mem_predicted = np.mean(mem_p50[:6]) if mem_p50 and len(mem_p50) >= 6 else mem_actual
 
+                    # Swap (for color-coding)
+                    swap_actual = server_pred.get('swap_used_pct', {}).get('current', 0)
+                    swap_p50 = server_pred.get('swap_used_pct', {}).get('p50', [])
+                    swap_predicted = np.mean(swap_p50[:6]) if swap_p50 and len(swap_p50) >= 6 else swap_actual
+
+                    # Load average (for color-coding)
+                    load_actual = server_pred.get('load_average', {}).get('current', 0)
+
+                    # Get profile for threshold logic
+                    profile = get_server_profile(server_name)
+
+                    # Add color indicators to problematic metrics
+                    cpu_now_color = get_metric_color_indicator(cpu_actual, 'cpu', profile)
+                    cpu_pred_color = get_metric_color_indicator(cpu_predicted, 'cpu', profile)
+                    iowait_now_color = get_metric_color_indicator(iowait_actual, 'iowait', profile)
+                    iowait_pred_color = get_metric_color_indicator(iowait_predicted, 'iowait', profile)
+                    mem_now_color = get_metric_color_indicator(mem_actual, 'memory', profile)
+                    mem_pred_color = get_metric_color_indicator(mem_predicted, 'memory', profile)
+
                     alert_rows.append({
                         'Priority': priority,
                         'Server': server_name,
-                        'Profile': get_server_profile(server_name),
+                        'Profile': profile,
                         'Risk': f"{risk_score:.0f}",
-                        'CPU Now': f"{cpu_actual:.1f}%",
-                        'CPU Predicted (30m)': f"{cpu_predicted:.1f}%",
+                        'CPU Now': f"{cpu_now_color}{cpu_actual:.1f}%",
+                        'CPU Predicted (30m)': f"{cpu_pred_color}{cpu_predicted:.1f}%",
                         'CPU Δ': f"{(cpu_predicted - cpu_actual):+.1f}%",
-                        'I/O Wait Now': f"{iowait_actual:.1f}%",
-                        'I/O Wait Predicted (30m)': f"{iowait_predicted:.1f}%",
+                        'I/O Wait Now': f"{iowait_now_color}{iowait_actual:.1f}%",
+                        'I/O Wait Predicted (30m)': f"{iowait_pred_color}{iowait_predicted:.1f}%",
                         'I/O Wait Δ': f"{(iowait_predicted - iowait_actual):+.1f}%",
-                        'Mem Now': f"{mem_actual:.1f}%",
-                        'Mem Predicted (30m)': f"{mem_predicted:.1f}%",
+                        'Mem Now': f"{mem_now_color}{mem_actual:.1f}%",
+                        'Mem Predicted (30m)': f"{mem_pred_color}{mem_predicted:.1f}%",
                         'Mem Δ': f"{(mem_predicted - mem_actual):+.1f}%"
                     })
 
@@ -1025,19 +1136,56 @@ with tab1:
                         'Server': st.column_config.TextColumn('Server', width='medium', help='Server hostname'),
                         'Profile': st.column_config.TextColumn('Profile', width='medium', help='Server workload type (ML Compute, Database, Web API, etc.)'),
                         'Risk': st.column_config.TextColumn('Risk', width='small', help='Overall risk score (0-100). Higher = more urgent'),
-                        'CPU Now': st.column_config.TextColumn('CPU Now', width='small', help='Current CPU utilization (% Used = 100 - Idle)'),
-                        'CPU Predicted (30m)': st.column_config.TextColumn('CPU Pred', width='small', help='AI predicted CPU in next 30 minutes'),
+                        'CPU Now': st.column_config.TextColumn('CPU Now', width='small', help='Current CPU utilization (% Used = 100 - Idle). 🟡=90%+ 🟠=95%+ 🔴=98%+'),
+                        'CPU Predicted (30m)': st.column_config.TextColumn('CPU Pred', width='small', help='AI predicted CPU in next 30 minutes. 🟡=90%+ 🟠=95%+ 🔴=98%+'),
                         'CPU Δ': st.column_config.TextColumn('CPU Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing/degrading, Negative (-) = decreasing/improving'),
-                        'I/O Wait Now': st.column_config.TextColumn('I/O Wait Now', width='small', help='Current I/O wait % - CRITICAL troubleshooting metric. High values indicate disk/storage bottleneck'),
-                        'I/O Wait Predicted (30m)': st.column_config.TextColumn('I/O Wait Pred', width='small', help='AI predicted I/O wait in next 30 minutes'),
+                        'I/O Wait Now': st.column_config.TextColumn('I/O Wait Now', width='small', help='Current I/O wait % - CRITICAL troubleshooting metric. 🟡=10%+ 🟠=20%+ 🔴=30%+'),
+                        'I/O Wait Predicted (30m)': st.column_config.TextColumn('I/O Wait Pred', width='small', help='AI predicted I/O wait in next 30 minutes. 🟡=10%+ 🟠=20%+ 🔴=30%+'),
                         'I/O Wait Δ': st.column_config.TextColumn('I/O Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing I/O contention'),
-                        'Mem Now': st.column_config.TextColumn('Mem Now', width='small', help='Current memory utilization'),
-                        'Mem Predicted (30m)': st.column_config.TextColumn('Mem Pred', width='small', help='AI predicted memory in next 30 minutes'),
+                        'Mem Now': st.column_config.TextColumn('Mem Now', width='small', help='Current memory utilization. 🟡=90%+ 🟠=95%+ 🔴=98%+ (DB: 🟡=95%+ 🟠=98%+)'),
+                        'Mem Predicted (30m)': st.column_config.TextColumn('Mem Pred', width='small', help='AI predicted memory in next 30 minutes. 🟡=90%+ 🟠=95%+ 🔴=98%+'),
                         'Mem Δ': st.column_config.TextColumn('Mem Δ', width='small', help='Predicted change (Delta). Positive (+) = increasing/degrading, Negative (-) = decreasing/improving')
                     }
                 )
 
+                # Environment-level health assessment
+                st.markdown("---")
+                st.markdown("**🏢 Environment Health Assessment**")
+
+                total_servers = len(server_preds)
+                alert_count = len(alert_rows)
+                alert_percentage = (alert_count / total_servers * 100) if total_servers > 0 else 0
+
+                # Determine environment health
+                if alert_percentage < 5:
+                    env_status = "✅ HEALTHY"
+                    env_color = "green"
+                    env_msg = f"{alert_count}/{total_servers} servers alerting ({alert_percentage:.1f}%) - Within normal operational variance"
+                elif alert_percentage < 15:
+                    env_status = "⚠️ WATCH"
+                    env_color = "orange"
+                    env_msg = f"{alert_count}/{total_servers} servers alerting ({alert_percentage:.1f}%) - Elevated alert rate, monitor closely"
+                elif alert_percentage < 30:
+                    env_status = "🟠 DEGRADING"
+                    env_color = "orange"
+                    env_msg = f"{alert_count}/{total_servers} servers alerting ({alert_percentage:.1f}%) - Significant degradation, investigate root cause"
+                else:
+                    env_status = "🔴 CRITICAL"
+                    env_color = "red"
+                    env_msg = f"{alert_count}/{total_servers} servers alerting ({alert_percentage:.1f}%) - Widespread issues, potential systemic problem"
+
+                if env_color == "green":
+                    st.success(f"{env_status}: {env_msg}")
+                elif env_color == "orange":
+                    st.warning(f"{env_status}: {env_msg}")
+                else:
+                    st.error(f"{env_status}: {env_msg}")
+
+                st.caption("💡 **Environment health** reflects the overall fleet, while individual servers may still require attention")
+
                 # Summary metrics - Server counts by severity
+                st.markdown("---")
+                st.markdown("**Individual Server Alert Levels** _(breakdown of the {0} servers above)_".format(alert_count))
                 col1, col2, col3, col4 = st.columns(4)
 
                 with col1:
@@ -1111,7 +1259,68 @@ with tab1:
                 st.caption(f"📊 Total fleet: {total_servers} servers | Showing: {len(alert_rows)} alerts | Hidden: {healthy_count} healthy")
 
             else:
+                # No alerts - show top 5 busiest servers instead
                 st.success("✅ No active alerts - All servers healthy!")
+                st.markdown("**Top 5 Busiest Servers** (even though healthy)")
+
+                # Calculate busyness score (CPU + Memory + I/O Wait)
+                busy_servers = []
+                for server_name, server_pred in server_preds.items():
+                    # Calculate metrics using helpers where applicable
+                    cpu_actual = extract_cpu_used(server_pred, 'current')
+
+                    # Memory
+                    mem_actual = server_pred.get('mem_used_pct', {}).get('current', 0)
+
+                    # I/O Wait
+                    iowait_actual = server_pred.get('cpu_iowait_pct', {}).get('current', 0)
+
+                    # Swap
+                    swap_actual = server_pred.get('swap_used_pct', {}).get('current', 0)
+
+                    # Load average
+                    load_actual = server_pred.get('load_average', {}).get('current', 0)
+
+                    # Busyness score (weighted sum)
+                    busyness = (cpu_actual * 0.3) + (mem_actual * 0.25) + (iowait_actual * 0.25) + (swap_actual * 0.1) + (load_actual * 0.1)
+
+                    busy_servers.append({
+                        'Server': server_name,
+                        'Profile': get_server_profile(server_name),
+                        'Status': '✅ Healthy',
+                        'CPU': f"{cpu_actual:.1f}%",
+                        'Memory': f"{mem_actual:.1f}%",
+                        'I/O Wait': f"{iowait_actual:.1f}%",
+                        'Swap': f"{swap_actual:.1f}%",
+                        'Load': f"{load_actual:.2f}",
+                        'Busyness': busyness
+                    })
+
+                # Sort by busyness and take top 5
+                busy_servers_sorted = sorted(busy_servers, key=lambda x: x['Busyness'], reverse=True)[:5]
+
+                # Remove busyness score from display
+                for server in busy_servers_sorted:
+                    del server['Busyness']
+
+                busy_df = pd.DataFrame(busy_servers_sorted)
+                st.dataframe(
+                    busy_df,
+                    width='stretch',
+                    hide_index=True,
+                    column_config={
+                        'Server': st.column_config.TextColumn('Server', width='medium', help='Server hostname'),
+                        'Profile': st.column_config.TextColumn('Profile', width='medium', help='Server workload type'),
+                        'Status': st.column_config.TextColumn('Status', width='small', help='All servers are healthy'),
+                        'CPU': st.column_config.TextColumn('CPU', width='small', help='Current CPU utilization (% Used = 100 - Idle)'),
+                        'Memory': st.column_config.TextColumn('Memory', width='small', help='Current memory utilization'),
+                        'I/O Wait': st.column_config.TextColumn('I/O Wait', width='small', help='I/O wait % - CRITICAL troubleshooting metric'),
+                        'Swap': st.column_config.TextColumn('Swap', width='small', help='Swap usage (thrashing indicator)'),
+                        'Load': st.column_config.TextColumn('Load', width='small', help='System load average')
+                    }
+                )
+
+                st.caption(f"📊 Showing top 5 of {len(server_preds)} healthy servers by activity level (CPU + Memory + I/O + Swap + Load)")
         else:
             st.info("No alert data available")
 
@@ -1163,11 +1372,21 @@ with tab2:
                     if mk == 'risk':
                         value = calculate_server_risk_score(server_pred)
                     elif mk == 'cpu':
-                        cpu = server_pred.get('cpu_percent', {})
-                        p90 = cpu.get('p90', [])
-                        value = max(p90[:6]) if len(p90) >= 6 else (max(p90) if p90 else 0)
+                        # LINBORG: Use cpu_idle_pct and convert to CPU Used (100 - idle)
+                        # For p90, we want p10 of idle (since lower idle = higher CPU used)
+                        cpu_idle = server_pred.get('cpu_idle_pct', {})
+                        p10_idle = cpu_idle.get('p10', [])
+                        if p10_idle and len(p10_idle) >= 6:
+                            # p10 idle = p90 CPU used (worst case)
+                            min_idle = min(p10_idle[:6])
+                            value = 100 - min_idle
+                        else:
+                            # Fallback: use current
+                            current_idle = cpu_idle.get('current', 0)
+                            value = 100 - current_idle if current_idle > 0 else 0
                     elif mk == 'memory':
-                        mem = server_pred.get('memory_percent', {})
+                        # LINBORG: Use mem_used_pct directly
+                        mem = server_pred.get('mem_used_pct', {})
                         p90 = mem.get('p90', [])
                         value = max(p90[:6]) if len(p90) >= 6 else (max(p90) if p90 else 0)
                     elif mk == 'latency':
@@ -1325,25 +1544,18 @@ with tab3:
                     # Create comparison table - LINBORG metrics
                     metric_rows = []
 
-                    # CPU Used (100 - idle)
-                    cpu_idle_cur = server_pred.get('cpu_idle_pct', {}).get('current', 0)
-                    cpu_user_cur = server_pred.get('cpu_user_pct', {}).get('current', 0)
-                    cpu_sys_cur = server_pred.get('cpu_sys_pct', {}).get('current', 0)
-                    cpu_iowait_cur = server_pred.get('cpu_iowait_pct', {}).get('current', 0)
+                    # CPU Used (using helper)
+                    cpu_current = extract_cpu_used(server_pred, 'current')
+                    cpu_future = extract_cpu_used(server_pred, 'p50')
 
-                    cpu_current = 100 - cpu_idle_cur if cpu_idle_cur > 0 else (cpu_user_cur + cpu_sys_cur + cpu_iowait_cur)
-
-                    cpu_idle_p50 = server_pred.get('cpu_idle_pct', {}).get('p50', [])
-                    if cpu_idle_p50 and len(cpu_idle_p50) >= 6:
-                        cpu_future = 100 - np.mean(cpu_idle_p50[:6])
-                        cpu_delta = cpu_future - cpu_current
-                        cpu_delta_str = f"+{cpu_delta:.1f}%" if cpu_delta > 0 else f"{cpu_delta:.1f}%"
-                        metric_rows.append({
-                            'Metric': 'CPU Used',
-                            'Current': f"{cpu_current:.1f}%",
-                            'Predicted': f"{cpu_future:.1f}%",
-                            'Δ': cpu_delta_str
-                        })
+                    cpu_delta = cpu_future - cpu_current
+                    cpu_delta_str = f"+{cpu_delta:.1f}%" if cpu_delta > 0 else f"{cpu_delta:.1f}%"
+                    metric_rows.append({
+                        'Metric': 'CPU Used',
+                        'Current': f"{cpu_current:.1f}%",
+                        'Predicted': f"{cpu_future:.1f}%",
+                        'Δ': cpu_delta_str
+                    })
 
                     # I/O Wait - CRITICAL
                     if 'cpu_iowait_pct' in server_pred:
