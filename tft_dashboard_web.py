@@ -172,6 +172,7 @@ def stop_demo():
 # HELPER FUNCTIONS
 # =============================================================================
 
+@st.cache_data(ttl=5)  # Cache for 5 seconds - real-time data
 def get_health_status(predictions: Dict) -> tuple:
     """
     Determine overall environment health status based on ACTUAL server risk scores.
@@ -230,6 +231,7 @@ def get_server_profile(server_name: str) -> str:
     if server_name.startswith('pprisk'): return 'Risk Analytics'
     return 'Generic'
 
+@st.cache_data(ttl=60)  # Cache for 60 seconds - static thresholds
 def get_metric_color_indicator(value: float, metric_type: str, profile: str = 'Generic') -> str:
     """
     Return color indicator for a metric value based on thresholds.
@@ -279,6 +281,7 @@ def get_metric_color_indicator(value: float, metric_type: str, profile: str = 'G
     return ''
 
 
+@st.cache_data(ttl=10)  # Cache for 10 seconds - frequently called
 def extract_cpu_used(server_pred: Dict, metric_type: str = 'current') -> float:
     """
     Extract CPU Used % from LINBORG metrics.
@@ -342,6 +345,7 @@ def extract_cpu_used(server_pred: Dict, metric_type: str = 'current') -> float:
     return float(cpu_user + cpu_sys + cpu_iowait)
 
 
+@st.cache_data(ttl=10)  # Cache for 10 seconds - expensive calculation
 def calculate_server_risk_score(server_pred: Dict) -> float:
     """
     Calculate aggregated risk score for a server (0-100).
