@@ -1068,26 +1068,26 @@ with tab1:
                         continue
 
                     # Get actual vs predicted for key LINBORG metrics (using helper)
-                    cpu_actual = extract_cpu_used(server_pred, 'current')
-                    cpu_predicted = extract_cpu_used(server_pred, 'p50')
+                    cpu_actual = min(100.0, max(0.0, extract_cpu_used(server_pred, 'current')))
+                    cpu_predicted = min(100.0, max(0.0, extract_cpu_used(server_pred, 'p50')))
 
                     # Still need iowait for direct access
                     cpu_iowait_cur = server_pred.get('cpu_iowait_pct', {}).get('current', 0)
 
                     # I/O Wait - CRITICAL metric
-                    iowait_actual = cpu_iowait_cur
+                    iowait_actual = min(100.0, max(0.0, cpu_iowait_cur))
                     iowait_p50 = server_pred.get('cpu_iowait_pct', {}).get('p50', [])
-                    iowait_predicted = np.mean(iowait_p50[:6]) if iowait_p50 and len(iowait_p50) >= 6 else iowait_actual
+                    iowait_predicted = min(100.0, max(0.0, np.mean(iowait_p50[:6]) if iowait_p50 and len(iowait_p50) >= 6 else iowait_actual))
 
                     # Memory
-                    mem_actual = server_pred.get('mem_used_pct', {}).get('current', 0)
+                    mem_actual = min(100.0, max(0.0, server_pred.get('mem_used_pct', {}).get('current', 0)))
                     mem_p50 = server_pred.get('mem_used_pct', {}).get('p50', [])
-                    mem_predicted = np.mean(mem_p50[:6]) if mem_p50 and len(mem_p50) >= 6 else mem_actual
+                    mem_predicted = min(100.0, max(0.0, np.mean(mem_p50[:6]) if mem_p50 and len(mem_p50) >= 6 else mem_actual))
 
                     # Swap (for color-coding)
-                    swap_actual = server_pred.get('swap_used_pct', {}).get('current', 0)
+                    swap_actual = min(100.0, max(0.0, server_pred.get('swap_used_pct', {}).get('current', 0)))
                     swap_p50 = server_pred.get('swap_used_pct', {}).get('p50', [])
-                    swap_predicted = np.mean(swap_p50[:6]) if swap_p50 and len(swap_p50) >= 6 else swap_actual
+                    swap_predicted = min(100.0, max(0.0, np.mean(swap_p50[:6]) if swap_p50 and len(swap_p50) >= 6 else swap_actual))
 
                     # Load average (for color-coding)
                     load_actual = server_pred.get('load_average', {}).get('current', 0)
@@ -1266,20 +1266,20 @@ with tab1:
                 # Calculate busyness score (CPU + Memory + I/O Wait)
                 busy_servers = []
                 for server_name, server_pred in server_preds.items():
-                    # Calculate metrics using helpers where applicable
-                    cpu_actual = extract_cpu_used(server_pred, 'current')
+                    # Calculate metrics using helpers where applicable (clamp to 0-100%)
+                    cpu_actual = min(100.0, max(0.0, extract_cpu_used(server_pred, 'current')))
 
                     # Memory
-                    mem_actual = server_pred.get('mem_used_pct', {}).get('current', 0)
+                    mem_actual = min(100.0, max(0.0, server_pred.get('mem_used_pct', {}).get('current', 0)))
 
                     # I/O Wait
-                    iowait_actual = server_pred.get('cpu_iowait_pct', {}).get('current', 0)
+                    iowait_actual = min(100.0, max(0.0, server_pred.get('cpu_iowait_pct', {}).get('current', 0)))
 
                     # Swap
-                    swap_actual = server_pred.get('swap_used_pct', {}).get('current', 0)
+                    swap_actual = min(100.0, max(0.0, server_pred.get('swap_used_pct', {}).get('current', 0)))
 
-                    # Load average
-                    load_actual = server_pred.get('load_average', {}).get('current', 0)
+                    # Load average (no clamping - can exceed 100)
+                    load_actual = max(0.0, server_pred.get('load_average', {}).get('current', 0))
 
                     # Busyness score (weighted sum)
                     busyness = (cpu_actual * 0.3) + (mem_actual * 0.25) + (iowait_actual * 0.25) + (swap_actual * 0.1) + (load_actual * 0.1)
