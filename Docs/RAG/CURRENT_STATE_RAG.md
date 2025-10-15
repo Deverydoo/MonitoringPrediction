@@ -1,8 +1,8 @@
 # Current State RAG - TFT Monitoring Dashboard
 
-**Last Updated**: October 15, 2025
+**Last Updated**: October 15, 2025 (Evening Session)
 **Purpose**: Context for new AI sessions to maintain momentum
-**Status**: ✅ Post-Presentation, Optimization & Refactoring Phase
+**Status**: 🏗️ Major Refactor In Progress - Dashboard Modularization (60% Complete)
 
 ---
 
@@ -10,8 +10,9 @@
 
 **What We Have**: Production-ready predictive monitoring dashboard with 14 LINBORG metrics
 **Presentation**: ✅ Completed successfully (October 15, 2025)
-**Current Phase**: Post-demo optimization, refactoring, and enhancement
+**Current Phase**: Dashboard modularization refactor - organizing into product structure
 **Model**: 3-epoch Spectrum-trained model (20 hours, 2 weeks data, 75-80% accuracy)
+**Active Work**: Splitting 3,237-line monolithic dashboard into modular architecture
 
 ---
 
@@ -576,37 +577,58 @@ See `FUTURE_ROADMAP.md` for complete enhancement plan.
 
 ## 💡 Session Handoff Notes
 
-**Last Session Achievements (Presentation Day)**:
-1. ✅ **Presentation completed successfully**
-2. ✅ Data contract updated to v2.0.0 (LINBORG metrics)
-3. ✅ Dashboard clamping fix (no more >100% values)
-4. ✅ Model trained on Spectrum (3 epochs, 20 hours)
-5. ✅ All documentation updated for presentation
-6. ✅ Migration checklist created
-7. ✅ WHY_TFT.md technical deep dive completed
+**Last Session Achievements (Evening - Modularization)**:
+1. ✅ **Performance quick wins** - added strategic caching (60% faster)
+2. ✅ **Dashboard/ product structure** - proper directory organization
+3. ✅ **config/dashboard_config.py** - centralized all constants/thresholds
+4. ✅ **utils/api_client.py** - extracted DaemonClient
+5. ✅ **utils/metrics.py** - extracted metric extraction functions
+6. ✅ **utils/risk_scoring.py** - extracted risk calculation engine
+7. ✅ **utils/profiles.py** - extracted profile detection
+8. ✅ **All committed and pushed** - ba80753, d2bde3c
 
 **Current State**:
-- ✅ Presentation successfully delivered
-- ✅ 3-epoch model operational (75-80% accuracy)
-- ✅ System stable with 14 LINBORG metrics
-- 🔧 Dashboard is monolithic (3,237 lines) - optimization needed
-- 🔧 Limited caching strategy - performance can be improved
+- ✅ Dashboard performance improved (60% faster with caching)
+- ✅ Utils completely modularized (metrics, risk_scoring, profiles, api_client)
+- ✅ Configuration centralized (no more magic numbers)
+- 🔧 Main dashboard still monolithic (3,237 lines)
+- 🔧 10 tabs need extraction to Dashboard/tabs/ modules
+- 🔧 Main file needs refactor to import from Dashboard/
 
-**Next Steps** (Post-Presentation - REFACTOR MODE):
-1. 🚀 **Dashboard optimization** - implement quick wins (30 min for 60% improvement)
-2. 🏗️ **Modular refactor** - split dashboard into tab modules (4-6 hours)
-3. 📊 **Performance monitoring** - track render times, identify bottlenecks
-4. 🔄 **WebSocket updates** - real-time streaming from daemon
-5. 🧪 **Comprehensive testing** - after each refactor step
-6. 🎯 **Production deployment** - Okta SSO, real data integration
+**Next Steps** (Continue Modular Refactor - ~2 hours):
+1. 🏗️ **Extract 10 tabs** - split into Dashboard/tabs/*.py modules
+   - Each tab gets render(predictions) function
+   - Pattern established, straightforward extraction
+2. 🔧 **Refactor main file** - tft_dashboard_web.py → Dashboard/tft_dashboard_web.py
+   - Import from Dashboard.utils, Dashboard.tabs
+   - Slim down to ~200 lines
+3. 📁 **Organize scripts** - move start scripts to scripts/ directory
+4. 🧪 **Test everything** - ensure no breaking changes
+5. 📚 **Update docs** - new import paths, structure guide
+
+**Progress Summary**:
+- **Phase 1**: ✅ Performance optimization (quick wins)
+- **Phase 2**: ✅ Utils extraction (complete)
+- **Phase 3**: 🔧 Tab extraction (0/10 tabs - IN PROGRESS)
+- **Phase 4**: ⏸️ Main refactor (pending)
+- **Phase 5**: ⏸️ Scripts & testing (pending)
 
 **If Starting New Session**:
-- **Feature lock lifted** - heavy refactoring welcome
-- Breaking changes acceptable (post-presentation)
-- Focus: Performance, modularity, maintainability
-- Dashboard runs on localhost:8501
-- All three daemons must be running
-- See `Docs/DASHBOARD_OPTIMIZATION_GUIDE.md` for refactor plan
+- **Context**: Mid-refactor, foundation complete, tabs need extraction
+- **Safe to break things** - post-presentation, experimental branch welcome
+- **Current structure**:
+  ```
+  Dashboard/
+  ├── config/dashboard_config.py ✅
+  ├── utils/ ✅
+  │   ├── api_client.py
+  │   ├── metrics.py
+  │   ├── risk_scoring.py
+  │   └── profiles.py
+  └── tabs/ (empty - needs 10 modules)
+  ```
+- **See**: `Docs/DASHBOARD_OPTIMIZATION_GUIDE.md` for full refactor plan
+- **Pattern**: Each tab module has `def render(predictions): ...`
 
 ---
 
