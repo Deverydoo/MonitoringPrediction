@@ -134,3 +134,13 @@ $RECYCLE.BIN/
 
 # Streamlit secrets (API keys, passwords)
 .streamlit/secrets.toml
+
+# Confidential Business Documents (DO NOT COMMIT)
+BUSINESS_STRATEGY.md
+LICENSE_COMMERCIAL.txt
+PRICING.md
+SALES_STRATEGY.md
+branding/*/
+customer_data/
+license_keys/
+contracts/
