@@ -21,6 +21,7 @@ import warnings
 import signal
 import pickle
 import atexit
+import os
 from datetime import datetime
 from collections import deque
 from pathlib import Path
@@ -30,10 +31,42 @@ import pandas as pd
 import numpy as np
 import torch
 from safetensors.torch import load_file
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 import uvicorn
+
+# Security: Rate limiting
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    RATE_LIMITING_AVAILABLE = True
+except ImportError:
+    print("[WARNING] slowapi not installed - rate limiting disabled")
+    print("[WARNING] Install with: pip install slowapi")
+    RATE_LIMITING_AVAILABLE = False
+
+# Security: API Key authentication
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+def verify_api_key(api_key: str = Security(api_key_header)):
+    """Verify API key for protected endpoints."""
+    expected_key = os.getenv("TFT_API_KEY")
+
+    # If no API key is configured, allow all requests (development mode)
+    if not expected_key:
+        return None
+
+    # If API key is configured, enforce it
+    if not api_key or api_key != expected_key:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid or missing API key. Set TFT_API_KEY environment variable."
+        )
+    return api_key
 
 # Import our helper modules (these are clean)
 from server_encoder import ServerEncoder
@@ -904,7 +937,7 @@ class TFTInference:
 WARMUP_THRESHOLD = 150  # Timesteps needed per server before TFT predictions work
 WINDOW_SIZE = 6000      # Keep last 6000 records (~8 hours at 5-second intervals for 25 servers)
 PORT = 8000
-PERSISTENCE_FILE = "inference_rolling_window.pkl"  # File to persist rolling window
+PERSISTENCE_FILE = "inference_rolling_window.parquet"  # File to persist rolling window
 AUTOSAVE_INTERVAL = 100  # Save every 100 ticks (~8 minutes at 5s intervals)
 
 # =============================================================================
@@ -1056,68 +1089,143 @@ class CleanInferenceDaemon:
 
     def _load_state(self):
         """Load persisted rolling window from disk."""
-        if not self.persistence_file.exists():
-            print(f"[INFO] No persisted state found - starting fresh")
-            return
+        # Try Parquet first (secure), fall back to Pickle (legacy migration)
+        parquet_file = self.persistence_file
+        pickle_file = Path(str(self.persistence_file).replace('.parquet', '.pkl'))
 
-        try:
-            # Check file age
-            file_age_minutes = (datetime.now().timestamp() - self.persistence_file.stat().st_mtime) / 60
+        # Priority 1: Load from Parquet (secure)
+        if parquet_file.exists():
+            try:
+                self._load_state_parquet(parquet_file)
+                return
+            except Exception as e:
+                print(f"[ERROR] Failed to load Parquet state: {e}")
+                print(f"[INFO] Trying legacy Pickle format...")
 
-            if file_age_minutes > 30:
-                print(f"[WARNING] Persisted state is {file_age_minutes:.1f} minutes old - may be stale")
+        # Priority 2: Auto-migrate from legacy Pickle (one-time migration)
+        if pickle_file.exists():
+            print(f"[MIGRATION] Found legacy pickle file - migrating to Parquet...")
+            try:
+                self._load_state_pickle_legacy(pickle_file)
+                # Save as Parquet immediately
+                self._save_state()
+                print(f"[MIGRATION] Successfully migrated to Parquet format!")
+                # Keep old pickle as backup for now
+                return
+            except Exception as e:
+                print(f"[ERROR] Failed to migrate from Pickle: {e}")
 
-            print(f"[INFO] Loading persisted rolling window from {self.persistence_file}...")
-            with open(self.persistence_file, 'rb') as f:
-                state = pickle.load(f)
+        # Priority 3: No persisted state - start fresh
+        print(f"[INFO] No persisted state found - starting fresh")
 
-            # Restore state
-            self.rolling_window = deque(state['rolling_window'], maxlen=WINDOW_SIZE)
-            self.tick_count = state['tick_count']
-            self.server_timesteps = state['server_timesteps']
+    def _load_state_parquet(self, file_path: Path):
+        """Load state from secure Parquet format."""
+        import pyarrow.parquet as pq
 
-            servers_ready = sum(1 for count in self.server_timesteps.values() if count >= WARMUP_THRESHOLD)
-            total_servers = len(self.server_timesteps)
+        # Check file age
+        file_age_minutes = (datetime.now().timestamp() - file_path.stat().st_mtime) / 60
 
-            print(f"[OK] Loaded {len(self.rolling_window)} records from disk")
-            print(f"[OK] Warmup status: {servers_ready}/{total_servers} servers ready")
+        if file_age_minutes > 30:
+            print(f"[WARNING] Persisted state is {file_age_minutes:.1f} minutes old - may be stale")
 
-            # Check if warmed up
-            if servers_ready == total_servers and total_servers > 0:
-                print(f"[SUCCESS] Model is WARMED UP - ready for predictions immediately!")
-            else:
-                print(f"[INFO] Model needs {WARMUP_THRESHOLD - min(self.server_timesteps.values() if self.server_timesteps else [0])} more datapoints per server")
+        print(f"[INFO] Loading persisted rolling window from {file_path}...")
 
-        except Exception as e:
-            print(f"[ERROR] Failed to load persisted state: {e}")
-            print(f"[INFO] Starting with empty rolling window")
-            self.rolling_window = deque(maxlen=WINDOW_SIZE)
-            self.tick_count = 0
-            self.server_timesteps = {}
+        # Read Parquet file
+        table = pq.read_table(str(file_path))
+        df = table.to_pandas()
+
+        # Read metadata (stored in Parquet schema metadata)
+        metadata = table.schema.metadata
+        if metadata:
+            self.tick_count = int(metadata.get(b'tick_count', b'0').decode('utf-8'))
+
+            # Deserialize server_timesteps from JSON (stored in metadata)
+            server_timesteps_json = metadata.get(b'server_timesteps', b'{}').decode('utf-8')
+            self.server_timesteps = json.loads(server_timesteps_json)
+        else:
+            # Fallback: infer from data
+            self.tick_count = len(df) // 25  # Approximate
+            self.server_timesteps = df['server_name'].value_counts().to_dict()
+
+        # Restore rolling window from DataFrame
+        records = df.to_dict('records')
+        self.rolling_window = deque(records, maxlen=WINDOW_SIZE)
+
+        servers_ready = sum(1 for count in self.server_timesteps.values() if count >= WARMUP_THRESHOLD)
+        total_servers = len(self.server_timesteps)
+
+        print(f"[OK] Loaded {len(self.rolling_window)} records from Parquet")
+        print(f"[OK] Warmup status: {servers_ready}/{total_servers} servers ready")
+
+        # Check if warmed up
+        if servers_ready == total_servers and total_servers > 0:
+            print(f"[SUCCESS] Model is WARMED UP - ready for predictions immediately!")
+        else:
+            print(f"[INFO] Model needs {WARMUP_THRESHOLD - min(self.server_timesteps.values() if self.server_timesteps else [0])} more datapoints per server")
+
+    def _load_state_pickle_legacy(self, file_path: Path):
+        """Load state from legacy Pickle format (one-time migration only)."""
+        print(f"[WARNING] Loading INSECURE Pickle format - will migrate to Parquet")
+
+        with open(file_path, 'rb') as f:
+            state = pickle.load(f)
+
+        # Restore state
+        self.rolling_window = deque(state['rolling_window'], maxlen=WINDOW_SIZE)
+        self.tick_count = state['tick_count']
+        self.server_timesteps = state['server_timesteps']
+
+        servers_ready = sum(1 for count in self.server_timesteps.values() if count >= WARMUP_THRESHOLD)
+        total_servers = len(self.server_timesteps)
+
+        print(f"[OK] Loaded {len(self.rolling_window)} records from legacy Pickle")
+        print(f"[OK] Warmup status: {servers_ready}/{total_servers} servers ready")
 
     def _save_state(self):
-        """Save rolling window to disk."""
+        """Save rolling window to disk using secure Parquet format."""
         try:
-            # Create state dict
-            state = {
-                'rolling_window': list(self.rolling_window),
-                'tick_count': self.tick_count,
-                'server_timesteps': self.server_timesteps,
-                'timestamp': datetime.now().isoformat()
+            import pyarrow as pa
+            import pyarrow.parquet as pq
+
+            # Convert rolling window to DataFrame
+            df = pd.DataFrame(list(self.rolling_window))
+
+            if df.empty:
+                print(f"[SAVE] Skipping save - no data to persist")
+                return
+
+            # Create PyArrow table with metadata
+            table = pa.Table.from_pandas(df)
+
+            # Add metadata (tick_count, server_timesteps, timestamp)
+            metadata = {
+                b'tick_count': str(self.tick_count).encode('utf-8'),
+                b'server_timesteps': json.dumps(self.server_timesteps).encode('utf-8'),
+                b'timestamp': datetime.now().isoformat().encode('utf-8'),
+                b'format_version': b'1.0'
             }
+
+            # Create new schema with metadata
+            table = table.replace_schema_metadata(metadata)
 
             # Atomic write (temp file + rename)
             temp_file = self.persistence_file.with_suffix('.tmp')
-            with open(temp_file, 'wb') as f:
-                pickle.dump(state, f, protocol=pickle.HIGHEST_PROTOCOL)
+            pq.write_table(
+                table,
+                str(temp_file),
+                compression='snappy',  # Fast compression
+                use_dictionary=True     # Efficient for categorical data
+            )
 
             # Rename to final location (atomic on POSIX, best-effort on Windows)
             temp_file.replace(self.persistence_file)
 
-            print(f"[SAVE] Rolling window persisted: {len(self.rolling_window)} records, tick {self.tick_count}")
+            print(f"[SAVE] Rolling window persisted (Parquet): {len(self.rolling_window)} records, tick {self.tick_count}")
 
         except Exception as e:
             print(f"[ERROR] Failed to save state: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals gracefully."""
@@ -1147,13 +1255,26 @@ app = FastAPI(
     version="2.0"
 )
 
-# Enable CORS for dashboard
+# Security: Rate limiting (if available)
+if RATE_LIMITING_AVAILABLE:
+    limiter = Limiter(key_func=get_remote_address)
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    print("[OK] Rate limiting enabled")
+else:
+    limiter = None
+    print("[WARNING] Rate limiting disabled - install slowapi for production")
+
+# Enable CORS for dashboard (Security: Whitelist only)
+# Get allowed origins from environment variable, default to localhost
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8501").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,  # Security: Whitelist only (not "*")
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],  # Only allow needed methods
+    allow_headers=["Content-Type", "X-API-Key"],  # Only allow needed headers
 )
 
 @app.on_event("startup")
@@ -1176,9 +1297,12 @@ async def startup():
     print("[READY] Daemon started - waiting for data feed")
 
 @app.post("/feed/data")
-async def feed_data(request: FeedDataRequest):
+@limiter.limit("60/minute") if RATE_LIMITING_AVAILABLE else lambda func: func
+async def feed_data(request: Request, feed_request: FeedDataRequest, api_key: str = Depends(verify_api_key)):
     """
     Accept data from external source (metrics_generator.py --stream).
+
+    Rate limit: 60 requests/minute (1 per second)
 
     Example:
         POST /feed/data
@@ -1189,13 +1313,16 @@ async def feed_data(request: FeedDataRequest):
             ]
         }
     """
-    result = daemon.feed_data(request.records)
+    result = daemon.feed_data(feed_request.records)
     return result
 
 @app.get("/predictions/current")
-async def get_predictions():
+@limiter.limit("30/minute") if RATE_LIMITING_AVAILABLE else lambda func: func
+async def get_predictions(request: Request, api_key: str = Depends(verify_api_key)):
     """
     Get current predictions for all servers.
+
+    Rate limit: 30 requests/minute (1 every 2 seconds)
 
     Returns predictions with 96-step forecast horizon (8 hours at 5-minute intervals).
     """
@@ -1216,9 +1343,12 @@ async def health_check():
     }
 
 @app.get("/alerts/active")
-async def get_active_alerts():
+@limiter.limit("30/minute") if RATE_LIMITING_AVAILABLE else lambda func: func
+async def get_active_alerts(request: Request, api_key: str = Depends(verify_api_key)):
     """
     Get active alerts from latest predictions.
+
+    Rate limit: 30 requests/minute (1 every 2 seconds)
 
     Returns alerts that are currently active based on the latest prediction run.
     """

@@ -12,8 +12,24 @@ from typing import Dict, List, Optional
 class DaemonClient:
     """Client for TFT Inference Daemon API."""
 
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, api_key: Optional[str] = None):
+        """
+        Initialize daemon client.
+
+        Args:
+            base_url: Base URL of inference daemon (e.g. http://localhost:8000)
+            api_key: Optional API key for authentication (X-API-Key header)
+                     If None, requests will work only if daemon is in development mode
+        """
         self.base_url = base_url.rstrip('/')
+        self.api_key = api_key
+
+    def _get_auth_headers(self) -> Dict[str, str]:
+        """Get authentication headers with API key if configured."""
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
+        return headers
 
     def check_health(self) -> Dict:
         """Check daemon health status."""
@@ -30,9 +46,16 @@ class DaemonClient:
     def get_predictions(self) -> Optional[Dict]:
         """Get current predictions from daemon."""
         try:
-            response = requests.get(f"{self.base_url}/predictions/current", timeout=5)
+            response = requests.get(
+                f"{self.base_url}/predictions/current",
+                headers=self._get_auth_headers(),
+                timeout=5
+            )
             if response.ok:
                 return response.json()
+            elif response.status_code == 403:
+                st.error("❌ Authentication failed - check API key configuration")
+                return None
             return None
         except Exception as e:
             st.error(f"Error fetching predictions: {e}")
@@ -41,9 +64,16 @@ class DaemonClient:
     def get_alerts(self) -> Optional[Dict]:
         """Get active alerts from daemon."""
         try:
-            response = requests.get(f"{self.base_url}/alerts/active", timeout=5)
+            response = requests.get(
+                f"{self.base_url}/alerts/active",
+                headers=self._get_auth_headers(),
+                timeout=5
+            )
             if response.ok:
                 return response.json()
+            elif response.status_code == 403:
+                # Silent fail for alerts (non-critical)
+                return None
             return None
         except Exception as e:
             return None
@@ -54,10 +84,15 @@ class DaemonClient:
             response = requests.post(
                 f"{self.base_url}/feed/data",
                 json={"records": records},
+                headers=self._get_auth_headers(),
                 timeout=5
             )
-            if not response.ok:
+            if response.status_code == 403:
+                st.error("❌ Authentication failed - check API key for demo mode")
+                return False
+            elif not response.ok:
                 st.error(f"Daemon returned {response.status_code}: {response.text[:200]}")
+                return False
             return response.ok
         except Exception as e:
             st.error(f"Error feeding data: {e}")

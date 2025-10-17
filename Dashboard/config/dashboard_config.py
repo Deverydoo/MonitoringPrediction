@@ -2,15 +2,44 @@
 Dashboard Configuration
 
 All constants, thresholds, and configuration values for the TFT Monitoring Dashboard.
+
+NOTE: API URLs and ports are imported from centralized config.api_config
 """
+
+import os
+
+# Import API configuration from centralized config (SINGLE SOURCE OF TRUTH)
+from config.api_config import API_CONFIG
 
 # =============================================================================
 # API Configuration
 # =============================================================================
 
-DAEMON_URL = "http://localhost:8000"
-METRICS_GENERATOR_URL = "http://localhost:8001"
-REFRESH_INTERVAL = 5  # seconds
+DAEMON_URL = API_CONFIG['daemon_url']
+METRICS_GENERATOR_URL = API_CONFIG['metrics_generator_url']
+REFRESH_INTERVAL = API_CONFIG['dashboard']['default_refresh_interval']  # 5 seconds
+
+# =============================================================================
+# Security Configuration
+# =============================================================================
+
+# API Key for daemon authentication (X-API-Key header)
+# Priority: Streamlit secrets > Environment variable > Empty (dev mode)
+try:
+    import streamlit as st
+    DAEMON_API_KEY = st.secrets.get("daemon", {}).get("api_key", "")
+except:
+    DAEMON_API_KEY = ""
+
+# Fallback to environment variable if not in Streamlit secrets
+if not DAEMON_API_KEY:
+    DAEMON_API_KEY = os.getenv("TFT_API_KEY", "")
+
+# Warn if no API key configured (development mode)
+if not DAEMON_API_KEY:
+    print("[INFO] No API key configured - running in development mode")
+    print("[INFO] Dashboard will only work if daemon has no TFT_API_KEY set")
+    print("[INFO] For production: set TFT_API_KEY env var or add to .streamlit/secrets.toml")
 
 # =============================================================================
 # Risk Thresholds

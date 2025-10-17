@@ -1,0 +1,31 @@
+[Unit]
+Description=TFT Streamlit Dashboard
+After=network.target tft-inference-daemon.service
+Requires=tft-inference-daemon.service
+
+[Service]
+Type=simple
+User=tftuser
+Group=tftuser
+WorkingDirectory=/opt/tft-monitoring
+ExecStart=/usr/bin/streamlit run /opt/tft-monitoring/tft_dashboard_web.py --server.headless true
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/tft-monitoring/dashboard.log
+StandardError=append:/var/log/tft-monitoring/dashboard.log
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+# Resource limits
+LimitNOFILE=8192
+MemoryLimit=2G
+
+[Install]
+WantedBy=multi-user.target

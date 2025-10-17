@@ -1,0 +1,40 @@
+[Unit]
+Description=TFT Inference Daemon
+After=network.target tft-metrics-generator.service
+Requires=tft-metrics-generator.service
+
+[Service]
+Type=simple
+User=tftuser
+Group=tftuser
+WorkingDirectory=/opt/tft-monitoring
+ExecStart=/usr/bin/python3 /opt/tft-monitoring/tft_inference_daemon.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/tft-monitoring/inference_daemon.log
+StandardError=append:/var/log/tft-monitoring/inference_daemon.log
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="CUDA_VISIBLE_DEVICES=0"
+
+# Security environment variables (REQUIRED for production)
+# IMPORTANT: Generate a strong random key and set it here!
+# Example: openssl rand -hex 32
+Environment="TFT_API_KEY=CHANGE_ME_TO_STRONG_RANDOM_KEY"
+Environment="CORS_ORIGINS=http://localhost:8501"
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/tft-monitoring/models
+ReadWritePaths=/opt/tft-monitoring/data
+
+# Resource limits (needs more for model)
+LimitNOFILE=4096
+MemoryLimit=4G
+
+[Install]
+WantedBy=multi-user.target
