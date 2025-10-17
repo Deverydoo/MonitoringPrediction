@@ -968,9 +968,10 @@ class CleanInferenceDaemon:
     - Maintains rolling window of recent data
     - Runs TFT predictions when enough data available
     - Exposes predictions via GET /predictions/current
+    - Accumulates data for automated retraining
     """
 
-    def __init__(self, model_path: str = None, port: int = PORT):
+    def __init__(self, model_path: str = None, port: int = PORT, enable_retraining: bool = True):
         self.port = port
         self.rolling_window = deque(maxlen=WINDOW_SIZE)
         self.tick_count = 0
@@ -985,6 +986,22 @@ class CleanInferenceDaemon:
 
         # Track per-server data counts for warmup
         self.server_timesteps = {}
+
+        # Initialize data buffer for automated retraining
+        if enable_retraining:
+            try:
+                from data_buffer import DataBuffer
+                self.data_buffer = DataBuffer(
+                    buffer_dir='./data_buffer',
+                    retention_days=60,
+                    auto_rotate=True
+                )
+                print(f"[OK] Data buffer initialized for automated retraining")
+            except ImportError:
+                print(f"[WARNING] data_buffer.py not found - retraining disabled")
+                self.data_buffer = None
+        else:
+            self.data_buffer = None
 
         # Try to load persisted state
         self._load_state()
@@ -1010,6 +1027,13 @@ class CleanInferenceDaemon:
         # Add to rolling window
         self.rolling_window.extend(records)
         self.tick_count += 1
+
+        # Accumulate data for automated retraining
+        if self.data_buffer:
+            try:
+                self.data_buffer.append(records)
+            except Exception as e:
+                print(f"[WARNING] Failed to buffer data for retraining: {e}")
 
         # Track per-server counts for warmup status
         for record in records:
