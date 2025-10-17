@@ -131,3 +131,6 @@ hf_cache/
 # Windows
 $RECYCLE.BIN/
 *.lnk
+
+# Streamlit secrets (API keys, passwords)
+.streamlit/secrets.toml

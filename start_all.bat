@@ -24,6 +24,31 @@ if errorlevel 1 (
 echo [OK] Conda environment: py310
 echo.
 
+REM Generate/verify API key configuration
+echo [INFO] Checking API key configuration...
+python generate_api_key.py
+if errorlevel 1 (
+    echo [ERROR] Failed to generate API key
+    pause
+    exit /b 1
+)
+echo.
+
+REM Load API key from .env file
+if exist .env (
+    for /f "usebackq tokens=1,2 delims==" %%a in (.env) do (
+        if "%%a"=="TFT_API_KEY" set TFT_API_KEY=%%b
+    )
+    if defined TFT_API_KEY (
+        echo [OK] API key loaded: %TFT_API_KEY:~0,20%...
+    ) else (
+        echo [WARNING] TFT_API_KEY not found in .env file
+    )
+) else (
+    echo [WARNING] .env file not found, running without API key
+)
+echo.
+
 REM Check if model exists
 if not exist "models\" (
     echo [WARNING] No models found in models/ directory
@@ -37,19 +62,24 @@ if not exist "models\" (
 )
 
 echo [INFO] Starting TFT Inference Daemon (clean architecture)...
-start "TFT Inference Daemon" cmd /k "conda activate py310 && python tft_inference_daemon.py --port 8000"
+start "TFT Inference Daemon" cmd /k "run_daemon.bat"
 
 echo [INFO] Waiting for daemon to initialize (5 seconds)...
 timeout /t 5 /nobreak >nul
 
+echo [INFO] Pre-compiling Python modules for faster startup...
+python precompile.py >nul 2>&1
+echo [OK] Bytecode compilation complete
+echo.
+
 echo [INFO] Starting Metrics Generator Daemon (stream mode with REST API)...
-start "Metrics Generator" cmd /k "conda activate py310 && python metrics_generator_daemon.py --stream --servers 20"
+start "Metrics Generator" cmd /k "conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python metrics_generator_daemon.py --stream --servers 20"
 
 echo [INFO] Waiting for data stream to start (3 seconds)...
 timeout /t 3 /nobreak >nul
 
-echo [INFO] Starting Streamlit Dashboard...
-start "TFT Dashboard" cmd /k "conda activate py310 && streamlit run tft_dashboard_web.py"
+echo [INFO] Starting Streamlit Dashboard (production mode)...
+start "TFT Dashboard" cmd /k "conda activate py310 && streamlit run tft_dashboard_web.py --server.fileWatcherType none --server.runOnSave false"
 
 echo.
 echo ============================================

@@ -26,6 +26,30 @@ from Dashboard.utils import (
 from Dashboard.config.dashboard_config import DAEMON_URL, METRICS_GENERATOR_URL
 
 
+@st.cache_data(ttl=2, show_spinner=False)
+def fetch_warmup_status(daemon_url: str):
+    """Cached warmup status check (2s TTL to reduce load)."""
+    try:
+        response = requests.get(f"{daemon_url}/status", timeout=2)
+        if response.ok:
+            return response.json().get('warmup', {})
+    except:
+        pass
+    return None
+
+
+@st.cache_data(ttl=2, show_spinner=False)
+def fetch_scenario_status(generator_url: str):
+    """Cached scenario status check (2s TTL to reduce load)."""
+    try:
+        response = requests.get(f"{generator_url}/scenario/status", timeout=1)
+        if response.ok:
+            return response.json()
+    except:
+        pass
+    return None
+
+
 def render(predictions: Optional[Dict], daemon_url: str = DAEMON_URL):
     """
     Render the Overview tab.
@@ -35,24 +59,18 @@ def render(predictions: Optional[Dict], daemon_url: str = DAEMON_URL):
         daemon_url: URL of the inference daemon
     """
     if predictions:
-        # Check warmup status and show warning if model not ready
-        try:
-            status_response = requests.get(f"{daemon_url}/status", timeout=2)
-            if status_response.ok:
-                status_data = status_response.json()
-                warmup = status_data.get('warmup', {})
-                if not warmup.get('is_warmed_up', True):
-                    progress = warmup.get('progress_percent', 0)
-                    st.warning(f"""
-                    ⏳ **Model Warming Up** ({progress:.0f}% complete)
+        # Check warmup status and show warning if model not ready (CACHED)
+        warmup = fetch_warmup_status(daemon_url)
+        if warmup and not warmup.get('is_warmed_up', True):
+            progress = warmup.get('progress_percent', 0)
+            st.warning(f"""
+            ⏳ **Model Warming Up** ({progress:.0f}% complete)
 
-                    The model is still learning from incoming data. Predictions may be inconsistent during warm-up.
-                    Once warmed up, all metrics will tell a consistent story.
+            The model is still learning from incoming data. Predictions may be inconsistent during warm-up.
+            Once warmed up, all metrics will tell a consistent story.
 
-                    **What's happening:** The model has {warmup.get('current_size', 0)}/{warmup.get('required_size', 288)} data points needed per server for reliable predictions.
-                    """, icon="⏳")
-        except:
-            pass
+            **What's happening:** The model has {warmup.get('current_size', 0)}/{warmup.get('required_size', 288)} data points needed per server for reliable predictions.
+            """, icon="⏳")
 
         # Environment status
         status_text, status_color, status_emoji = get_health_status(predictions, calculate_server_risk_score)
@@ -123,30 +141,26 @@ def render(predictions: Optional[Dict], daemon_url: str = DAEMON_URL):
             st.markdown("### 📍 **Actual Current State**")
             st.markdown("_(What's happening RIGHT NOW)_")
 
-            # Try to get actual scenario from generator
-            try:
-                generator_url = METRICS_GENERATOR_URL
-                scenario_response = requests.get(f"{generator_url}/scenario/status", timeout=1)
-                if scenario_response.ok:
-                    status = scenario_response.json()
-                    actual_scenario = status['scenario'].upper()
-                    actual_affected = status.get('total_affected', 0)
+            # Try to get actual scenario from generator (CACHED)
+            generator_url = METRICS_GENERATOR_URL
+            status = fetch_scenario_status(generator_url)
+            if status:
+                actual_scenario = status['scenario'].upper()
+                actual_affected = status.get('total_affected', 0)
 
-                    if actual_scenario == 'HEALTHY':
-                        st.success(f"✅ **{actual_scenario}**")
-                        st.metric("Affected Servers (Now)", f"{actual_affected}")
-                        st.caption("Environment is currently operating normally")
-                    elif actual_scenario == 'DEGRADING':
-                        st.warning(f"⚠️ **{actual_scenario}**")
-                        st.metric("Affected Servers (Now)", f"{actual_affected}")
-                        st.caption("Some servers experiencing issues")
-                    else:  # CRITICAL
-                        st.error(f"🔴 **{actual_scenario}**")
-                        st.metric("Affected Servers (Now)", f"{actual_affected}")
-                        st.caption("Multiple servers in critical state")
-                else:
-                    st.info("Actual state: Unknown (generator offline)")
-            except:
+                if actual_scenario == 'HEALTHY':
+                    st.success(f"✅ **{actual_scenario}**")
+                    st.metric("Affected Servers (Now)", f"{actual_affected}")
+                    st.caption("Environment is currently operating normally")
+                elif actual_scenario == 'DEGRADING':
+                    st.warning(f"⚠️ **{actual_scenario}**")
+                    st.metric("Affected Servers (Now)", f"{actual_affected}")
+                    st.caption("Some servers experiencing issues")
+                else:  # CRITICAL
+                    st.error(f"🔴 **{actual_scenario}**")
+                    st.metric("Affected Servers (Now)", f"{actual_affected}")
+                    st.caption("Multiple servers in critical state")
+            else:
                 st.info("💡 Actual state: Unknown (connect metrics generator on port 8001)")
 
         with col2:
@@ -179,37 +193,33 @@ def render(predictions: Optional[Dict], daemon_url: str = DAEMON_URL):
             st.metric("Predicted Incident Risk (30m)", f"{prob_30m:.1f}%")
             st.metric("Predicted Incident Risk (8h)", f"{prob_8h:.1f}%")
 
-        # Insight box
-        try:
-            generator_url = METRICS_GENERATOR_URL
-            scenario_response = requests.get(f"{generator_url}/scenario/status", timeout=1)
-            if scenario_response.ok:
-                status = scenario_response.json()
-                actual_scenario = status['scenario'].upper()
+        # Insight box (CACHED)
+        generator_url = METRICS_GENERATOR_URL
+        status = fetch_scenario_status(generator_url)
+        if status:
+            actual_scenario = status['scenario'].upper()
 
-                if actual_scenario == 'HEALTHY' and predicted_status in ['CRITICAL', 'WARNING']:
-                    st.warning(f"""
-                    🎯 **This is the value of Predictive AI!**
+            if actual_scenario == 'HEALTHY' and predicted_status in ['CRITICAL', 'WARNING']:
+                st.warning(f"""
+                🎯 **This is the value of Predictive AI!**
 
-                    - **Current Reality**: Environment is HEALTHY (no active issues)
-                    - **AI Forecast**: {prob_30m:.0f}% risk in 30m, {prob_8h:.0f}% risk in 8h
-                    - **Action Window**: Act NOW to prevent issues before they occur
-                    - **Value**: Proactive prevention vs reactive firefighting
-                    """)
-                elif actual_scenario != 'HEALTHY' and predicted_status in ['CRITICAL', 'WARNING']:
-                    st.info("""
-                    ✅ **AI accurately detecting ongoing issues**
+                - **Current Reality**: Environment is HEALTHY (no active issues)
+                - **AI Forecast**: {prob_30m:.0f}% risk in 30m, {prob_8h:.0f}% risk in 8h
+                - **Action Window**: Act NOW to prevent issues before they occur
+                - **Value**: Proactive prevention vs reactive firefighting
+                """)
+            elif actual_scenario != 'HEALTHY' and predicted_status in ['CRITICAL', 'WARNING']:
+                st.info("""
+                ✅ **AI accurately detecting ongoing issues**
 
-                    The model is correctly identifying the current degradation and predicting continued problems.
-                    """)
-                elif actual_scenario == 'HEALTHY' and predicted_status == 'HEALTHY':
-                    st.success("""
-                    ✅ **All systems stable**
+                The model is correctly identifying the current degradation and predicting continued problems.
+                """)
+            elif actual_scenario == 'HEALTHY' and predicted_status == 'HEALTHY':
+                st.success("""
+                ✅ **All systems stable**
 
-                    Both current state and predictions show healthy operations.
-                    """)
-        except:
-            pass
+                Both current state and predictions show healthy operations.
+                """)
 
         st.divider()
 

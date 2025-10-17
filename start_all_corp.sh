@@ -108,6 +108,22 @@ else
     log "Corporate configuration exists"
 fi
 
+# Generate/verify API key configuration
+log "Checking API key configuration..."
+python3 generate_api_key.py >> logs/startup.log 2>&1
+if [ $? -ne 0 ]; then
+    log_error "Failed to generate API key"
+    exit 1
+fi
+
+# Load API key from .env file
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+    log "API key loaded from .env"
+else
+    log "WARNING: .env file not found, running without API key"
+fi
+
 # Check ports (silent check, continue anyway)
 if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1 || netstat -an 2>/dev/null | grep -q ":8000.*LISTEN"; then
     log "WARNING: Port 8000 already in use"
@@ -125,7 +141,7 @@ fi
 
 # Start Metrics Generator Daemon (port 8001)
 log "Starting Metrics Generator (port 8001)..."
-python3 metrics_generator_daemon.py > logs/metrics_generator.log 2>&1 &
+TFT_API_KEY="$TFT_API_KEY" python3 metrics_generator_daemon.py --stream --servers 20 > logs/metrics_generator.log 2>&1 &
 METRICS_PID=$!
 echo $METRICS_PID > logs/metrics_generator.pid
 log "Metrics Generator started (PID: $METRICS_PID)"
@@ -142,7 +158,7 @@ sleep 2
 
 # Start Inference Daemon (port 8000)
 log "Starting Inference Daemon (port 8000)..."
-python3 tft_inference_daemon.py > logs/inference_daemon.log 2>&1 &
+TFT_API_KEY="$TFT_API_KEY" python3 tft_inference_daemon.py --port 8000 > logs/inference_daemon.log 2>&1 &
 INFERENCE_PID=$!
 echo $INFERENCE_PID > logs/inference_daemon.pid
 log "Inference Daemon started (PID: $INFERENCE_PID)"

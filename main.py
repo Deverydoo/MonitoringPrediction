@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-main.py - Optimized Main Interface
-Streamlined for Parquet-first data pipeline with config integration
+main.py - Main Interface for TFT Monitoring System
+Streamlined CLI for dataset creation, training, and prediction pipeline
+
+Version: 1.0.0
 """
 
 import sys
@@ -13,13 +15,14 @@ from typing import Optional
 from metrics_generator import generate_dataset
 from tft_trainer import train_model
 from tft_inference import predict
-from config import CONFIG
+from config import MODEL_CONFIG, METRICS_CONFIG, API_CONFIG
 from linborg_schema import LINBORG_METRICS, NUM_LINBORG_METRICS, validate_linborg_metrics
 
 
 def setup() -> bool:
     """Validate environment setup."""
     print("🔍 Validating environment...")
+    print("=" * 50)
 
     try:
         import torch
@@ -39,6 +42,7 @@ def setup() -> bool:
             print(f"✅ PyArrow (Parquet): {pyarrow.__version__}")
         except ImportError:
             print("⚠️ PyArrow missing - Parquet support unavailable")
+            print("   Install with: pip install pyarrow")
 
         # GPU info
         device = "GPU" if torch.cuda.is_available() else "CPU"
@@ -47,24 +51,37 @@ def setup() -> bool:
         else:
             print(f"💻 Device: {device}")
 
+        # Version info
+        try:
+            with open('VERSION', 'r') as f:
+                version = f.read().strip()
+            print(f"📦 System Version: {version}")
+        except:
+            print("📦 System Version: Unknown")
+
+        print()
+        print("Environment validation complete!")
         return True
 
     except ImportError as e:
         print(f"❌ Missing dependency: {e}")
+        print("\nPlease install dependencies:")
+        print("  conda activate py310")
+        print("  pip install -r requirements.txt")
         return False
 
 
 def status():
-    """Check system status - Parquet-first approach."""
+    """Check system status - datasets, models, config."""
     print("🔍 System Status")
     print("=" * 50)
 
-    training_dir = Path(CONFIG.get("training_dir", "./training/"))
-    models_dir = Path(CONFIG.get("models_dir", "./models/"))
+    training_dir = Path(MODEL_CONFIG.get("training_data_dir", "./training/"))
+    models_dir = Path(MODEL_CONFIG.get("model_save_dir", "./models/"))
 
     # Check for datasets (Parquet preferred)
-    parquet_files = list(training_dir.glob("*.parquet"))
-    csv_files = list(training_dir.glob("*.csv"))
+    parquet_files = list(training_dir.glob("*.parquet")) if training_dir.exists() else []
+    csv_files = list(training_dir.glob("*.csv")) if training_dir.exists() else []
 
     if parquet_files:
         print(f"✅ Datasets (Parquet): {len(parquet_files)} file(s)")
@@ -89,6 +106,7 @@ def status():
                 print(f"   Metrics: {NUM_LINBORG_METRICS} LINBORG metrics ✅")
             elif len(present) > 0:
                 print(f"   Metrics: {len(present)}/{NUM_LINBORG_METRICS} LINBORG metrics (partial)")
+                print(f"   Missing: {', '.join(missing[:5])}...")
             else:
                 # Legacy metrics check
                 if 'cpu_pct' in df.columns:
@@ -100,6 +118,7 @@ def status():
         print("   Consider regenerating as Parquet for better performance")
     else:
         print("❌ Datasets: None found")
+        print(f"   Generate with: python main.py generate --hours 720 --servers 20")
 
     # Check models
     if models_dir.exists():
@@ -113,12 +132,22 @@ def status():
                 print("   Format: Safetensors ✅")
             elif (latest / "model.pth").exists():
                 print("   Format: PyTorch (legacy)")
+
+            # Check training info
+            import json
+            training_info_file = latest / "training_info.json"
+            if training_info_file.exists():
+                with open(training_info_file) as f:
+                    info = json.load(f)
+                print(f"   Epochs: {info.get('epochs', 'unknown')}")
+                print(f"   Train Loss: {info.get('train_loss', {}).get('final', 'N/A')}")
         else:
             print("❌ Models: None found")
+            print(f"   Train with: python main.py train --epochs 20")
     else:
         print("❌ Models: Directory missing")
 
-    # Device info (consolidated from setup)
+    # Device info
     try:
         import torch
         device = "GPU" if torch.cuda.is_available() else "CPU"
@@ -129,16 +158,26 @@ def status():
     except ImportError:
         print("❌ PyTorch: Not installed")
 
+    # API Config
+    print(f"\n📡 API Configuration:")
+    print(f"   Daemon: {API_CONFIG.get('daemon_url', 'Not configured')}")
+    print(f"   Metrics Generator: {API_CONFIG.get('metrics_generator_url', 'Not configured')}")
+
+    print()
+
 
 def train(dataset_path: Optional[str] = None, epochs: Optional[int] = None,
-          per_server: bool = False) -> Optional[str]:
-    """Train model - delegates to tft_trainer."""
+          per_server: bool = False, incremental: bool = True) -> Optional[str]:
+    """Train model with incremental training support - delegates to tft_trainer."""
     try:
         # Use config defaults if not specified
         if dataset_path is None:
-            dataset_path = CONFIG.get("training_dir", "./training/")
+            dataset_path = MODEL_CONFIG.get("training_data_dir", "./training/")
 
-        return train_model(dataset_path, epochs, per_server=per_server)
+        if epochs is None:
+            epochs = MODEL_CONFIG.get("max_epochs", 20)
+
+        return train_model(dataset_path, epochs, per_server=per_server, incremental=incremental)
     except Exception as e:
         print(f"❌ Training error: {e}")
         import traceback
@@ -149,8 +188,31 @@ def train(dataset_path: Optional[str] = None, epochs: Optional[int] = None,
 def main():
     """Command line interface."""
     parser = argparse.ArgumentParser(
-        description='TFT Monitoring System - Optimized CLI',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description='TFT Monitoring System v1.0.0 - Complete ML Pipeline',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Validate environment
+  python main.py setup
+
+  # Check system status
+  python main.py status
+
+  # Generate training data (30 days, 20 servers)
+  python main.py generate --hours 720 --servers 20
+
+  # Train model (20 epochs)
+  python main.py train --epochs 20
+
+  # Run predictions
+  python main.py predict --input data.parquet --model models/tft_model_latest
+
+Full pipeline:
+  python main.py setup
+  python main.py generate --hours 720 --servers 20
+  python main.py train --epochs 20
+  python main.py status
+        """
     )
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
@@ -163,34 +225,35 @@ def main():
     # Generate command
     gen_parser = subparsers.add_parser('generate', help='Generate training dataset')
     gen_parser.add_argument('--hours', type=int,
-                           default=CONFIG.get('time_span_hours', 24),
-                           help='Hours of data to generate')
+                           default=720,  # 30 days recommended
+                           help='Hours of data to generate (default: 720 = 30 days)')
     gen_parser.add_argument('--servers', type=int,
-                           default=CONFIG.get('servers_count', 15),
-                           help='Number of servers')
+                           default=20,
+                           help='Number of servers (default: 20)')
     gen_parser.add_argument('--output', type=str,
-                           default=CONFIG.get('training_dir', './training/'),
-                           help='Output directory')
+                           default=MODEL_CONFIG.get('training_data_dir', './training/'),
+                           help='Output directory (default: ./training/)')
 
     # Train command
     train_parser = subparsers.add_parser('train', help='Train TFT model')
     train_parser.add_argument('--epochs', type=int,
-                             default=CONFIG.get('epochs', 20),
-                             help='Training epochs')
+                             default=MODEL_CONFIG.get('max_epochs', 20),
+                             help='Training epochs (default: 20)')
     train_parser.add_argument('--dataset', type=str,
                              help='Dataset directory or file path')
     train_parser.add_argument('--per-server', action='store_true',
-                             help='Train separate model per server')
+                             help='Train separate model per server (not recommended)')
 
     # Predict command
     pred_parser = subparsers.add_parser('predict', help='Run predictions')
     pred_parser.add_argument('--input', type=str,
+                            required=True,
                             help='Input data file (Parquet or CSV)')
     pred_parser.add_argument('--model', type=str,
                             help='Model directory path')
     pred_parser.add_argument('--horizon', type=int,
-                            default=CONFIG.get('prediction_horizon', 96),
-                            help='Prediction horizon (timesteps)')
+                            default=MODEL_CONFIG.get('max_prediction_length', 96),
+                            help='Prediction horizon in timesteps (default: 96 = 8 hours)')
 
     args = parser.parse_args()
 
@@ -208,22 +271,32 @@ def main():
 
     elif args.command == 'generate':
         print(f"🔄 Generating {args.hours}h of data for {args.servers} servers...")
-        # Note: generate_dataset now outputs Parquet by default
-        success = generate_dataset(hours=args.hours)
+        print(f"   Output: {args.output}")
+        print()
+        success = generate_dataset(hours=args.hours, num_servers=args.servers)
+        if success:
+            print(f"\n✅ Dataset generated successfully!")
+            print(f"   Next step: python main.py train --epochs 20")
         return 0 if success else 1
 
     elif args.command == 'train':
         print("🚀 Training TFT model...")
+        if args.epochs:
+            print(f"   Epochs: {args.epochs}")
+        if args.dataset:
+            print(f"   Dataset: {args.dataset}")
+        print()
+
         model_path = train(args.dataset, args.epochs, args.per_server)
         if model_path:
-            print(f"✅ Model saved: {model_path}")
+            print(f"\n✅ Model saved: {model_path}")
+            print(f"   Start services: start_all.bat (Windows) or ./start_all.sh (Linux/Mac)")
             return 0
         return 1
 
     elif args.command == 'predict':
         print("🔮 Running predictions...")
         try:
-            # Simplified predict call - tft_inference handles file loading
             results = predict(data_path=args.input, model_path=args.model,
                             horizon=args.horizon)
 
@@ -251,4 +324,4 @@ if __name__ == "__main__":
 
 
 # Export functions for notebook/module use
-__all__ = ['setup', 'status', 'train']
+__all__ = ['setup', 'status', 'train', 'generate_dataset', 'train_model', 'predict']

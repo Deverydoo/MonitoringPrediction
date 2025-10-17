@@ -102,7 +102,7 @@ API_CONFIG = {
     # =============================================================================
 
     'dashboard': {
-        'default_refresh_interval': 5,   # Seconds
+        'default_refresh_interval': 60,  # Seconds (1 minute default)
         'min_refresh_interval': 5,       # Minimum allowed
         'max_refresh_interval': 300      # Maximum allowed (5 minutes)
     },

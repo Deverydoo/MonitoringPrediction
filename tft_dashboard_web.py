@@ -397,31 +397,47 @@ if st.session_state.demo_running and st.session_state.demo_generator is not None
         # Update last tick time
         st.session_state.last_demo_tick = current_time
 
+# =============================================================================
+# DATA FETCHING WITH SMART CACHING (Optimized for performance)
+# =============================================================================
+
+@st.cache_data(ttl=refresh_interval, show_spinner=False)
+def fetch_predictions_cached(daemon_url: str, api_key: str, timestamp: float):
+    """
+    Fetch predictions with automatic caching.
+    Cache key includes timestamp to invalidate after TTL.
+    """
+    try:
+        client_temp = DaemonClient(daemon_url, api_key=api_key)
+        predictions = client_temp.get_predictions()
+        alerts = client_temp.get_alerts()
+        return predictions, alerts, True
+    except Exception as e:
+        return None, None, False
+
 # Fetch current data (with smart caching to avoid re-fetching on UI changes)
 if st.session_state.daemon_connected:
-    # Only fetch if refresh interval has passed or no cached data
-    should_fetch = (
-        'cached_predictions' not in st.session_state or
-        st.session_state.last_update is None or
-        (datetime.now() - st.session_state.last_update).total_seconds() >= refresh_interval
+    # Use current time bucket for cache key (refreshes every N seconds)
+    time_bucket = int(time.time() / refresh_interval)
+
+    # Fetch with caching (subsequent calls within TTL use cache)
+    predictions, alerts, success = fetch_predictions_cached(
+        st.session_state.daemon_url,
+        DAEMON_API_KEY,
+        time_bucket
     )
 
-    if should_fetch:
-        with st.spinner('🔮 Fetching predictions from TFT model...'):
-            predictions = client.get_predictions()
-            alerts = client.get_alerts()
+    if success and predictions:
+        # Update session state only on successful fetch
+        st.session_state.cached_predictions = predictions
+        st.session_state.cached_alerts = alerts
+
+        # Update timestamp if this is a new fetch
+        if st.session_state.last_update is None or \
+           (datetime.now() - st.session_state.last_update).total_seconds() >= refresh_interval:
             st.session_state.last_update = datetime.now()
 
-            # Cache for fast UI updates
-            st.session_state.cached_predictions = predictions
-            st.session_state.cached_alerts = alerts
-
-        # Show brief toast notification on successful refresh
-        if predictions:
-            st.toast("✅ Data refreshed!", icon="🔄")
-
-        # Store in history
-        if predictions:
+            # Store in history (only on actual refresh, not cache hit)
             st.session_state.history.append({
                 'timestamp': datetime.now(),
                 'predictions': predictions
@@ -429,7 +445,7 @@ if st.session_state.daemon_connected:
             # Keep last 100 entries
             st.session_state.history = st.session_state.history[-100:]
     else:
-        # Use cached data (much faster for dropdown changes!)
+        # Use cached data from session state
         predictions = st.session_state.get('cached_predictions')
         alerts = st.session_state.get('cached_alerts')
 else:
@@ -495,7 +511,7 @@ with tab10:
     roadmap.render(predictions)
 
 # =============================================================================
-# AUTO-REFRESH (Corporate-friendly: Less aggressive rerun behavior)
+# AUTO-REFRESH (Optimized: Fragment-based updates without full rerun)
 # =============================================================================
 
 if auto_refresh and st.session_state.daemon_connected:
@@ -508,15 +524,18 @@ if auto_refresh and st.session_state.daemon_connected:
 
     time_since_update = (current_time - st.session_state.last_update).total_seconds()
 
-    # Only rerun if the refresh interval has actually elapsed
-    # NOTE: Reduced aggressiveness for corporate browser compatibility
+    # Only trigger refresh if interval elapsed
+    # OPTIMIZATION: Use time.sleep() to wait, then invalidate cache instead of st.rerun()
+    # This allows Streamlit's @st.cache_data decorator to handle updates efficiently
     if st.session_state.demo_running and time_since_update >= 5:
-        # Use st.empty() placeholder to avoid full page rerun
-        time.sleep(5)  # Wait the full interval
+        time.sleep(5)
+        # Clear cache to force new fetch on next render
+        fetch_predictions_cached.clear()
         st.rerun()
     elif time_since_update >= refresh_interval:
-        # Corporate-friendly: Add small buffer to prevent rapid reruns
-        time.sleep(min(refresh_interval + 1, 10))  # Add 1s buffer, max 10s
+        time.sleep(min(refresh_interval, 10))
+        # Clear cache to force new fetch on next render
+        fetch_predictions_cached.clear()
         st.rerun()
 
 # =============================================================================

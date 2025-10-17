@@ -29,18 +29,174 @@ def render(predictions: Optional[Dict]):
     st.subheader("📚 Dashboard Documentation")
     st.markdown("**Complete guide to understanding and using the TFT Monitoring Dashboard**")
 
+    # Critical Scope Section - MUST READ
+    st.markdown("---")
+    st.markdown("## 🎯 What This System Does (And Doesn't Do)")
+
+    st.warning("""
+    **IMPORTANT: Read This First - Understanding Our Monitoring Scope**
+
+    This system is **predictive capacity and performance monitoring** - think "Minority Report" for infrastructure.
+    We predict problems **before they happen**, not after. This **augments** your existing monitoring, it does **not replace** it.
+    """)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### ✅ What We DO (Our Scope)")
+        st.success("""
+        **Predictive Intelligence - Prevent Tomorrow's Incidents Today**
+
+        🔮 **Capacity Exhaustion Prediction**
+        - "This server will hit 98% memory in 45 minutes"
+        - "CPU trending to 100% within next hour"
+        - Early warning: 30-60 minutes before critical
+
+        🔮 **Performance Degradation Detection**
+        - Memory leaks (gradual climb pattern)
+        - CPU creep (slow resource exhaustion)
+        - I/O bottlenecks (storage contention building)
+
+        🔮 **Resource Bottleneck Forecasting**
+        - I/O wait spike predictions
+        - Swap thrashing risk assessment
+        - Network saturation forecasts
+
+        🔮 **Proactive Problem Prevention**
+        - Time to scale infrastructure **before** outage
+        - Graceful service restarts during maintenance windows
+        - Capacity planning with predictive data
+
+        **Value Proposition**: Give operations teams time to respond **before** users are impacted.
+        Traditional monitoring says "it's on fire!" - we say "it will be on fire in 30 minutes, here's what to do."
+        """)
+
+    with col2:
+        st.markdown("### ❌ What We DON'T Do (Standard Monitoring)")
+        st.error("""
+        **Traditional Monitoring - These Are Handled By Your Existing Tools**
+
+        ❌ **Server Availability Monitoring**
+        - Ping/heartbeat checks
+        - "Is server reachable?"
+        - Network connectivity testing
+        - ➡️ **Use**: Nagios, Zabbix, Datadog, CloudWatch
+
+        ❌ **Hardware Failure Detection**
+        - Disk failures
+        - Network card failures
+        - Power supply issues
+        - ➡️ **Use**: IPMI, Hardware RAID alerts, datacenter monitoring
+
+        ❌ **Service Health Checks**
+        - "Is Apache running?"
+        - Port availability checks
+        - Process existence verification
+        - ➡️ **Use**: Nagios service checks, Kubernetes liveness probes
+
+        ❌ **Application-Level Monitoring**
+        - Error rate tracking
+        - Request success/failure
+        - Business logic failures
+        - ➡️ **Use**: APM tools (New Relic, Dynatrace), application logs
+
+        **Why These Aren't Our Focus**: By the time a server is offline or a service has crashed, it's already a **reactive**
+        situation. That's traditional monitoring's job - alert when things are broken. Our job is to predict the break
+        **before it happens** so you can prevent it entirely.
+        """)
+
+    st.divider()
+
+    st.markdown("### 🤝 How This Works WITH Traditional Monitoring")
+
+    st.info("""
+    **Think of monitoring as layers of defense:**
+
+    **Layer 1 (This System): Predictive Early Warning** ⏰
+    - 30-60 minutes advance notice
+    - "ppml0042 will exhaust memory in 45 minutes"
+    - Operations team scales infrastructure **proactively**
+    - **Outcome**: Incident prevented, users never impacted
+
+    **Layer 2 (Traditional Monitoring): Real-Time Response** 🚨
+    - Immediate detection when thresholds crossed
+    - "ppweb012 CPU at 100% for 5 minutes"
+    - On-call engineer paged **when problem occurs**
+    - **Outcome**: Incident mitigated quickly, some user impact
+
+    **Layer 3 (Traditional Monitoring): Catastrophic Failure** 🔥
+    - Server completely offline
+    - "ppdb003 not responding to ping"
+    - Emergency response, full incident management
+    - **Outcome**: Major outage, significant user impact
+
+    **The Goal**: Catch everything at **Layer 1** (predictive) so you never hit Layer 2 or 3.
+    When predictive monitoring misses something (it's not perfect!), traditional monitoring catches it at Layer 2/3.
+    """)
+
+    st.markdown("### 📊 Real-World Example Scenario")
+
+    st.code("""
+    SCENARIO: ML training server memory leak
+
+    T-60 min: 🔮 TFT Dashboard detects memory climbing pattern
+              - Current: 72% memory
+              - Predicted (30m): 94% memory
+              - Risk Score: 58 (Degrading)
+              - Alert: "ppml0042 memory leak detected, OOM in ~1 hour"
+
+    T-55 min: 👨‍💼 Operations team sees alert, investigates
+              - Correlates with deployment 2 hours ago
+              - Identifies problematic training job
+
+    T-50 min: 🔧 Team takes proactive action
+              - Gracefully stops training job
+              - Restarts service during low-usage window
+              - Memory drops back to 45%
+
+    T-40 min: ✅ Problem resolved BEFORE critical threshold
+              - No user impact
+              - No pager alerts
+              - No incident report needed
+
+    RESULT: Outage prevented entirely through predictive intelligence
+
+    ---
+
+    ALTERNATE TIMELINE: Without predictive monitoring
+
+    T+0 min:  ⚠️ Traditional monitoring: "ppml0042 memory at 95%"
+    T+2 min:  🚨 Traditional monitoring: "ppml0042 memory at 98%"
+    T+5 min:  🔥 Traditional monitoring: "ppml0042 OOM kill, services down"
+    T+5 min:  📟 On-call engineer paged at 2 AM
+    T+15 min: 🔧 Engineer investigates, identifies issue, restarts server
+    T+20 min: ✅ Services restored
+
+    RESULT: 15-minute outage, customer impact, incident report required,
+            engineer woken up at 2 AM, escalation to management
+    """, language="text")
+
+    st.success("""
+    **Key Takeaway**: Predictive monitoring **prevents incidents**. Traditional monitoring **detects incidents**.
+    You need **both** for a complete monitoring strategy. This dashboard is the early warning system that gives you
+    time to act before traditional alerts even fire.
+    """)
+
+    st.divider()
+
     # Table of Contents
     st.markdown("### 📖 Table of Contents")
     st.markdown("""
-    1. [Overview & Features](#overview-features)
-    2. [Understanding Risk Scores](#understanding-risk-scores)
-    3. [Official Risk Threshold System](#official-risk-threshold-system)
-    4. [Alert Priority Levels](#alert-priority-levels)
-    5. [Contextual Intelligence](#contextual-intelligence)
-    6. [Server Profiles](#server-profiles)
-    7. [How to Interpret Alerts](#how-to-interpret-alerts)
-    8. [Environment Status](#environment-status)
-    9. [Trend Analysis](#trend-analysis)
+    1. [What This System Does (And Doesn't Do)](#what-this-system-does-and-doesn-t-do) ⬆️ **READ THIS FIRST**
+    2. [Overview & Features](#overview-features)
+    3. [Understanding Risk Scores](#understanding-risk-scores)
+    4. [Official Risk Threshold System](#official-risk-threshold-system)
+    5. [Alert Priority Levels](#alert-priority-levels)
+    6. [Contextual Intelligence](#contextual-intelligence)
+    7. [Server Profiles](#server-profiles)
+    8. [How to Interpret Alerts](#how-to-interpret-alerts)
+    9. [Environment Status](#environment-status)
+    10. [Trend Analysis](#trend-analysis)
     """)
 
     st.divider()
@@ -569,6 +725,172 @@ def render(predictions: Optional[Dict]):
 ║   5. Degrading → Investigate soon                             ║
 ╚════════════════════════════════════════════════════════════════╝
     """, language="text")
+
+    st.divider()
+
+    # Section 9: Adaptive Retraining System
+    st.markdown("### 🔄 Adaptive Retraining System")
+    st.markdown("""
+    **How the Model Stays Current**: Behind the scenes, the TFT model intelligently retrains itself based on
+    **drift detection** rather than a fixed schedule. This ensures predictions remain accurate as your infrastructure evolves.
+    """)
+
+    st.info("""
+    **Think of it like a self-tuning instrument**:
+    - Traditional approach: Retrain every Monday at 2 AM (regardless of need)
+    - Adaptive approach: Retrain only when prediction accuracy drops below threshold
+    """)
+
+    # Two-column layout for core concepts
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### 🎯 What Triggers Retraining?")
+        st.markdown("""
+        The system monitors **4 drift metrics** continuously:
+
+        **1. Prediction Error Rate (40% weight)**
+        - Compares predictions vs. actual outcomes
+        - **SLA-Aligned Threshold**: 10% error = 88% accuracy
+        - 🟢 Healthy: <8% error (>92% accuracy)
+        - 🟡 Warning: 8-10% error (88-92% accuracy)
+        - 🔴 Critical: >10% error (<88% accuracy) → **Triggers retraining**
+
+        **2. Distribution Shift (30% weight)**
+        - Detects changes in data patterns
+        - Example: CPU usage moved from 40% average to 70%
+        - Uses statistical distance metrics (KL divergence)
+
+        **3. Feature Drift (20% weight)**
+        - Monitors individual metric patterns
+        - Example: Memory usage behaving differently
+        - Compares recent vs. historical distributions
+
+        **4. Anomaly Rate (10% weight)**
+        - Tracks unusual patterns increasing
+        - Example: More outliers than normal
+        - Indicates new failure modes emerging
+
+        **Drift Score Calculation**:
+        ```
+        Drift = (PER × 0.40) + (Distribution × 0.30) +
+                (Feature × 0.20) + (Anomaly × 0.10)
+        ```
+
+        When drift score **>10%** → Retraining triggered
+        """)
+
+    with col2:
+        st.markdown("#### 🛡️ Safeguards & Constraints")
+        st.markdown("""
+        The system includes intelligent guardrails:
+
+        **Time-Based Safeguards:**
+        - **Minimum**: 6 hours between trainings
+          - Prevents thrashing from transient issues
+          - Example: Brief deployment spike won't cause retraining
+
+        - **Maximum**: 30 days without training
+          - Forces refresh even if drift low
+          - Prevents model staleness
+
+        - **Weekly Limit**: Max 3 trainings per week
+          - Prevents compute budget overrun
+          - Ensures operational stability
+
+        **Intelligent Scheduling:**
+        - **Quiet Time Detection**: Learns server load patterns
+          - Identifies low-traffic windows (e.g., 2-4 AM)
+          - Schedules training when servers least busy
+          - Adapts to your infrastructure's rhythm
+
+        - **Impact Awareness**: Won't retrain during:
+          - High-traffic periods (market hours)
+          - Known maintenance windows
+          - Recent deployments (24-hour buffer)
+
+        **Validation & Safety:**
+        - New model validated before deployment
+        - Rollback if accuracy worsens
+        - Gradual rollout (canary deployment)
+        """)
+
+    st.markdown("#### 📊 Example Retraining Scenario")
+
+    st.code("""
+SCENARIO: New deployment changes CPU patterns
+
+T-0 hours:  New microservice deployed, changes load patterns
+            - Model still using pre-deployment patterns for predictions
+            - Predictions: 88% accurate (at SLA threshold)
+
+T+2 hours:  Drift Monitor detects distribution shift
+            - CPU distribution: 40% avg → 55% avg (15% shift)
+            - Prediction Error Rate: 11.2% (below 88% SLA)
+            - Distribution Shift: 18%
+            - Drift Score: 11.8% (above 10% threshold)
+            - Status: 🔴 Drift detected, retraining recommended
+
+T+2.5 hrs:  Retraining Decision Engine evaluates
+            - Last training: 3 days ago ✅ (>6 hours)
+            - Trainings this week: 1 ✅ (<3)
+            - Current time: 10:30 PM ✅ (approaching quiet window)
+            - Decision: Schedule retraining at 2:00 AM
+
+T+5.5 hrs:  Automatic retraining triggered (2:00 AM)
+            - Loads last 30 days of data
+            - Trains 1 epoch (incremental learning)
+            - Duration: ~90 minutes
+            - Validation: New model tested on holdout data
+
+T+7 hrs:    New model validated and deployed (3:30 AM)
+            - Validation accuracy: 91.5% ✅ (above 88% SLA)
+            - Rollout: Gradual deployment over 30 minutes
+            - Monitoring: Extra logging enabled for 4 hours
+
+T+8 hrs:    Validation complete (4:30 AM)
+            - Prediction Error Rate: 8.5% (>88% accuracy) ✅
+            - Drift Score: 4.2% (healthy range) ✅
+            - Status: 🟢 Model updated successfully
+
+RESULT: Model adapts to new patterns automatically, maintains SLA
+        Operations team never paged, happened during quiet hours
+    """, language="text")
+
+    st.markdown("#### 🎯 Why This Matters")
+
+    benefits_df = pd.DataFrame({
+        'Aspect': ['Accuracy', 'Cost', 'Maintenance', 'Adaptability', 'Reliability'],
+        'Fixed Schedule (Old Way)': [
+            'Retrains even when not needed',
+            '$150/month (daily training)',
+            'Manual monitoring required',
+            'Slow (waits for next scheduled run)',
+            'May miss sudden drift events'
+        ],
+        'Adaptive (Our Way)': [
+            'Retrains only when accuracy drops',
+            '$50/month (event-driven)',
+            'Fully automated, zero-touch',
+            'Fast (responds to drift immediately)',
+            'Catches drift as it happens'
+        ],
+        'Benefit': [
+            '↑ Always at/above SLA',
+            '↓ 3x cost reduction',
+            '↓ Zero engineering time',
+            '↑ Faster adaptation',
+            '↑ Proactive drift correction'
+        ]
+    })
+
+    st.dataframe(benefits_df, hide_index=True, width='stretch')
+
+    st.success("""
+    **🎯 Key Takeaway**: You don't need to worry about model staleness. The system monitors itself and retrains
+    intelligently when needed, during quiet hours, with safety checks. Your job is to use the predictions -
+    the model maintenance happens automatically in the background.
+    """)
 
     st.divider()
 

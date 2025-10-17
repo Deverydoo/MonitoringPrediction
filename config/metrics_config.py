@@ -376,11 +376,11 @@ STATE_TRANSITION_MATRIX = {
         ServerState.MAINTENANCE: 0.05
     },
     ServerState.HEALTHY: {
-        ServerState.HEALTHY: 0.85,
-        ServerState.MORNING_SPIKE: 0.08,  # Higher at 7-9am
-        ServerState.HEAVY_LOAD: 0.06,      # Higher at 10-17
-        ServerState.CRITICAL_ISSUE: 0.02,
-        ServerState.IDLE: 0.03             # Higher late night
+        ServerState.HEALTHY: 0.96,         # Stay healthy most of the time
+        ServerState.MORNING_SPIKE: 0.02,   # Rare spikes (time-of-day adjusted)
+        ServerState.HEAVY_LOAD: 0.01,      # Rare load (0.5% per tick = ~1 server in 20)
+        ServerState.CRITICAL_ISSUE: 0.005, # Very rare critical (0.5%)
+        ServerState.IDLE: 0.005            # Very rare idle during business hours
     },
     ServerState.MORNING_SPIKE: {
         ServerState.MORNING_SPIKE: 0.6,

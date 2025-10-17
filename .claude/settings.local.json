@@ -28,7 +28,11 @@
       "Bash(if not exist \"d:\\machine_learning\\MonitoringPrediction\\.streamlit\" mkdir \"d:\\machine_learning\\MonitoringPrediction\\.streamlit\")",
       "Bash(chmod:*)",
       "Bash(git log:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git tag:*)",
+      "Bash(for file in *.py)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(head:*)"
     ],
     "deny": [],
     "ask": []

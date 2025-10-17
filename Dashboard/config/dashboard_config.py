@@ -27,8 +27,13 @@ REFRESH_INTERVAL = API_CONFIG['dashboard']['default_refresh_interval']  # 5 seco
 # Priority: Streamlit secrets > Environment variable > Empty (dev mode)
 try:
     import streamlit as st
-    DAEMON_API_KEY = st.secrets.get("daemon", {}).get("api_key", "")
-except:
+    # Streamlit secrets uses dict-like access, not .get()
+    if "daemon" in st.secrets and "api_key" in st.secrets["daemon"]:
+        DAEMON_API_KEY = st.secrets["daemon"]["api_key"]
+    else:
+        DAEMON_API_KEY = ""
+except Exception as e:
+    print(f"[DEBUG] Could not load from st.secrets: {e}")
     DAEMON_API_KEY = ""
 
 # Fallback to environment variable if not in Streamlit secrets

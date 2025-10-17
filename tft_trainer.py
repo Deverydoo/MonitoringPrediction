@@ -27,7 +27,7 @@ from pytorch_forecasting.data import GroupNormalizer, NaNLabelEncoder
 from pytorch_forecasting.metrics import QuantileLoss
 from safetensors.torch import save_file
 
-from config import CONFIG
+from config import MODEL_CONFIG
 from server_encoder import ServerEncoder
 from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
 from gpu_profiles import setup_gpu
@@ -119,7 +119,7 @@ class TFTTrainer:
     """TFT trainer that works with metrics_generator.py output format."""
 
     def __init__(self, config: Optional[Dict] = None):
-        self.config = config or CONFIG
+        self.config = config or MODEL_CONFIG
 
         # Auto-detect GPU and apply optimal profile
         if torch.cuda.is_available():
@@ -528,20 +528,73 @@ class TFTTrainer:
             traceback.print_exc()
             return None
 
-    def train(self, dataset_path: str = "./training/", find_lr: bool = False) -> Optional[str]:
-        """Train the TFT model with Phase 2 optimizations.
+    def find_latest_checkpoint(self) -> Optional[Tuple[Path, int]]:
+        """Find the latest model checkpoint for incremental training.
+
+        Returns:
+            Tuple of (checkpoint_path, total_epochs_completed) or None if no checkpoint found
+        """
+        models_dir = Path(self.config['models_dir'])
+
+        if not models_dir.exists():
+            print("[INFO] No models directory found - starting fresh training")
+            return None
+
+        # Find all model directories
+        model_dirs = sorted(models_dir.glob('tft_model_*'), key=lambda p: p.stat().st_mtime)
+
+        if not model_dirs:
+            print("[INFO] No existing models found - starting fresh training")
+            return None
+
+        # Get the most recent model
+        latest_model_dir = model_dirs[-1]
+
+        # Check for checkpoint files
+        checkpoint_dir = Path(self.config['checkpoints_dir'])
+        if not checkpoint_dir.exists():
+            print(f"[INFO] No checkpoints directory - will use model from {latest_model_dir.name}")
+            return None
+
+        # Find the last checkpoint (last.ckpt is saved by ModelCheckpoint)
+        last_ckpt = checkpoint_dir / "last.ckpt"
+
+        if last_ckpt.exists():
+            print(f"[RESUME] Found checkpoint: {last_ckpt}")
+
+            # Try to load training info to get epoch count
+            training_info_path = latest_model_dir / "training_info.json"
+            total_epochs = 0
+            if training_info_path.exists():
+                try:
+                    with open(training_info_path, 'r') as f:
+                        info = json.load(f)
+                        total_epochs = info.get('total_epochs_completed', info.get('epochs', 0))
+                        print(f"[RESUME] Previous training completed {total_epochs} epochs")
+                except Exception as e:
+                    print(f"[WARNING] Could not read training info: {e}")
+
+            return (last_ckpt, total_epochs)
+        else:
+            print(f"[INFO] No last checkpoint found in {checkpoint_dir}")
+            return None
+
+    def train(self, dataset_path: str = "./training/", find_lr: bool = False, incremental: bool = True) -> Optional[str]:
+        """Train the TFT model with incremental training support.
 
         Args:
             dataset_path: Path to training data
             find_lr: If True, run learning rate finder before training
+            incremental: If True, resume from latest checkpoint (default: True)
 
-        Phase 2 Features:
+        Features:
+        - Incremental training: Each session adds epochs to existing model
         - Learning rate finder (optional)
         - Learning rate monitoring
         - Configurable validation split
         - Enhanced progress reporting
         """
-        print("[TRAIN] Starting TFT training (Phase 2 optimized)...")
+        print("[TRAIN] Starting TFT training (incremental mode enabled)...")
 
         # Set random seed for reproducibility
         seed = self.config.get('random_seed', 42)
@@ -670,16 +723,35 @@ class TFTTrainer:
                 accumulate_grad_batches=accumulate_batches
             )
 
-            print("[INFO] Training from scratch (checkpoints disabled for resume)")
+            # Check for existing checkpoint for incremental training
+            checkpoint_info = None
+            previous_epochs = 0
+            ckpt_path = None
 
+            if incremental:
+                checkpoint_info = self.find_latest_checkpoint()
+                if checkpoint_info:
+                    ckpt_path, previous_epochs = checkpoint_info
+                    print(f"[INCREMENTAL] Resuming from checkpoint")
+                    print(f"[INCREMENTAL] Previous epochs completed: {previous_epochs}")
+                    print(f"[INCREMENTAL] Will train {self.config['epochs']} additional epochs")
+                    print(f"[INCREMENTAL] Total epochs after this session: {previous_epochs + self.config['epochs']}")
+                else:
+                    print("[INFO] No checkpoint found - starting fresh training")
+            else:
+                print("[INFO] Incremental mode disabled - training from scratch")
+
+            # Train the model
             print(f"[START] Training for {self.config['epochs']} epochs...")
-            # Explicitly pass ckpt_path=None to prevent auto-resume from any checkpoint
             trainer.fit(
                 self.model,
                 train_dataloader,
                 val_dataloader,
-                ckpt_path=None  # Force training from scratch
+                ckpt_path=ckpt_path  # None for fresh, checkpoint path for incremental
             )
+
+            # Track total epochs across sessions
+            self.total_epochs_completed = previous_epochs + self.config['epochs']
             
             print("[OK] Training completed successfully!")
             
@@ -730,7 +802,7 @@ class TFTTrainer:
                     }
                 }, f, indent=2)
             
-            # Save training info with contract compliance
+            # Save training info with contract compliance and incremental tracking
             training_info_path = model_dir / "training_info.json"
             with open(training_info_path, 'w') as f:
                 json.dump({
@@ -739,7 +811,8 @@ class TFTTrainer:
                     'model_type': 'TemporalFusionTransformer',
                     'framework': 'pytorch_forecasting',
                     'safetensors_format': True,
-                    'epochs': self.config['epochs'],
+                    'epochs': self.config['epochs'],  # Epochs in this session
+                    'total_epochs_completed': getattr(self, 'total_epochs_completed', self.config['epochs']),  # Total across all sessions
                     'unique_states': VALID_STATES,  # From contract
                     'state_encoder_size': len(VALID_STATES),
                     'data_contract_version': CONTRACT_VERSION,
@@ -776,19 +849,27 @@ class TFTTrainer:
 
 def train_model(dataset_path: str = "./training/",
                 epochs: Optional[int] = None,
-                per_server: bool = False) -> Optional[str]:
+                per_server: bool = False,
+                incremental: bool = True) -> Optional[str]:
     """
-    Module interface for training.
+    Module interface for training with incremental training support.
 
     Args:
         dataset_path: Path to training data directory
-        epochs: Number of training epochs (overrides config)
+        epochs: Number of training epochs to add (overrides config)
         per_server: Train separate model per server (default: False - single fleet model)
+        incremental: Resume from latest checkpoint (default: True)
 
     Returns:
         Path to trained model directory, or None if failed
+
+    Incremental Training:
+        - When incremental=True (default), finds latest checkpoint and resumes
+        - Epochs parameter adds to existing training (e.g., 1 epoch/week = continuous learning)
+        - Total epoch count is tracked across sessions in training_info.json
+        - Example: Run with epochs=1 weekly to add 1 epoch/week to existing model
     """
-    config = CONFIG.copy()
+    config = MODEL_CONFIG.copy()
     if epochs is not None:
         config['epochs'] = epochs
 
@@ -801,26 +882,37 @@ def train_model(dataset_path: str = "./training/",
         # TODO: Implement per-server model training
 
     trainer = TFTTrainer(config)
-    return trainer.train(dataset_path)
+    return trainer.train(dataset_path, incremental=incremental)
 
 
 def main():
     """Command line interface."""
-    parser = argparse.ArgumentParser(description="Train TFT model")
+    parser = argparse.ArgumentParser(
+        description="Train TFT model with incremental training support",
+        epilog="Example: python tft_trainer.py --epochs 1 --incremental  # Add 1 epoch to existing model"
+    )
     parser.add_argument("--dataset", type=str, default="./training/",
                        help="Path to dataset directory")
-    parser.add_argument("--epochs", type=int, help="Training epochs (overrides config)")
+    parser.add_argument("--epochs", type=int, help="Epochs to train (adds to existing if --incremental)")
     parser.add_argument("--batch-size", type=int, help="Batch size (overrides config)")
     parser.add_argument("--per-server", action="store_true",
                        help="Train separate model per server (experimental)")
+    parser.add_argument("--incremental", action="store_true", default=True,
+                       help="Resume from latest checkpoint (default: True)")
+    parser.add_argument("--fresh", action="store_true",
+                       help="Start fresh training (ignore checkpoints)")
 
     args = parser.parse_args()
+
+    # Determine incremental mode
+    incremental = args.incremental and not args.fresh
 
     # Call train_model function
     model_path = train_model(
         dataset_path=args.dataset,
         epochs=args.epochs,
-        per_server=args.per_server
+        per_server=args.per_server,
+        incremental=incremental
     )
 
     if model_path:

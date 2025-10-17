@@ -812,8 +812,15 @@ class TFTInference:
 
     def _generate_alerts(self, predictions: Dict) -> List[Dict]:
         """Generate alerts based on prediction thresholds."""
-        from config import CONFIG
-        thresholds = CONFIG.get('alert_thresholds', {})
+        # Simple threshold-based alerts (dashboard handles risk scoring)
+        # These are basic thresholds - dashboard uses contextual intelligence
+        thresholds = {
+            'cpu_user_pct': {'critical': 95, 'warning': 85},
+            'mem_used_pct': {'critical': 98, 'warning': 90},
+            'cpu_iowait_pct': {'critical': 30, 'warning': 20},
+            'swap_used_pct': {'critical': 50, 'warning': 25},
+            'disk_usage_pct': {'critical': 95, 'warning': 85}
+        }
 
         alerts = []
 

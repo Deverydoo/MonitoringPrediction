@@ -32,6 +32,24 @@ fi
 echo "[OK] Conda environment: py310"
 echo ""
 
+# Generate/verify API key configuration
+echo "[INFO] Checking API key configuration..."
+python generate_api_key.py
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Failed to generate API key"
+    exit 1
+fi
+echo ""
+
+# Load API key from .env file
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+    echo "[OK] API key loaded from .env"
+else
+    echo "[WARNING] .env file not found, running without API key"
+fi
+echo ""
+
 # Check if model exists
 if [ ! -d "models" ]; then
     echo "[WARNING] No models found in models/ directory"
@@ -53,48 +71,53 @@ conda activate py310
 echo "[INFO] Starting TFT Inference Daemon (clean architecture)..."
 # Detect terminal emulator and start daemon
 if command -v gnome-terminal &> /dev/null; then
-    gnome-terminal -- bash -c "conda activate py310 && python tft_inference_daemon.py --port 8000; exec bash"
+    gnome-terminal -- bash -c "conda activate py310 && export TFT_API_KEY='$TFT_API_KEY' && python tft_inference_daemon.py --port 8000; exec bash"
 elif command -v xterm &> /dev/null; then
-    xterm -e "conda activate py310 && python tft_inference_daemon.py --port 8000; exec bash" &
+    xterm -e "conda activate py310 && export TFT_API_KEY='$TFT_API_KEY' && python tft_inference_daemon.py --port 8000; exec bash" &
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-    osascript -e 'tell app "Terminal" to do script "cd '"$(pwd)"' && conda activate py310 && python tft_inference_daemon.py --port 8000"'
+    osascript -e 'tell app "Terminal" to do script "cd '"$(pwd)"' && conda activate py310 && export TFT_API_KEY='"'$TFT_API_KEY'"' && python tft_inference_daemon.py --port 8000"'
 else
     echo "[WARNING] Could not detect terminal emulator. Starting in background..."
-    nohup python tft_inference_daemon.py --port 8000 > daemon.log 2>&1 &
+    TFT_API_KEY="$TFT_API_KEY" nohup python tft_inference_daemon.py --port 8000 > daemon.log 2>&1 &
     echo "Daemon PID: $!"
 fi
 
 echo "[INFO] Waiting for daemon to initialize (5 seconds)..."
 sleep 5
 
+echo "[INFO] Pre-compiling Python modules for faster startup..."
+python precompile.py > /dev/null 2>&1
+echo "[OK] Bytecode compilation complete"
+echo ""
+
 echo "[INFO] Starting Metrics Generator Daemon (stream mode with REST API)..."
 # Start metrics generator daemon
 if command -v gnome-terminal &> /dev/null; then
-    gnome-terminal -- bash -c "conda activate py310 && python metrics_generator_daemon.py --stream --servers 20; exec bash"
+    gnome-terminal -- bash -c "conda activate py310 && export TFT_API_KEY='$TFT_API_KEY' && python metrics_generator_daemon.py --stream --servers 20; exec bash"
 elif command -v xterm &> /dev/null; then
-    xterm -e "conda activate py310 && python metrics_generator_daemon.py --stream --servers 20; exec bash" &
+    xterm -e "conda activate py310 && export TFT_API_KEY='$TFT_API_KEY' && python metrics_generator_daemon.py --stream --servers 20; exec bash" &
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-    osascript -e 'tell app "Terminal" to do script "cd '"$(pwd)"' && conda activate py310 && python metrics_generator_daemon.py --stream --servers 20"'
+    osascript -e 'tell app "Terminal" to do script "cd '"$(pwd)"' && conda activate py310 && export TFT_API_KEY='"'$TFT_API_KEY'"' && python metrics_generator_daemon.py --stream --servers 20"'
 else
     echo "[WARNING] Could not detect terminal emulator. Starting in background..."
-    nohup python metrics_generator_daemon.py --stream --servers 20 > generator.log 2>&1 &
+    TFT_API_KEY="$TFT_API_KEY" nohup python metrics_generator_daemon.py --stream --servers 20 > generator.log 2>&1 &
     echo "Generator PID: $!"
 fi
 
 echo "[INFO] Waiting for data stream to start (3 seconds)..."
 sleep 3
 
-echo "[INFO] Starting Streamlit Dashboard..."
-# Start dashboard
+echo "[INFO] Starting Streamlit Dashboard (production mode)..."
+# Start dashboard with production optimizations
 if command -v gnome-terminal &> /dev/null; then
-    gnome-terminal -- bash -c "conda activate py310 && streamlit run tft_dashboard_web.py; exec bash"
+    gnome-terminal -- bash -c "conda activate py310 && streamlit run tft_dashboard_web.py --server.fileWatcherType none --server.runOnSave false; exec bash"
 elif command -v xterm &> /dev/null; then
-    xterm -e "conda activate py310 && streamlit run tft_dashboard_web.py; exec bash" &
+    xterm -e "conda activate py310 && streamlit run tft_dashboard_web.py --server.fileWatcherType none --server.runOnSave false; exec bash" &
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-    osascript -e 'tell app "Terminal" to do script "cd '"$(pwd)"' && conda activate py310 && streamlit run tft_dashboard_web.py"'
+    osascript -e 'tell app "Terminal" to do script "cd '"$(pwd)"' && conda activate py310 && streamlit run tft_dashboard_web.py --server.fileWatcherType none --server.runOnSave false"'
 else
     echo "[WARNING] Could not detect terminal emulator. Starting in background..."
-    nohup streamlit run tft_dashboard_web.py > dashboard.log 2>&1 &
+    nohup streamlit run tft_dashboard_web.py --server.fileWatcherType none --server.runOnSave false > dashboard.log 2>&1 &
     echo "Dashboard PID: $!"
 fi
 

@@ -31,7 +31,21 @@ This system uses **Temporal Fusion Transformers (TFT)** to predict server incide
 
 ## 🚀 Quick Start
 
-### Option 1: One-Command Startup (Recommended)
+### Step 1: Configure API Key (First Time Only)
+
+```bash
+# Windows
+setup_api_key.bat
+
+# Linux/Mac
+./setup_api_key.sh
+```
+
+This sets up secure authentication between dashboard and daemon.
+
+### Step 2: Start the System
+
+**Option A: One-Command Startup (Recommended)**
 
 ```bash
 # Windows
@@ -97,6 +111,7 @@ streamlit run tft_dashboard_web.py
 
 ## 🏗️ Architecture
 
+### Development/Training Pipeline
 ```
 ┌─────────────────────────────────────────────────┐
 │  metrics_generator.py                           │
@@ -110,22 +125,41 @@ streamlit run tft_dashboard_web.py
 │  Trains Temporal Fusion Transformer             │
 │  → models/tft_model_*/model.safetensors         │
 │  → models/tft_model_*/dataset_parameters.pkl    │
+└─────────────────────────────────────────────────┘
+```
+
+### Production Runtime Architecture (Microservices)
+```
+┌───────────────────────────────────────────────────────────┐
+│  MongoDB / Elasticsearch                                  │
+│  Production metrics from Linborg monitoring               │
+└─────────────────┬─────────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────┐
+│  adapters/mongodb_adapter.py (Process 1)        │
+│  OR adapters/elasticsearch_adapter.py           │
+│  Fetches metrics every 5s, forwards to daemon   │
+│  ↓ HTTP POST /feed                              │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  tft_inference.py --daemon                      │
-│  Production inference server (REST + WebSocket) │
-│  → http://localhost:8000                        │
+│  tft_inference_daemon.py (Process 2)            │
+│  Production inference server                    │
+│  Port 8000 - REST API + WebSocket               │
+│  ↓ HTTP GET /predict                            │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  tft_dashboard_web.py                           │
+│  tft_dashboard_web.py (Process 3)               │
 │  Interactive Streamlit dashboard                │
 │  → http://localhost:8501                        │
 └─────────────────────────────────────────────────┘
 ```
+
+**⚠️ CRITICAL:** Adapters run as **independent daemons** that actively PUSH data to the inference daemon. See **[Docs/ADAPTER_ARCHITECTURE.md](Docs/ADAPTER_ARCHITECTURE.md)** for complete details on the microservices architecture.
 
 ---
 
@@ -432,12 +466,22 @@ dataset_parameters.pkl → {
 
 Comprehensive docs in `/Docs/`:
 
+### Core Documentation
 - **[ESSENTIAL_RAG.md](Docs/ESSENTIAL_RAG.md)** - Complete system reference (1200 lines)
 - **[QUICK_START.md](Docs/QUICK_START.md)** - Get started in 30 seconds
 - **[DATA_CONTRACT.md](Docs/DATA_CONTRACT.md)** - Schema specification (MUST READ)
 - **[DASHBOARD_GUIDE.md](Docs/DASHBOARD_GUIDE.md)** - Dashboard features walkthrough
 - **[SERVER_PROFILES.md](Docs/SERVER_PROFILES.md)** - Transfer learning design
 - **[PROJECT_CODEX.md](Docs/PROJECT_CODEX.md)** - Deep architecture dive
+
+### Production Integration
+- **[ADAPTER_ARCHITECTURE.md](Docs/ADAPTER_ARCHITECTURE.md)** - ⚠️ CRITICAL: How adapters work (microservices)
+- **[PRODUCTION_DATA_ADAPTERS.md](Docs/PRODUCTION_DATA_ADAPTERS.md)** - MongoDB/Elasticsearch integration
+- **[adapters/README.md](adapters/README.md)** - Complete adapter guide (100+ pages)
+- **[ADAPTIVE_RETRAINING_PLAN.md](Docs/ADAPTIVE_RETRAINING_PLAN.md)** - Drift detection & retraining
+- **[PERFORMANCE_OPTIMIZATION.md](Docs/PERFORMANCE_OPTIMIZATION.md)** - Bytecode caching & optimization
+
+### Architecture
 - **[UNKNOWN_SERVER_HANDLING.md](Docs/UNKNOWN_SERVER_HANDLING.md)** - How new servers work
 
 ---
