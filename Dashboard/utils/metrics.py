@@ -132,13 +132,13 @@ def get_metric_color_indicator(value: float, metric_type: str, profile: str = 'G
 
 
 @st.cache_data(ttl=5)  # Cache for 5 seconds - real-time data
-def get_health_status(predictions: Dict, calculate_risk_func) -> Tuple[str, str, str]:
+def get_health_status(predictions: Dict, _calculate_risk_func) -> Tuple[str, str, str]:
     """
     Determine overall environment health status based on ACTUAL server risk scores.
 
     Args:
         predictions: Full predictions dictionary from daemon
-        calculate_risk_func: Function to calculate server risk score
+        _calculate_risk_func: Function to calculate server risk score (underscore prefix = don't hash)
 
     Returns:
         Tuple of (status_text, status_color, status_emoji)
@@ -158,7 +158,7 @@ def get_health_status(predictions: Dict, calculate_risk_func) -> Tuple[str, str,
     healthy_count = 0
 
     for server_name, server_pred in server_preds.items():
-        risk = calculate_risk_func(server_pred)
+        risk = _calculate_risk_func(server_pred)
         if risk >= 80:  # Critical/Imminent Failure
             critical_count += 1
         elif risk >= 60:  # Danger/Warning

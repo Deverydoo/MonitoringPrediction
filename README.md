@@ -1,11 +1,14 @@
 # TFT Monitoring Prediction System
 
-> **Predict server incidents 8 hours in advance with 88% accuracy**
+> **Predict server incidents 30-60 minutes in advance with 75-80% accuracy**
 > Production-ready AI for infrastructure monitoring and proactive incident prevention
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](VERSION)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+**Version 1.0.0** - First production release | [Changelog](CHANGELOG.md)
 
 ![Dashboard Preview](preview.webp)
 

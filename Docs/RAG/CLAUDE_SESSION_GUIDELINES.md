@@ -28,9 +28,9 @@ When beginning a new session:
    - Ask about priorities for this session
 
 4. **Read Core Documentation (ESSENTIAL ONLY)**
-   - [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md) - ⭐ Complete system reference
-   - [SESSION_2025-10-11_SUMMARY.md](SESSION_2025-10-11_SUMMARY.md) - Latest session
+   - [CURRENT_STATE.md](CURRENT_STATE.md) - ⭐ Single source of truth
    - [PROJECT_CODEX.md](PROJECT_CODEX.md) - Development rules
+   - [MODULAR_REFACTOR_COMPLETE.md](MODULAR_REFACTOR_COMPLETE.md) - Architecture details
    - ⚠️ **DO NOT** read `archive/` directory - Historical docs only
 
 ---
@@ -339,12 +339,11 @@ git status
 ## 📚 Related Documentation
 
 ### Active Documentation (Read These)
-- [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md) - ⭐ Complete reference
+- [CURRENT_STATE.md](CURRENT_STATE.md) - ⭐ Single source of truth
 - [PROJECT_CODEX.md](PROJECT_CODEX.md) - Development rules
-- [SESSION_2025-10-11_SUMMARY.md](SESSION_2025-10-11_SUMMARY.md) - Latest work
-- [INDEX.md](INDEX.md) - Doc navigation
-- [CHANGELOG.md](CHANGELOG.md) - Version history
+- [MODULAR_REFACTOR_COMPLETE.md](MODULAR_REFACTOR_COMPLETE.md) - Architecture refactor
 - [TIME_TRACKING.md](TIME_TRACKING.md) - Hours tracking
+- [INDEX.md](../INDEX.md) - Doc navigation (in Docs/)
 
 ### Archived Documentation (DO NOT READ)
 - `archive/` - Historical docs, superseded information
@@ -409,8 +408,7 @@ Updating PROJECT_SUMMARY.md with today's changes...
 
 **Every Session Start:**
 - [ ] Record start time
-- [ ] Read ESSENTIAL_RAG.md
-- [ ] Read latest SESSION summary (not archived ones)
+- [ ] Read CURRENT_STATE.md
 - [ ] Review PROJECT_CODEX.md
 - [ ] Check git status
 - [ ] ⚠️ SKIP archive/ directory entirely

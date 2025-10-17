@@ -335,6 +335,16 @@ with st.sidebar:
     else:
         st.warning("🟡 Daemon Offline")
 
+    # Version info
+    st.divider()
+    try:
+        with open('VERSION', 'r') as f:
+            version = f.read().strip()
+        st.caption(f"**Version:** {version}")
+    except:
+        st.caption("**Version:** Unknown")
+    st.caption("📝 [Changelog](https://github.com/yourrepo/changelog)")
+
 # =============================================================================
 # MAIN DASHBOARD
 # =============================================================================

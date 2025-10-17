@@ -1,30 +1,46 @@
 @echo off
-REM TFT Monitoring System - Windows Stop Script
-REM Gracefully stops inference daemon and dashboard
+REM ============================================================================
+REM TFT Monitoring System - Stop All Services (Windows)
+REM ============================================================================
+REM This script stops all three services gracefully by terminating their
+REM processes on the specified ports.
+REM ============================================================================
 
-echo ============================================
-echo TFT Monitoring System - Stopping...
-echo ============================================
+echo.
+echo ============================================================================
+echo  Stopping TFT Monitoring System
+echo ============================================================================
 echo.
 
-echo [INFO] Stopping Streamlit Dashboard...
-taskkill /FI "WINDOWTITLE eq TFT Dashboard*" /T /F 2>nul
-if errorlevel 1 (
-    echo [WARNING] Dashboard window not found, trying by process name...
-    taskkill /IM streamlit.exe /F 2>nul
+REM Kill processes by port (more reliable than window titles)
+echo [1/3] Stopping Metrics Generator (port 8001)...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8001 "') do (
+    taskkill /PID %%a /F >nul 2>&1
+    if not errorlevel 1 (
+        echo [OK] Metrics Generator stopped
+    )
 )
 
-echo [INFO] Stopping TFT Inference Daemon...
-taskkill /FI "WINDOWTITLE eq TFT Inference Daemon*" /T /F 2>nul
-if errorlevel 1 (
-    echo [WARNING] Daemon window not found, stopping by port...
-    REM Find and kill process using port 8000
-    for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8000 ^| findstr LISTENING') do taskkill /F /PID %%a 2>nul
+echo [2/3] Stopping Inference Daemon (port 8000)...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8000 "') do (
+    taskkill /PID %%a /F >nul 2>&1
+    if not errorlevel 1 (
+        echo [OK] Inference Daemon stopped
+    )
+)
+
+echo [3/3] Stopping Dashboard (port 8501)...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8501 "') do (
+    taskkill /PID %%a /F >nul 2>&1
+    if not errorlevel 1 (
+        echo [OK] Dashboard stopped
+    )
 )
 
 echo.
-echo ============================================
-echo System Stopped!
-echo ============================================
+echo ============================================================================
+echo  All services stopped
+echo ============================================================================
 echo.
+
 pause

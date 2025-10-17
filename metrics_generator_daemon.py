@@ -25,20 +25,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
-# Import our awesome metrics generator logic
+# Import our awesome metrics generator logic (which imports from config/)
 from metrics_generator import (
     Config, make_server_fleet, ServerState, ServerProfile,
     PROFILE_BASELINES, STATE_MULTIPLIERS,
     get_state_transition_probs, diurnal_multiplier
 )
 
+# Import API configuration (SINGLE SOURCE OF TRUTH)
+from config.api_config import API_CONFIG
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
-GENERATOR_PORT = 8001
-INFERENCE_URL = "http://localhost:8000"
-TICK_INTERVAL = 5  # seconds
+GENERATOR_PORT = API_CONFIG['metrics_generator_port']  # 8001
+INFERENCE_URL = API_CONFIG['daemon_url']                # http://localhost:8000
+TICK_INTERVAL = API_CONFIG['streaming']['tick_interval']  # 5 seconds
 
 # =============================================================================
 # DATA MODELS

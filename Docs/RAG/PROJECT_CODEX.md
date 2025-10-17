@@ -1,14 +1,70 @@
 # PROJECT CODEX - Rules & Conventions
 
-**Version:** 2.0.0 (LINBORG Metrics)
-**Status:** ⚠️ AUTHORITATIVE - All development must follow these rules
-**Last Updated:** 2025-10-14
+**Version:** 2.1.0 (Post-Presentation Development)
+**Status:** ✅ ACTIVE DEVELOPMENT - Balanced rules for quality and progress
+**Last Updated:** 2025-10-17
 
 ---
 
 ## 🎯 Purpose
 
-This document defines the immutable rules, conventions, and standards for the TFT Monitoring Prediction System. All contributors and AI assistants must follow these guidelines.
+This document defines the development rules, conventions, and standards for the TFT Monitoring Prediction System. These guidelines ensure quality while allowing iterative improvement.
+
+**Development Phase**: Post-demo active development
+**Philosophy**: Quality over speed, but allow for experimentation and enhancement
+
+---
+
+## 🚦 Development Approach (Post-Presentation)
+
+### Feature Development Policy
+
+**✅ ALLOWED - Incremental Enhancements:**
+- New dashboard tabs or visualizations
+- Performance optimizations
+- Additional metrics or data sources
+- UI/UX improvements
+- Bug fixes and refinements
+- Security enhancements
+- Documentation improvements
+
+**⚠️ CAUTION - Requires Planning:**
+- Schema changes (update DATA_CONTRACT.md first)
+- Breaking API changes (version bump required)
+- Major architectural changes (document trade-offs)
+- New external dependencies (justify necessity)
+
+**❌ AVOID - High Risk:**
+- Rushing features without testing
+- Breaking changes without migration path
+- Removing existing functionality
+- Undocumented "clever" solutions
+- Feature creep (discuss necessity first)
+
+### Development Pace
+
+**Recommended Approach:**
+1. **Propose** - Describe what you want to add and why
+2. **Plan** - Break into small, testable increments
+3. **Implement** - One feature at a time, test as you go
+4. **Validate** - Ensure no regressions, document changes
+5. **Review** - Check that it aligns with system goals
+
+**Key Principle**: "Make it work, make it right, make it fast" - in that order.
+
+### Quality Gates
+
+**Before committing new features:**
+- ✅ Feature works as intended
+- ✅ No breaking changes to existing functionality
+- ✅ Documentation updated
+- ✅ Tested with realistic scenarios
+- ✅ Code follows existing patterns
+
+**Not required (but encouraged):**
+- Full test suite (manual testing is acceptable for now)
+- Perfect optimization (working > perfect)
+- Complete feature set (incremental is fine)
 
 ---
 
@@ -483,18 +539,19 @@ from data_validator import DataValidator
 
 ### Required Documentation
 **Every new feature requires:**
-1. Update ESSENTIAL_RAG.md
+1. Update CURRENT_STATE.md (in Docs/RAG/)
 2. Update DATA_CONTRACT.md (if schema changes)
 3. Update PROJECT_CODEX.md (if new rules)
 4. Create/update specific guide (e.g., SERVER_PROFILES.md)
-5. Update INDEX.md navigation
+5. Update INDEX.md navigation (in Docs/)
 
-### Session Summary Requirements
-**At end of every session, create:**
-- `SESSION_YYYY-MM-DD_SUMMARY.md`
-- Include: start/end time, duration, accomplishments
-- Update: PROJECT_SUMMARY.md change notes
-- List: modified files, next steps
+### Session Summary (Recommended)
+**For significant work sessions, consider creating:**
+- Session summary with key accomplishments
+- Update RAG/CURRENT_STATE.md if major changes
+- List modified files and next steps
+
+**Not required for minor changes or bug fixes.**
 
 ### Documentation Style
 - Use emoji sparingly (✅ ❌ ⚠️ 🔄 only)
@@ -562,10 +619,24 @@ raise RuntimeError(
 
 ---
 
-## 🧪 Testing Rules
+## 🧪 Testing Guidelines
 
-### Unit Testing Requirements
-**Every utility module must have:**
+### Testing Philosophy (Post-Presentation)
+
+**Pragmatic approach**: Test what matters, when it matters.
+
+**Required Testing:**
+- ✅ Manual testing for new features (does it work?)
+- ✅ Regression testing (did we break anything?)
+- ✅ End-to-end smoke test before commits
+
+**Encouraged (but not blocking):**
+- Unit tests for complex logic
+- Integration tests for critical paths
+- Performance benchmarks for optimizations
+
+### Unit Testing (Encouraged)
+**For complex utility modules, consider adding:**
 ```python
 if __name__ == '__main__':
     # Test basic functionality
@@ -574,23 +645,23 @@ if __name__ == '__main__':
     print("✅ All tests passed")
 ```
 
-### Integration Testing Requirements
-**Before every release:**
-1. Generate fresh training data
-2. Train model for 1 epoch (smoke test)
-3. Start daemon, verify /health endpoint
-4. Launch dashboard, verify connection
-5. Test unknown server handling
-6. Verify server name decoding
+### Manual Testing Checklist (New Features)
+**Before committing significant changes:**
+- [ ] Feature works as intended
+- [ ] No obvious bugs or errors
+- [ ] Dashboard still loads and functions
+- [ ] Daemon still connects properly
+- [ ] No regressions in existing features
 
-### Manual Testing Checklist
-- [ ] Data generation produces correct schema
-- [ ] Training saves all required files
-- [ ] Inference daemon starts without errors
-- [ ] Dashboard connects to daemon
-- [ ] Predictions decode server names correctly
-- [ ] Unknown servers handled gracefully
-- [ ] Demo modes work correctly
+### Integration Testing (Major Changes)
+**Before releases or major updates:**
+1. Start all three services (generator, daemon, dashboard)
+2. Verify healthy scenario works
+3. Test scenario switching
+4. Check error handling
+5. Verify documentation is updated
+
+**Note**: Perfect test coverage is a goal, not a requirement. Focus on functional, working code first.
 
 ---
 
@@ -613,6 +684,127 @@ if __name__ == '__main__':
 - ✅ Cache common predictions (optional)
 - ✅ Target <100ms latency per server
 - ❌ Never block on I/O in prediction loop
+
+---
+
+## 🔢 Versioning
+
+### Semantic Versioning
+
+This project uses [Semantic Versioning 2.0.0](https://semver.org/):
+
+**Format**: `MAJOR.MINOR.PATCH`
+
+**Current Version**: See [VERSION](../../../VERSION) file
+
+### Version Increments
+
+**MAJOR version** (e.g., 1.0.0 → 2.0.0) - Breaking changes:
+- Schema changes requiring data regeneration
+- API changes that break existing clients
+- LINBORG metrics structure changes
+- Profile system changes requiring retraining
+- Incompatible configuration changes
+
+**MINOR version** (e.g., 1.0.0 → 1.1.0) - New features:
+- New dashboard tabs or visualizations
+- New metrics (without breaking existing)
+- New server profiles
+- Performance improvements
+- New API endpoints (backward compatible)
+- Security enhancements
+
+**PATCH version** (e.g., 1.0.0 → 1.0.1) - Bug fixes and docs:
+- Bug fixes
+- Documentation updates
+- UI improvements (no functionality change)
+- Code refactoring (no behavior change)
+- Dependency updates (compatible)
+
+### Version Update Process
+
+**When making changes:**
+
+1. **Determine version bump**:
+   - Breaking change? → MAJOR
+   - New feature? → MINOR
+   - Bug fix/docs? → PATCH
+
+2. **Update VERSION file**:
+   ```bash
+   echo "1.1.0" > VERSION
+   ```
+
+3. **Update CHANGELOG.md**:
+   - Add new version section
+   - List all changes under Added/Changed/Fixed
+   - Include breaking changes at top if MAJOR
+
+4. **Update key docs**:
+   - Docs/RAG/CURRENT_STATE.md (version at top)
+   - README.md badge (if automated, otherwise manual)
+
+5. **Commit with version tag**:
+   ```bash
+   git add VERSION CHANGELOG.md
+   git commit -m "chore: bump version to 1.1.0"
+   git tag v1.1.0
+   git push origin main --tags
+   ```
+
+### Examples
+
+**Bug fix (1.0.0 → 1.0.1)**:
+```bash
+# Fixed dashboard refresh bug
+echo "1.0.1" > VERSION
+# Update CHANGELOG.md under [1.0.1] - Fixed
+git commit -m "fix: dashboard refresh bug"
+git tag v1.0.1
+```
+
+**New feature (1.0.1 → 1.1.0)**:
+```bash
+# Added new anomaly detection tab
+echo "1.1.0" > VERSION
+# Update CHANGELOG.md under [1.1.0] - Added
+git commit -m "feat: add anomaly detection tab"
+git tag v1.1.0
+```
+
+**Breaking change (1.1.0 → 2.0.0)**:
+```bash
+# Changed metric schema (breaks existing models)
+echo "2.0.0" > VERSION
+# Update CHANGELOG.md with migration guide
+git commit -m "feat!: migrate to LINBORG v2 schema
+
+BREAKING CHANGE: All models must be retrained"
+git tag v2.0.0
+```
+
+### Version Checking
+
+**In code, always check version compatibility**:
+
+```python
+# Load version
+with open('VERSION', 'r') as f:
+    SYSTEM_VERSION = f.read().strip()
+
+# Check compatibility
+def check_version_compatibility(required_version: str):
+    """Check if system version meets requirements."""
+    current = tuple(map(int, SYSTEM_VERSION.split('.')))
+    required = tuple(map(int, required_version.split('.')))
+
+    # MAJOR must match for compatibility
+    if current[0] != required[0]:
+        raise ValueError(
+            f"Version mismatch: system {SYSTEM_VERSION}, "
+            f"required {required_version}"
+        )
+```
 
 ---
 
@@ -815,10 +1007,10 @@ python data_validator.py training/server_metrics.parquet
 **Activation:** `conda activate py310`
 
 ### Critical Files
-- `DATA_CONTRACT.md` - Schema spec
-- `SERVER_PROFILES.md` - Profile definitions
-- `ESSENTIAL_RAG.md` - Quick reference
-- `PROJECT_CODEX.md` - This file
+- `Docs/RAG/CURRENT_STATE.md` - Single source of truth
+- `Docs/RAG/PROJECT_CODEX.md` - This file (development rules)
+- `Docs/DATA_CONTRACT.md` - Schema spec
+- `Docs/SERVER_PROFILES.md` - Profile definitions
 
 ---
 
@@ -835,10 +1027,12 @@ python data_validator.py training/server_metrics.parquet
 
 ---
 
-**Version:** 1.0.0
-**Status:** AUTHORITATIVE
-**Last Updated:** 2025-10-11
+**Version:** 2.1.0 (Post-Presentation Development)
+**Status:** ACTIVE - Balanced development guidelines
+**Last Updated:** 2025-10-17
 **Maintained By:** Project Team
-**Review Frequency:** Before any major changes
+**Review Frequency:** Quarterly or before major changes
 
-⚠️ **THIS CODEX IS LAW - ALL DEVELOPMENT MUST FOLLOW THESE RULES**
+💡 **THESE GUIDELINES ENSURE QUALITY WHILE ALLOWING PROGRESS**
+
+**Remember**: The goal is sustainable, quality development - not perfection paralysis. When in doubt, discuss trade-offs and make informed decisions.
