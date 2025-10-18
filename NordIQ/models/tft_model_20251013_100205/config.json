@@ -1,0 +1,11 @@
+{
+  "model_type": "TemporalFusionTransformer",
+  "framework": "pytorch_forecasting",
+  "created_at": "20251013_100205",
+  "training_config": {
+    "epochs": 1,
+    "batch_size": 32,
+    "learning_rate": 0.01,
+    "hidden_size": 32
+  }
+}

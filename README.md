@@ -38,50 +38,30 @@ This system uses **Temporal Fusion Transformers (TFT)** to predict server incide
 
 ## 🚀 Quick Start
 
-### Step 1: Configure API Key (First Time Only)
+### One-Command Startup
+
+Navigate to the **NordIQ/** application directory and run:
 
 ```bash
 # Windows
-setup_api_key.bat
-
-# Linux/Mac
-./setup_api_key.sh
-```
-
-This sets up secure authentication between dashboard and daemon.
-
-### Step 2: Start the System
-
-**Option A: One-Command Startup (Recommended)**
-
-```bash
-# Windows
+cd NordIQ
 start_all.bat
 
 # Linux/Mac
+cd NordIQ
 ./start_all.sh
 ```
 
-**That's it!** Both daemon and dashboard start automatically in separate windows.
-
-### Option 2: Manual Startup
-
-```bash
-# 1. Activate environment
-conda activate py310
-
-# 2. Start inference daemon (uses latest trained model)
-python tft_inference.py --daemon --port 8000
-
-# 3. Launch web dashboard (new terminal)
-streamlit run tft_dashboard_web.py
-
-# 4. Open browser
-# → http://localhost:8501
-```
+**That's it!** The system will automatically:
+- ✅ Generate/verify API keys
+- ✅ Start inference daemon (port 8000)
+- ✅ Start metrics generator (demo data)
+- ✅ Launch web dashboard (port 8501)
 
 **Dashboard URL:** http://localhost:8501
 **API URL:** http://localhost:8000
+
+> **Note:** All application files are now in the `NordIQ/` directory for clean deployment. See [NordIQ/README.md](NordIQ/README.md) for detailed deployment guide.
 
 ---
 
@@ -121,17 +101,16 @@ streamlit run tft_dashboard_web.py
 ### Development/Training Pipeline
 ```
 ┌─────────────────────────────────────────────────┐
-│  metrics_generator.py                           │
+│  NordIQ/src/generators/metrics_generator.py     │
 │  Generates realistic server metrics             │
-│  → training/server_metrics.parquet (10-100x faster than JSON)
+│  → NordIQ/data/training/*.parquet               │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  tft_trainer.py                                 │
+│  NordIQ/src/training/tft_trainer.py             │
 │  Trains Temporal Fusion Transformer             │
-│  → models/tft_model_*/model.safetensors         │
-│  → models/tft_model_*/dataset_parameters.pkl    │
+│  → NordIQ/models/tft_model_*/                   │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -144,15 +123,14 @@ streamlit run tft_dashboard_web.py
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  adapters/mongodb_adapter.py (Process 1)        │
-│  OR adapters/elasticsearch_adapter.py           │
+│  NordIQ/src/core/adapters/*_adapter.py          │
 │  Fetches metrics every 5s, forwards to daemon   │
 │  ↓ HTTP POST /feed                              │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  tft_inference_daemon.py (Process 2)            │
+│  NordIQ/src/daemons/tft_inference_daemon.py     │
 │  Production inference server                    │
 │  Port 8000 - REST API + WebSocket               │
 │  ↓ HTTP GET /predict                            │
@@ -160,7 +138,7 @@ streamlit run tft_dashboard_web.py
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  tft_dashboard_web.py (Process 3)               │
+│  NordIQ/src/dashboard/tft_dashboard_web.py      │
 │  Interactive Streamlit dashboard                │
 │  → http://localhost:8501                        │
 └─────────────────────────────────────────────────┘
@@ -246,62 +224,117 @@ pip install -r requirements.txt
 
 # 4. Verify GPU (optional but recommended)
 python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+
+# 5. Navigate to application directory
+cd NordIQ
 ```
 
 ---
 
-## 🎓 Full Workflow
+## 📁 Project Structure
 
-### Step 1: Generate Training Data
-```bash
-# Generate 30 days of realistic metrics
-python metrics_generator.py --servers 20 --hours 720 --output ./training/
-
-# Creates:
-# ✅ training/server_metrics.parquet (fast Parquet format)
-# ✅ training/server_mapping.json (deterministic server encoding)
-# ✅ training/metrics_metadata.json (dataset statistics)
+```
+MonitoringPrediction/
+├── NordIQ/                          # 🎯 Main Application (Deploy This!)
+│   ├── start_all.bat/sh             # One-command startup
+│   ├── stop_all.bat/sh              # Stop all services
+│   ├── README.md                    # Deployment guide
+│   │
+│   ├── bin/                         # Utility scripts
+│   │   ├── generate_api_key.py      # API key management
+│   │   └── setup_api_key.*          # Setup helpers
+│   │
+│   ├── src/                         # Application source code
+│   │   ├── daemons/                 # Background services
+│   │   │   ├── tft_inference_daemon.py
+│   │   │   ├── metrics_generator_daemon.py
+│   │   │   └── adaptive_retraining_daemon.py
+│   │   ├── dashboard/               # Web interface
+│   │   │   ├── tft_dashboard_web.py
+│   │   │   └── Dashboard/           # Modular components
+│   │   ├── training/                # Model training
+│   │   │   ├── main.py              # CLI interface
+│   │   │   ├── tft_trainer.py       # Training engine
+│   │   │   └── precompile.py        # Optimization
+│   │   ├── core/                    # Shared libraries
+│   │   │   ├── config/              # Configuration
+│   │   │   ├── utils/               # Utilities
+│   │   │   ├── adapters/            # Production adapters
+│   │   │   ├── explainers/          # XAI components
+│   │   │   └── *.py                 # Core modules
+│   │   └── generators/              # Data generation
+│   │       └── metrics_generator.py
+│   │
+│   ├── models/                      # Trained models
+│   ├── data/                        # Runtime data
+│   ├── logs/                        # Application logs
+│   └── .streamlit/                  # Dashboard config
+│
+├── Docs/                            # Documentation
+│   ├── RAG/                         # For AI assistants
+│   └── *.md                         # User guides
+├── BusinessPlanning/                # Confidential (gitignored)
+├── tools/                           # Development tools
+├── README.md                        # This file
+├── CHANGELOG.md                     # Version history
+├── VERSION                          # Current version (1.1.0)
+└── LICENSE                          # BSL 1.1
 ```
 
-**Time:** ~30-60 seconds
+**Key Points:**
+- 🎯 **Deploy**: Copy the entire `NordIQ/` folder
+- 📚 **Learn**: Read `Docs/` for guides and architecture
+- 🔐 **Business**: `BusinessPlanning/` is gitignored (confidential)
+- 🛠️ **Dev**: Root contains development/documentation files
 
-### Step 2: Train Model
+---
+
+## 🎓 Training & Configuration
+
+### Option 1: Using CLI (Recommended)
+
+Navigate to NordIQ directory first:
 ```bash
-# Train for 20 epochs (recommended)
-python tft_trainer.py --dataset ./training/ --epochs 20
-
-# Creates:
-# ✅ models/tft_model_YYYYMMDD_HHMMSS/model.safetensors
-# ✅ models/tft_model_YYYYMMDD_HHMMSS/dataset_parameters.pkl
-# ✅ models/tft_model_YYYYMMDD_HHMMSS/server_mapping.json
-# ✅ models/tft_model_YYYYMMDD_HHMMSS/training_info.json
+cd NordIQ
 ```
 
-**Time:** ~30-40 minutes on RTX 4090
-
-### Step 3: Start Inference Daemon
+Then use the training CLI:
 ```bash
-# Start production inference server
-python tft_inference.py --daemon --port 8000 --fleet-size 20
+# Generate 30 days of realistic metrics (20 servers)
+python src/training/main.py generate --servers 20 --hours 720
 
-# Output:
-# [GPU] Detected: NVIDIA GeForce RTX 4090
-# [OK] Found model: models/tft_model_20251012_172540
-# [OK] Server mapping loaded: 20 servers
-# [OK] Contract validation passed (v1.0.0)
-# [INFO] Loading trained dataset parameters (including encoders)...
-# [OK] Using 20 actual server names from training
-# [OK] Model loaded successfully
-# [START] Daemon running on http://localhost:8000
+# Train model (20 epochs)
+python src/training/main.py train --epochs 20
+
+# Check status
+python src/training/main.py status
 ```
 
-### Step 4: Launch Dashboard
-```bash
-# In a new terminal
-streamlit run tft_dashboard_web.py
+### Option 2: Direct Commands
 
-# Opens: http://localhost:8501
+```bash
+cd NordIQ
+
+# Generate training data
+python src/generators/metrics_generator.py --servers 20 --hours 720
+
+# Train model
+python src/training/tft_trainer.py --epochs 20
+
+# Data saved to: NordIQ/data/training/*.parquet
+# Model saved to: NordIQ/models/tft_model_*/
 ```
+
+**Time:** ~30-60 seconds for data generation, ~30-40 minutes for training on RTX 4090
+
+### Configuration
+
+All configuration is in `NordIQ/src/core/config/`:
+- `model_config.py` - Model hyperparameters
+- `metrics_config.py` - Server profiles and baselines
+- `api_config.py` - API and authentication settings
+
+To customize, edit these files before training.
 
 ---
 
