@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 """
+NordIQ AI Systems - TFT Inference Daemon
+Nordic precision, AI intelligence
+
+Copyright (c) 2025 NordIQ AI, LLC. All rights reserved.
+Developed by Craig Giannelli
+
+This software is licensed under the Business Source License 1.1.
+See LICENSE file for details.
+
 TFT Inference Daemon - Clean & Minimal (Standalone)
 
 Pure inference engine that:

@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
-TFT Monitoring Dashboard - Production Web Interface
-Built with Streamlit for easy deployment and professional UI
+NordIQ AI Systems - Predictive Infrastructure Monitoring Dashboard
+Nordic precision, AI intelligence
+
+Copyright (c) 2025 NordIQ AI, LLC. All rights reserved.
+Developed by Craig Giannelli
+
+This software is licensed under the Business Source License 1.1.
+See LICENSE file for details.
 
 Usage:
     streamlit run tft_dashboard_web.py
@@ -39,12 +45,12 @@ from Dashboard.tabs import (
 # =============================================================================
 
 st.set_page_config(
-    page_title="TFT Monitoring Dashboard",
-    page_icon="🔮",
+    page_title="NordIQ AI Systems - Infrastructure Monitoring",
+    page_icon="🧭",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'About': "TFT Monitoring Dashboard - Temporal Fusion Transformer for Server Monitoring"
+        'About': "NordIQ AI Systems - Nordic precision, AI intelligence | Predictive Infrastructure Monitoring powered by Temporal Fusion Transformer"
     }
 )
 
@@ -349,12 +355,12 @@ with st.sidebar:
 # MAIN DASHBOARD
 # =============================================================================
 
-st.title("🔮 TFT Monitoring Dashboard")
+st.title("🧭 NordIQ AI Systems")
 
 # Add refresh indicator
 col1, col2 = st.columns([4, 1])
 with col1:
-    st.caption("Temporal Fusion Transformer - Real-time Server Monitoring & Prediction")
+    st.caption("Nordic precision, AI intelligence - Predictive Infrastructure Monitoring")
 with col2:
     if st.session_state.daemon_connected and st.session_state.last_update:
         time_since_update = (datetime.now() - st.session_state.last_update).total_seconds()
@@ -543,4 +549,4 @@ if auto_refresh and st.session_state.daemon_connected:
 # =============================================================================
 
 st.divider()
-st.caption("🔮 TFT Monitoring Dashboard | Built with Streamlit | Powered by Temporal Fusion Transformer")
+st.caption("🧭 NordIQ AI Systems - Nordic precision, AI intelligence | © 2025 NordIQ AI, LLC | Built with Streamlit")

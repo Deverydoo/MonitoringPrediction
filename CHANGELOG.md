@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the TFT Monitoring Prediction System will be documented in this file.
+All notable changes to NordIQ AI Systems will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -15,6 +15,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Nothing yet
+
+---
+
+## [1.1.0] - 2025-10-17
+
+### 🎨 NordIQ AI Branding Release
+
+**Status**: Commercial branding and copyright protection
+
+### Changed
+
+#### Branding
+- **Company name**: Rebranded to "NordIQ AI, LLC"
+- **Tagline**: "Nordic precision, AI intelligence"
+- **Dashboard**: Updated all UI elements with NordIQ branding
+- **Icon**: Changed from 🔮 to 🧭 (compass - Nordic navigation theme)
+- **README**: Complete rebrand with new header and copyright notice
+
+#### Copyright & Licensing
+- Added copyright headers to all core files
+- Copyright: "© 2025 NordIQ AI, LLC. All rights reserved."
+- Developer credit: Craig Giannelli
+- License updated: MIT → Business Source License 1.1
+- Dashboard footer: Added copyright notice and tagline
+
+#### Files Updated
+- `tft_dashboard_web.py`: Full NordIQ branding (header, title, tagline, footer)
+- `tft_inference_daemon.py`: Copyright header added
+- `metrics_generator_daemon.py`: Copyright header added
+- `README.md`: Complete rebrand with NordIQ identity
+- `CHANGELOG.md`: Updated to reference NordIQ AI Systems
+
+### Technical Details
+- **Domain secured**: nordiqai.io
+- **License**: Business Source License 1.1 (commercial use requires license after 4 years)
+- **Branding colors**: Navy blue (#0F172A), Ice blue (#0EA5E9), Aurora green (#10B981)
 
 ---
 
