@@ -1469,6 +1469,13 @@ def main():
 
     local_ip = get_local_ip()
 
+    # Check API key configuration
+    api_key_env = os.getenv("TFT_API_KEY")
+    if api_key_env:
+        print(f"[OK] API key loaded from environment: {api_key_env[:8]}...")
+    else:
+        print("[WARNING] No TFT_API_KEY set - running in development mode (no authentication)")
+
     # Print friendly startup message
     print("\n" + "="*70)
     print("TFT INFERENCE DAEMON - CLEAN ARCHITECTURE")
