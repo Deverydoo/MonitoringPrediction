@@ -11,6 +11,7 @@ import pandas as pd
 from typing import Dict, Optional
 
 from Dashboard.utils import calculate_server_risk_score, get_risk_color
+from core.alert_levels import get_alert_color
 
 
 def render(predictions: Optional[Dict]):
@@ -111,19 +112,23 @@ def render(predictions: Optional[Dict]):
                             server_name = server_row['Server']
                             value = server_row['Value']
 
-                            # Determine color
+                            # Determine color using centralized alert levels
                             if metric_key == 'risk':
+                                # Risk scores use standard 0-100 alert levels
                                 color = get_risk_color(value)
                             else:
-                                # Scale color based on value
+                                # Metrics use percentage-based thresholds
+                                # Map percentage to risk-equivalent score for consistent coloring
+                                # 90%+ = Critical, 70%+ = Warning, 50%+ = Watch, <50% = Healthy
                                 if value > 90:
-                                    color = "#ff4444"
+                                    risk_equivalent = 75  # Critical range
                                 elif value > 70:
-                                    color = "#ff9900"
+                                    risk_equivalent = 50  # Warning range
                                 elif value > 50:
-                                    color = "#ffcc00"
+                                    risk_equivalent = 25  # Watch range
                                 else:
-                                    color = "#44ff44"
+                                    risk_equivalent = 10  # Healthy range
+                                color = get_alert_color(risk_equivalent)
 
                             # Display server card
                             st.markdown(

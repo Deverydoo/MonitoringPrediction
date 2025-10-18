@@ -22,6 +22,7 @@ from Dashboard.utils import (
     get_server_profile
 )
 from Dashboard.config.dashboard_config import DAEMON_URL, DAEMON_API_KEY
+from core.alert_levels import ALERT_COLORS_HEX, AlertLevel
 
 # Professional metric display names
 METRIC_DISPLAY_NAMES = {
@@ -143,9 +144,14 @@ def render_shap_explanation(shap_data: Dict):
     # Plotly bar chart
     fig = go.Figure()
 
-    # Color by direction
-    colors = ['#10B981' if d == 'increasing' else '#EF4444' if d == 'decreasing' else '#6B7280'
-              for d in directions]
+    # Color by direction using standardized alert colors
+    # Increasing risk (bad) = red, decreasing risk (good) = green, neutral = gray
+    colors = [
+        ALERT_COLORS_HEX[AlertLevel.HEALTHY] if d == 'increasing'  # Green (good - risk going down)
+        else ALERT_COLORS_HEX[AlertLevel.CRITICAL] if d == 'decreasing'  # Red (bad - risk going up)
+        else '#6B7280'  # Gray (neutral)
+        for d in directions
+    ]
 
     fig.add_trace(go.Bar(
         x=impacts,
@@ -195,15 +201,15 @@ def render_attention_analysis(attention_data: Dict):
                 attention_pct = period['attention'] * 100
                 importance = period['importance']
 
-                # Color based on importance
+                # Color based on importance using standardized alert levels
                 if importance == 'VERY HIGH':
-                    color = '#EF4444'  # Red
+                    color = ALERT_COLORS_HEX[AlertLevel.CRITICAL]  # Red
                 elif importance == 'HIGH':
-                    color = '#F59E0B'  # Orange
+                    color = ALERT_COLORS_HEX[AlertLevel.WARNING]  # Orange
                 elif importance == 'MEDIUM':
-                    color = '#10B981'  # Green
+                    color = ALERT_COLORS_HEX[AlertLevel.WATCH]  # Yellow
                 else:
-                    color = '#6B7280'  # Gray
+                    color = '#6B7280'  # Gray (neutral/low)
 
                 st.markdown(f"""
                 <div style="background-color: {color}22; padding: 15px; border-radius: 8px; border-left: 4px solid {color};">
@@ -320,7 +326,8 @@ def render_counterfactual_scenarios(counterfactual_data: List[Dict]):
 
         safety_icon = "✅" if is_safe else "⚠️"
         scenario_icon = get_scenario_icon(scenario_name)
-        color = "#10B981" if is_safe else "#EF4444"
+        # Use standardized alert colors: green for safe, red for unsafe
+        color = ALERT_COLORS_HEX[AlertLevel.HEALTHY] if is_safe else ALERT_COLORS_HEX[AlertLevel.CRITICAL]
 
         st.markdown(f"""
         <div style="background-color: {color}22; padding: 20px; border-radius: 10px; border: 2px solid {color}; margin-bottom: 20px;">
