@@ -152,3 +152,8 @@ contracts/
 # This prevents future changes from being tracked
 # To deploy: Copy NordIQ-Website/ to a separate repo or directly to server
 NordIQ-Website/
+
+# Documentation Archive (historical session notes - local reference only)
+# Keep in Docs/RAG/: Living documents used by AI assistants
+# Exclude from git: Historical session notes, deprecated docs
+Docs/archive/
