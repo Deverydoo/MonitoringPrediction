@@ -10,7 +10,8 @@ Copyright © 2025 NordIQ AI, LLC. All rights reserved.
 # Setup Python path for imports
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
+# Add src/ to path (parent of this file's parent = src/)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
 import argparse
@@ -35,10 +36,10 @@ from pytorch_forecasting.metrics import QuantileLoss
 from safetensors.torch import save_file
 
 from core.config import MODEL_CONFIG
-from server_encoder import ServerEncoder
-from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
-from gpu_profiles import setup_gpu
-from linborg_schema import LINBORG_METRICS, validate_linborg_metrics
+from core.server_encoder import ServerEncoder
+from core.data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
+from core.gpu_profiles import setup_gpu
+from core.linborg_schema import LINBORG_METRICS, validate_linborg_metrics
 
 
 def set_random_seed(seed: int = 42):

@@ -10,19 +10,18 @@ Copyright © 2025 NordIQ AI, LLC. All rights reserved.
 # Setup Python path for imports
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "generators"))
-sys.path.insert(0, str(Path(__file__).parent))  # For tft_trainer
+# Add src/ to path (parent of this file's parent = src/)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import argparse
 from typing import Optional
 
 # Import our modules
-from metrics_generator import generate_dataset
-from tft_trainer import train_model
+from generators.metrics_generator import generate_dataset
+from training.tft_trainer import train_model
 # from tft_inference import predict  # TODO: Fix this import
 from core.config import MODEL_CONFIG, METRICS_CONFIG, API_CONFIG
-from linborg_schema import LINBORG_METRICS, NUM_LINBORG_METRICS, validate_linborg_metrics
+from core.linborg_schema import LINBORG_METRICS, NUM_LINBORG_METRICS, validate_linborg_metrics
 
 
 def setup() -> bool:

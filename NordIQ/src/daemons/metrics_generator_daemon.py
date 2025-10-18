@@ -24,8 +24,8 @@ Usage:
 # Setup Python path for imports
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "generators"))
+# Add src/ to path (parent of this file's parent = src/)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import asyncio
 import time
@@ -42,7 +42,7 @@ from pydantic import BaseModel
 import uvicorn
 
 # Import our awesome metrics generator logic (which imports from config/)
-from metrics_generator import (
+from generators.metrics_generator import (
     Config, make_server_fleet, ServerState, ServerProfile,
     PROFILE_BASELINES, STATE_MULTIPLIERS,
     get_state_transition_probs, diurnal_multiplier
