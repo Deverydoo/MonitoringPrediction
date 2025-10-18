@@ -8,6 +8,13 @@ import streamlit as st
 from typing import Dict
 from .profiles import get_server_profile
 from .metrics import extract_cpu_used
+from core.alert_levels import (
+    get_alert_color,
+    get_alert_emoji,
+    get_alert_label,
+    format_risk_display,
+    AlertLevel
+)
 
 
 @st.cache_data(ttl=10)  # Cache for 10 seconds - expensive calculation
@@ -152,18 +159,22 @@ def calculate_server_risk_score(server_pred: Dict) -> float:
 def get_risk_color(risk_score: float) -> str:
     """
     Get color for risk score visualization.
+    DEPRECATED: Use core.alert_levels.get_alert_color() instead.
+
+    This function remains for backward compatibility but delegates to
+    the centralized alert_levels module.
 
     Args:
         risk_score: Risk score 0-100
 
     Returns:
         Hex color code
+
+    Alert Levels:
+        >= 70: Critical (Red #ff4444)
+        >= 40: Warning (Orange #ff9900)
+        >= 20: Watch (Yellow #ffcc00)
+        <  20: Healthy (Green #44ff44)
     """
-    if risk_score >= 70:
-        return "#ff4444"  # Red
-    elif risk_score >= 40:
-        return "#ff9900"  # Orange
-    elif risk_score >= 20:
-        return "#ffcc00"  # Yellow
-    else:
-        return "#44ff44"  # Green
+    # Delegate to centralized alert levels system
+    return get_alert_color(risk_score, format="hex")

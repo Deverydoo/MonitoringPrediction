@@ -200,45 +200,33 @@
                     <div>
                         <h3 style="color: var(--navy-blue); margin-bottom: 1rem;">Early Warning Alerts: Graduated Severity</h3>
                         <p style="color: var(--charcoal); line-height: 1.8;">
-                            Not binary "OK or ON FIRE." We have <strong>7 graduated severity levels</strong> that give you time to respond appropriately.
+                            Not binary "OK or ON FIRE." We have <strong>4 graduated severity levels</strong> that give you time to respond appropriately.
                         </p>
 
                         <div style="background: var(--light-gray); padding: 1.5rem; border-radius: 8px; margin-top: 1rem;">
-                            <h4 style="color: var(--navy-blue); margin-bottom: 0.75rem;">Severity Levels:</h4>
+                            <h4 style="color: var(--navy-blue); margin-bottom: 0.75rem;">Alert Levels (Risk Score 0-100):</h4>
                             <div style="display: grid; gap: 0.75rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
-                                    <span style="color: var(--charcoal);"><strong>🔴 Imminent Failure</strong> (90-100)</span>
-                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">5-min SLA, CTO escalation</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #fff5f5; border-radius: 4px; border-left: 4px solid #ff4444;">
+                                    <span style="color: var(--charcoal);"><strong>🔴 Critical</strong> (70-100)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">Immediate action required - page on-call</span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
-                                    <span style="color: var(--charcoal);"><strong>🔴 Critical</strong> (80-89)</span>
-                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">15-min SLA, page on-call</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #fff9f0; border-radius: 4px; border-left: 4px solid #ff9900;">
+                                    <span style="color: var(--charcoal);"><strong>🟠 Warning</strong> (40-69)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">Needs attention - investigate within 1 hour</span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
-                                    <span style="color: var(--charcoal);"><strong>🟠 Danger</strong> (70-79)</span>
-                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">30-min SLA, team lead</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #fffef0; border-radius: 4px; border-left: 4px solid #ffcc00;">
+                                    <span style="color: var(--charcoal);"><strong>🟡 Watch</strong> (20-39)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">Minor concerns - trending upward</span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
-                                    <span style="color: var(--charcoal);"><strong>🟡 Warning</strong> (60-69)</span>
-                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">1-hour SLA, team awareness</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
-                                    <span style="color: var(--charcoal);"><strong>🟢 Degrading</strong> (50-59)</span>
-                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">2-hour SLA, investigate</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
-                                    <span style="color: var(--charcoal);"><strong>👁️ Watch</strong> (30-49)</span>
-                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">Background monitoring</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
-                                    <span style="color: var(--charcoal);"><strong>✅ Healthy</strong> (0-29)</span>
-                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">No alerts</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f0fff4; border-radius: 4px; border-left: 4px solid #44ff44;">
+                                    <span style="color: var(--charcoal);"><strong>🟢 Healthy</strong> (0-19)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">Normal operations - no action needed</span>
                                 </div>
                             </div>
                         </div>
 
                         <p style="color: var(--medium-gray); margin-top: 1rem; font-style: italic;">
-                            <strong>Key insight:</strong> You don't go from "Healthy" to "Critical" instantly. You progress through Watch → Degrading → Warning, giving you 30-60 minutes to respond proactively.
+                            <strong>Key insight:</strong> You don't go from "Healthy" to "Critical" instantly. You progress through Watch → Warning → Critical, giving you 30-60 minutes to respond proactively. Early detection = early action.
                         </p>
                     </div>
                 </div>
@@ -293,7 +281,7 @@
                         <li>Current memory: 72%</li>
                         <li>Predicted memory (30min): 94%</li>
                         <li>Trend: Climbing 2% every 5 minutes (memory leak!)</li>
-                        <li>Risk Score: 58 (🟢 Degrading)</li>
+                        <li>Risk Score: 58 (🟠 Warning)</li>
                         <li><strong>Alert:</strong> "ppml0042 memory leak detected, OOM in ~1 hour"</li>
                     </ul>
                 </div>
