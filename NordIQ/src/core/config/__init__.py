@@ -25,9 +25,9 @@ Rules:
     5. Document every config value with inline comments
 """
 
-from config.model_config import MODEL_CONFIG
-from config.metrics_config import METRICS_CONFIG
-from config.api_config import API_CONFIG
+from core.config.model_config import MODEL_CONFIG
+from core.config.metrics_config import METRICS_CONFIG
+from core.config.api_config import API_CONFIG
 
 # Dashboard config stays in Dashboard/config for modular structure
 # Import it via: from Dashboard.config.dashboard_config import *

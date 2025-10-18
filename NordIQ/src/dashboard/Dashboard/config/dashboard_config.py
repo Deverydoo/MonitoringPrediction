@@ -7,9 +7,16 @@ NOTE: API URLs and ports are imported from centralized config.api_config
 """
 
 import os
+import sys
+from pathlib import Path
+
+# Add src/ to path to find core.config module
+NORDIQ_SRC = Path(__file__).resolve().parents[3]  # Go up to NordIQ/src/
+if str(NORDIQ_SRC) not in sys.path:
+    sys.path.insert(0, str(NORDIQ_SRC))
 
 # Import API configuration from centralized config (SINGLE SOURCE OF TRUTH)
-from config.api_config import API_CONFIG
+from core.config.api_config import API_CONFIG
 
 # =============================================================================
 # API Configuration
