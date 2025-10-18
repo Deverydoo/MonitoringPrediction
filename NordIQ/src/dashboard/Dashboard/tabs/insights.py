@@ -23,10 +23,45 @@ from Dashboard.utils import (
 )
 from Dashboard.config.dashboard_config import DAEMON_URL, DAEMON_API_KEY
 
+# Professional metric display names
+METRIC_DISPLAY_NAMES = {
+    'cpu_user_pct': 'CPU User %',
+    'cpu_sys_pct': 'CPU System %',
+    'cpu_iowait_pct': 'CPU I/O Wait %',
+    'cpu_idle_pct': 'CPU Idle %',
+    'java_cpu_pct': 'Java CPU %',
+    'mem_used_pct': 'Memory Used %',
+    'swap_used_pct': 'Swap Used %',
+    'disk_usage_pct': 'Disk Usage %',
+    'net_in_mb_s': 'Network In (MB/s)',
+    'net_out_mb_s': 'Network Out (MB/s)',
+    'back_close_wait': 'Backend Close-Wait Connections',
+    'front_close_wait': 'Frontend Close-Wait Connections',
+    'load_average': 'System Load Average',
+    'uptime_days': 'Server Uptime (days)',
+    # Legacy names (fallback)
+    'cpu_pct': 'CPU %',
+    'mem_pct': 'Memory %',
+    'disk_io_mb_s': 'Disk I/O (MB/s)',
+    'latency_ms': 'Latency (ms)'
+}
 
+
+def get_metric_display_name(metric_name: str) -> str:
+    """Convert internal metric name to user-friendly display name."""
+    return METRIC_DISPLAY_NAMES.get(
+        metric_name,
+        # Fallback: capitalize and replace underscores
+        metric_name.replace('_', ' ').replace('pct', '%').title()
+    )
+
+
+@st.cache_data(ttl=30, show_spinner=False)
 def fetch_explanation(server_name: str, daemon_url: str = DAEMON_URL) -> Optional[Dict]:
     """
     Fetch XAI explanation for a specific server from the daemon.
+
+    Cached for 30 seconds to improve performance.
 
     Args:
         server_name: Server to explain
@@ -90,8 +125,8 @@ def render_shap_explanation(shap_data: Dict):
     stars = []
 
     for feature, info in feature_importance:
-        # Clean up feature names
-        feature_display = feature.replace('_', ' ').replace('pct', '%').title()
+        # Use professional display names
+        feature_display = get_metric_display_name(feature)
         features.append(feature_display)
         impacts.append(info['impact'] * 100)  # Convert to percentage
         directions.append(info['direction'])
@@ -207,6 +242,36 @@ def render_attention_analysis(attention_data: Dict):
             st.plotly_chart(fig, use_container_width=True)
 
 
+# Scenario icons for visual appeal
+SCENARIO_ICONS = {
+    'restart': '🔄',
+    'scale': '📈',
+    'stabilize': '⚖️',
+    'optimize': '⚡',
+    'reduce': '🧹',
+    'nothing': '⏸️'
+}
+
+
+def get_scenario_icon(scenario_name: str) -> str:
+    """Get icon for scenario based on keywords."""
+    scenario_lower = scenario_name.lower()
+    if 'restart' in scenario_lower:
+        return SCENARIO_ICONS['restart']
+    elif 'scale' in scenario_lower:
+        return SCENARIO_ICONS['scale']
+    elif 'stabilize' in scenario_lower:
+        return SCENARIO_ICONS['stabilize']
+    elif 'optimize' in scenario_lower or 'disk' in scenario_lower:
+        return SCENARIO_ICONS['optimize']
+    elif 'reduce' in scenario_lower or 'memory' in scenario_lower:
+        return SCENARIO_ICONS['reduce']
+    elif 'nothing' in scenario_lower:
+        return SCENARIO_ICONS['nothing']
+    else:
+        return '💡'  # Default
+
+
 def render_counterfactual_scenarios(counterfactual_data: List[Dict]):
     """
     Render what-if scenarios with actionable recommendations.
@@ -253,13 +318,14 @@ def render_counterfactual_scenarios(counterfactual_data: List[Dict]):
         is_safe = best_scenario.get('safe', False)
         effort = best_scenario.get('effort', 'MEDIUM')
 
-        icon = "✅" if is_safe else "⚠️"
+        safety_icon = "✅" if is_safe else "⚠️"
+        scenario_icon = get_scenario_icon(scenario_name)
         color = "#10B981" if is_safe else "#EF4444"
 
         st.markdown(f"""
         <div style="background-color: {color}22; padding: 20px; border-radius: 10px; border: 2px solid {color}; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: {color};">{icon} Recommended Action</h3>
-            <p style="font-size: 18px; margin: 10px 0; font-weight: bold;">{scenario_name}</p>
+            <h3 style="margin: 0; color: {color};">{safety_icon} Recommended Action</h3>
+            <p style="font-size: 18px; margin: 10px 0; font-weight: bold;">{scenario_icon} {scenario_name}</p>
             <p style="margin: 5px 0;">Predicted CPU: <strong>{predicted_cpu:.1f}%</strong> ({change:+.1f}% change)</p>
             <p style="margin: 5px 0;">Effort: <strong>{effort}</strong></p>
         </div>
@@ -275,12 +341,13 @@ def render_counterfactual_scenarios(counterfactual_data: List[Dict]):
             effort = scenario.get('effort', 'MEDIUM')
             risk = scenario.get('risk', 'MEDIUM')
 
-            icon = "✅" if is_safe else "⚠️"
+            safety_icon = "✅" if is_safe else "⚠️"
+            scenario_icon = get_scenario_icon(scenario_name)
 
             col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
 
             with col1:
-                st.markdown(f"**{icon} {scenario_name}**")
+                st.markdown(f"**{safety_icon} {scenario_icon} {scenario_name}**")
             with col2:
                 st.metric("Predicted CPU", f"{predicted_cpu:.1f}%", delta=f"{change:+.1f}%")
             with col3:
