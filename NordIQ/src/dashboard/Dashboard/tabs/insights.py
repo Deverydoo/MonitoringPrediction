@@ -221,13 +221,28 @@ def render_counterfactual_scenarios(counterfactual_data: List[Dict]):
         st.info("No scenarios available")
         return
 
-    # Find best scenario
+    # Find best scenario (lowest predicted CPU that is safe)
+    # Score = improvement (negative change) + safety bonus + low effort bonus
     best_scenario = None
     best_score = float('-inf')
 
     for scenario in counterfactual_data:
-        if scenario.get('effectiveness', 0) > best_score:
-            best_score = scenario['effectiveness']
+        predicted_cpu = scenario.get('predicted_cpu', 100)
+        change = scenario.get('change', 0)
+        is_safe = scenario.get('safe', False)
+        effort = scenario.get('effort', 'MEDIUM')
+
+        # Calculate score: bigger negative change = better, safe = bonus, low effort = bonus
+        score = -change  # Negative change is good (reduction)
+        if is_safe:
+            score += 20  # Safety bonus
+        if effort == 'LOW':
+            score += 10
+        elif effort == 'MEDIUM':
+            score += 5
+
+        if score > best_score:
+            best_score = score
             best_scenario = scenario
 
     # Display best recommendation
@@ -235,7 +250,7 @@ def render_counterfactual_scenarios(counterfactual_data: List[Dict]):
         scenario_name = best_scenario.get('scenario', 'Unknown')
         predicted_cpu = best_scenario.get('predicted_cpu', 0)
         change = best_scenario.get('change', 0)
-        is_safe = best_scenario.get('is_safe', False)
+        is_safe = best_scenario.get('safe', False)
         effort = best_scenario.get('effort', 'MEDIUM')
 
         icon = "✅" if is_safe else "⚠️"
@@ -256,7 +271,7 @@ def render_counterfactual_scenarios(counterfactual_data: List[Dict]):
             scenario_name = scenario.get('scenario', 'Unknown')
             predicted_cpu = scenario.get('predicted_cpu', 0)
             change = scenario.get('change', 0)
-            is_safe = scenario.get('is_safe', False)
+            is_safe = scenario.get('safe', False)
             effort = scenario.get('effort', 'MEDIUM')
             risk = scenario.get('risk', 'MEDIUM')
 
