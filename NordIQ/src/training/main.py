@@ -21,7 +21,7 @@ from typing import Optional
 from metrics_generator import generate_dataset
 from tft_trainer import train_model
 # from tft_inference import predict  # TODO: Fix this import
-from config import MODEL_CONFIG, METRICS_CONFIG, API_CONFIG
+from core.config import MODEL_CONFIG, METRICS_CONFIG, API_CONFIG
 from linborg_schema import LINBORG_METRICS, NUM_LINBORG_METRICS, validate_linborg_metrics
 
 

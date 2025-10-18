@@ -31,7 +31,7 @@ import numpy as np
 import pandas as pd
 
 # Import centralized configuration (SINGLE SOURCE OF TRUTH)
-from config.metrics_config import (
+from core.config.metrics_config import (
     ServerProfile,
     ServerState,
     PROFILE_BASELINES,

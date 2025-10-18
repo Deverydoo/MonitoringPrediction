@@ -49,7 +49,7 @@ from metrics_generator import (
 )
 
 # Import API configuration (SINGLE SOURCE OF TRUTH)
-from config.api_config import API_CONFIG
+from core.config.api_config import API_CONFIG
 
 # =============================================================================
 # CONFIGURATION

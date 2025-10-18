@@ -34,7 +34,7 @@ from pytorch_forecasting.data import GroupNormalizer, NaNLabelEncoder
 from pytorch_forecasting.metrics import QuantileLoss
 from safetensors.torch import save_file
 
-from config import MODEL_CONFIG
+from core.config import MODEL_CONFIG
 from server_encoder import ServerEncoder
 from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
 from gpu_profiles import setup_gpu
