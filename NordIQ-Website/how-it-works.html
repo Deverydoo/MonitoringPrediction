@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="How NordIQ predictive monitoring works. Temporal Fusion Transformers, contextual intelligence, transfer learning. Technical explanation for executives and engineers.">
+    <meta name="keywords" content="how predictive monitoring works, TFT explained, AI infrastructure monitoring, contextual intelligence">
+
+    <title>How It Works | NordIQ AI - Predictive Monitoring Technology Explained</title>
+
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<!-- Header -->
+<header>
+    <div class="container">
+        <nav>
+            <a href="index.html" class="logo">
+                <span class="logo-icon">🧭</span>
+                <span>NordIQ</span>
+            </a>
+
+            <button class="menu-toggle" aria-label="Toggle menu">☰</button>
+
+            <ul class="nav-links">
+                <li><a href="product.html">Product</a></li>
+                <li><a href="how-it-works.html">How It Works</a></li>
+                <li><a href="pricing.html">Pricing</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="contact.html" class="btn btn-primary nav-cta">Contact</a></li>
+            </ul>
+        </nav>
+    </div>
+</header>
+
+<!-- Hero -->
+<section class="hero" style="min-height: 400px;">
+    <div class="container">
+        <div class="hero-content fade-in-up">
+            <h1>How NordIQ Works</h1>
+            <p>From data collection to early warning alerts. The technology behind predictive infrastructure monitoring, explained for executives and engineers.</p>
+        </div>
+    </div>
+</section>
+
+<!-- The Challenge -->
+<section class="section">
+    <div class="container">
+        <h2 class="text-center mb-lg">The Challenge: Reactive Monitoring is Broken</h2>
+
+        <div style="max-width: 900px; margin: 0 auto;">
+            <div style="background: var(--light-gray); padding: 2rem; border-radius: 8px; margin-bottom: 2rem;">
+                <h3 style="color: var(--danger); margin-bottom: 1rem;">❌ Traditional Monitoring (What Everyone Else Does)</h3>
+                <ul style="color: var(--charcoal); line-height: 1.8;">
+                    <li><strong>Binary Thresholds:</strong> "Alert when CPU > 80%" (but is 80% bad? depends on context!)</li>
+                    <li><strong>Reactive:</strong> Alerts fire AFTER problems start (too late)</li>
+                    <li><strong>No Context:</strong> 80% CPU on database = normal, 80% on web server = problem</li>
+                    <li><strong>Alert Fatigue:</strong> Thousands of alerts, most false positives</li>
+                    <li><strong>No Prediction:</strong> Can't see problems coming</li>
+                </ul>
+            </div>
+
+            <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(14, 165, 233, 0.1) 100%); padding: 2rem; border-radius: 8px; border: 2px solid var(--aurora-green);">
+                <h3 style="color: var(--aurora-green); margin-bottom: 1rem;">✅ NordIQ (Predictive Intelligence)</h3>
+                <ul style="color: var(--charcoal); line-height: 1.8;">
+                    <li><strong>Contextual Intelligence:</strong> Understands different server workload patterns</li>
+                    <li><strong>Predictive:</strong> Alerts 30-60 minutes BEFORE problems become critical</li>
+                    <li><strong>Multi-Metric Correlation:</strong> Sees compound stress (CPU + memory + I/O)</li>
+                    <li><strong>Trend Analysis:</strong> Detects patterns like memory leaks, gradual degradation</li>
+                    <li><strong>Early Warning:</strong> Time to respond proactively, not reactively</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- The 5-Step Process -->
+<section class="section section-gray">
+    <div class="container">
+        <h2 class="text-center mb-lg">The 5-Step Process</h2>
+
+        <div style="max-width: 900px; margin: 0 auto;">
+            <!-- Step 1 -->
+            <div style="background: white; padding: 2rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid var(--ice-blue);">
+                <div style="display: flex; gap: 1.5rem; align-items: start;">
+                    <div style="font-size: 3rem; color: var(--ice-blue); min-width: 60px;">1️⃣</div>
+                    <div>
+                        <h3 style="color: var(--navy-blue); margin-bottom: 1rem;">Data Collection: Monitor 14 Critical Metrics</h3>
+                        <p style="color: var(--charcoal); line-height: 1.8;">
+                            Every 5 seconds, we collect data from all your servers. Not just "CPU and memory"—we track the metrics that matter for troubleshooting and prediction.
+                        </p>
+
+                        <div style="background: var(--light-gray); padding: 1.5rem; border-radius: 8px; margin-top: 1rem;">
+                            <h4 style="color: var(--navy-blue); margin-bottom: 0.75rem;">The 14 LINBORG Metrics:</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; color: var(--charcoal);">
+                                <div>✓ CPU User %</div>
+                                <div>✓ CPU System %</div>
+                                <div>✓ CPU I/O Wait %</div>
+                                <div>✓ CPU Idle %</div>
+                                <div>✓ Java/Spark CPU %</div>
+                                <div>✓ Memory Used %</div>
+                                <div>✓ Swap Usage %</div>
+                                <div>✓ Disk Usage %</div>
+                                <div>✓ Network In (MB/s)</div>
+                                <div>✓ Network Out (MB/s)</div>
+                                <div>✓ Backend Connections</div>
+                                <div>✓ Frontend Connections</div>
+                                <div>✓ Load Average</div>
+                                <div>✓ Uptime (Days)</div>
+                            </div>
+                        </div>
+
+                        <p style="color: var(--medium-gray); margin-top: 1rem; font-style: italic;">
+                            <strong>Why these metrics?</strong> They're what SREs look at when troubleshooting. I/O wait tells you about storage bottlenecks. Connection counts reveal network issues. These aren't random—they're battle-tested.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div style="background: white; padding: 2rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid var(--ice-blue);">
+                <div style="display: flex; gap: 1.5rem; align-items: start;">
+                    <div style="font-size: 3rem; color: var(--ice-blue); min-width: 60px;">2️⃣</div>
+                    <div>
+                        <h3 style="color: var(--navy-blue); margin-bottom: 1rem;">AI Analysis: Temporal Fusion Transformer</h3>
+                        <p style="color: var(--charcoal); line-height: 1.8;">
+                            Our AI model analyzes patterns using <strong>Temporal Fusion Transformers</strong> (TFT)—state-of-the-art deep learning for time series forecasting. Not just "if CPU > 80% alert"—we understand <em>trends, correlations, and context</em>.
+                        </p>
+
+                        <div style="background: var(--light-gray); padding: 1.5rem; border-radius: 8px; margin-top: 1rem;">
+                            <h4 style="color: var(--navy-blue); margin-bottom: 0.75rem;">What TFT Does:</h4>
+                            <ul style="color: var(--charcoal); line-height: 1.8;">
+                                <li><strong>24-hour context window:</strong> Remembers what happened over the last day</li>
+                                <li><strong>8-hour prediction horizon:</strong> Forecasts 30min, 1hr, 4hr, 8hr ahead</li>
+                                <li><strong>Attention mechanism:</strong> Knows which metrics matter most (like a senior SRE)</li>
+                                <li><strong>Multi-metric correlation:</strong> Sees compound patterns (CPU + memory + I/O)</li>
+                                <li><strong>Transfer learning:</strong> New servers benefit from patterns learned across your fleet</li>
+                            </ul>
+                        </div>
+
+                        <p style="color: var(--medium-gray); margin-top: 1rem; font-style: italic;">
+                            <strong>Think of it like this:</strong> A junior engineer says "CPU is high." A senior SRE says "CPU is high AND memory is climbing AND I/O wait is elevated—this is a memory leak in the Java app." TFT thinks like the senior SRE.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div style="background: white; padding: 2rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid var(--ice-blue);">
+                <div style="display: flex; gap: 1.5rem; align-items: start;">
+                    <div style="font-size: 3rem; color: var(--ice-blue); min-width: 60px;">3️⃣</div>
+                    <div>
+                        <h3 style="color: var(--navy-blue); margin-bottom: 1rem;">Risk Scoring: Contextual Intelligence</h3>
+                        <p style="color: var(--charcoal); line-height: 1.8;">
+                            Every server gets a <strong>Risk Score (0-100)</strong> based on current state, predictions, trends, and profile. Not just "CPU > 80% = bad"—we understand <strong>context</strong>.
+                        </p>
+
+                        <div style="background: var(--light-gray); padding: 1.5rem; border-radius: 8px; margin-top: 1rem;">
+                            <h4 style="color: var(--navy-blue); margin-bottom: 0.75rem;">Risk Score Formula:</h4>
+                            <p style="font-family: var(--font-mono); background: white; padding: 1rem; border-radius: 4px; color: var(--charcoal);">
+                                Final Risk = (Current State × 70%) + (Predictions × 30%)
+                            </p>
+                        </div>
+
+                        <div style="margin-top: 1.5rem;">
+                            <h4 style="color: var(--navy-blue); margin-bottom: 1rem;">The Four Context Factors:</h4>
+
+                            <div style="display: grid; gap: 1rem;">
+                                <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                                    <h5 style="color: var(--ice-blue); margin-bottom: 0.5rem;">1. Server Profile Awareness</h5>
+                                    <p style="color: var(--charcoal); margin-bottom: 0;">Database at 98% memory = ✅ Healthy (page cache). ML server at 98% memory = 🔴 Critical (OOM imminent).</p>
+                                </div>
+
+                                <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                                    <h5 style="color: var(--ice-blue); margin-bottom: 0.5rem;">2. Trend Analysis</h5>
+                                    <p style="color: var(--charcoal); margin-bottom: 0;">40% CPU steady for 2 hours = ✅ Fine. 40% CPU climbing from 20% in 10 minutes = 🟡 Warning (will hit 100%).</p>
+                                </div>
+
+                                <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                                    <h5 style="color: var(--ice-blue); margin-bottom: 0.5rem;">3. Multi-Metric Correlation</h5>
+                                    <p style="color: var(--charcoal); margin-bottom: 0;">CPU 85% alone = Low risk (batch job). CPU 85% + Memory 90% + I/O 25% = 🔴 Critical (compound stress).</p>
+                                </div>
+
+                                <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                                    <h5 style="color: var(--ice-blue); margin-bottom: 0.5rem;">4. Prediction-Aware</h5>
+                                    <p style="color: var(--charcoal); margin-bottom: 0;">Current 40%, Predicted 95% in 30min = 🟡 Warning (early alert). Current 85%, Predicted 60% = 👁️ Watch (resolving).</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div style="background: white; padding: 2rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid var(--ice-blue);">
+                <div style="display: flex; gap: 1.5rem; align-items: start;">
+                    <div style="font-size: 3rem; color: var(--ice-blue); min-width: 60px;">4️⃣</div>
+                    <div>
+                        <h3 style="color: var(--navy-blue); margin-bottom: 1rem;">Early Warning Alerts: Graduated Severity</h3>
+                        <p style="color: var(--charcoal); line-height: 1.8;">
+                            Not binary "OK or ON FIRE." We have <strong>7 graduated severity levels</strong> that give you time to respond appropriately.
+                        </p>
+
+                        <div style="background: var(--light-gray); padding: 1.5rem; border-radius: 8px; margin-top: 1rem;">
+                            <h4 style="color: var(--navy-blue); margin-bottom: 0.75rem;">Severity Levels:</h4>
+                            <div style="display: grid; gap: 0.75rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
+                                    <span style="color: var(--charcoal);"><strong>🔴 Imminent Failure</strong> (90-100)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">5-min SLA, CTO escalation</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
+                                    <span style="color: var(--charcoal);"><strong>🔴 Critical</strong> (80-89)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">15-min SLA, page on-call</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
+                                    <span style="color: var(--charcoal);"><strong>🟠 Danger</strong> (70-79)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">30-min SLA, team lead</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
+                                    <span style="color: var(--charcoal);"><strong>🟡 Warning</strong> (60-69)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">1-hour SLA, team awareness</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
+                                    <span style="color: var(--charcoal);"><strong>🟢 Degrading</strong> (50-59)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">2-hour SLA, investigate</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
+                                    <span style="color: var(--charcoal);"><strong>👁️ Watch</strong> (30-49)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">Background monitoring</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
+                                    <span style="color: var(--charcoal);"><strong>✅ Healthy</strong> (0-29)</span>
+                                    <span style="color: var(--medium-gray); font-size: 0.875rem;">No alerts</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p style="color: var(--medium-gray); margin-top: 1rem; font-style: italic;">
+                            <strong>Key insight:</strong> You don't go from "Healthy" to "Critical" instantly. You progress through Watch → Degrading → Warning, giving you 30-60 minutes to respond proactively.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div style="background: white; padding: 2rem; border-radius: 8px; border-left: 4px solid var(--aurora-green);">
+                <div style="display: flex; gap: 1.5rem; align-items: start;">
+                    <div style="font-size: 3rem; color: var(--aurora-green); min-width: 60px;">5️⃣</div>
+                    <div>
+                        <h3 style="color: var(--navy-blue); margin-bottom: 1rem;">Proactive Response: Fix Before Impact</h3>
+                        <p style="color: var(--charcoal); line-height: 1.8;">
+                            With 30-60 minutes advance warning, you can:
+                        </p>
+
+                        <ul style="color: var(--charcoal); line-height: 1.8; margin-top: 1rem;">
+                            <li><strong>Schedule planned maintenance</strong> during business hours (not 3 AM)</li>
+                            <li><strong>Gracefully restart services</strong> during low-traffic windows</li>
+                            <li><strong>Scale infrastructure</strong> before peak demand hits</li>
+                            <li><strong>Fix memory leaks</strong> before they cause OOM kills</li>
+                            <li><strong>Clear disk space</strong> before it fills completely</li>
+                            <li><strong>Investigate root causes</strong> while systems are still operational</li>
+                        </ul>
+
+                        <div style="background: var(--light-gray); padding: 1.5rem; border-radius: 8px; margin-top: 1.5rem;">
+                            <p style="color: var(--aurora-green); font-weight: 600; font-size: 1.125rem; margin-bottom: 0.5rem;">
+                                Result: Zero user impact. Zero emergency pages. Zero SLA violations.
+                            </p>
+                            <p style="color: var(--charcoal); margin-bottom: 0;">
+                                Problems prevented, not fought.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Real-World Example -->
+<section class="section">
+    <div class="container">
+        <h2 class="text-center mb-lg">Real-World Example: Memory Leak Detection</h2>
+
+        <div style="max-width: 900px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(14, 165, 233, 0.1) 100%); padding: 2rem; border-radius: 8px; border: 2px solid var(--aurora-green);">
+                <h3 style="color: var(--navy-blue); margin-bottom: 1.5rem;">Scenario: ML Training Server (ppml0042)</h3>
+
+                <div style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <p style="color: var(--ice-blue); font-weight: 600; margin-bottom: 0.5rem;">T-60 minutes: NordIQ detects pattern</p>
+                    <ul style="color: var(--charcoal); line-height: 1.8; margin-bottom: 0;">
+                        <li>Current memory: 72%</li>
+                        <li>Predicted memory (30min): 94%</li>
+                        <li>Trend: Climbing 2% every 5 minutes (memory leak!)</li>
+                        <li>Risk Score: 58 (🟢 Degrading)</li>
+                        <li><strong>Alert:</strong> "ppml0042 memory leak detected, OOM in ~1 hour"</li>
+                    </ul>
+                </div>
+
+                <div style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <p style="color: var(--ice-blue); font-weight: 600; margin-bottom: 0.5rem;">T-55 minutes: Ops team investigates</p>
+                    <ul style="color: var(--charcoal); line-height: 1.8; margin-bottom: 0;">
+                        <li>Correlates with deployment 2 hours ago</li>
+                        <li>Identifies problematic training job</li>
+                        <li>Decision: Graceful restart during low-usage window (11 PM)</li>
+                    </ul>
+                </div>
+
+                <div style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <p style="color: var(--ice-blue); font-weight: 600; margin-bottom: 0.5rem;">T-50 minutes: Action taken</p>
+                    <ul style="color: var(--charcoal); line-height: 1.8; margin-bottom: 0;">
+                        <li>Schedule automated restart for 11 PM</li>
+                        <li>Notify affected teams</li>
+                        <li>Prepare rollback plan</li>
+                    </ul>
+                </div>
+
+                <div style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <p style="color: var(--aurora-green); font-weight: 600; margin-bottom: 0.5rem;">11:05 PM: Automated restart</p>
+                    <ul style="color: var(--charcoal); line-height: 1.8; margin-bottom: 0;">
+                        <li>Service restarted during low-traffic window</li>
+                        <li>Memory drops back to 45%</li>
+                        <li>Total downtime: 2 minutes (planned)</li>
+                    </ul>
+                </div>
+
+                <div style="background: white; padding: 1.5rem; border-radius: 8px;">
+                    <p style="color: var(--aurora-green); font-weight: 600; margin-bottom: 0.5rem;">3:47 AM: Everyone sleeps soundly</p>
+                    <ul style="color: var(--charcoal); line-height: 1.8; margin-bottom: 0;">
+                        <li>No pager alerts</li>
+                        <li>No customer impact</li>
+                        <li>No incident report needed</li>
+                        <li><strong>Cost:</strong> $0 lost, 0 customers impacted</li>
+                    </ul>
+                </div>
+            </div>
+
+            <p style="text-align: center; margin-top: 2rem; font-size: 1.25rem; color: var(--navy-blue); font-weight: 600;">
+                That's the power of predictive monitoring.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Transfer Learning -->
+<section class="section section-gray">
+    <div class="container">
+        <h2 class="text-center mb-lg">Profile-Based Transfer Learning</h2>
+        <p class="text-center mb-xl" style="color: var(--medium-gray); max-width: 700px; margin-left: auto; margin-right: auto;">
+            How new servers get accurate predictions immediately—no retraining required
+        </p>
+
+        <div style="max-width: 900px; margin: 0 auto;">
+            <div style="background: white; padding: 2rem; border-radius: 8px; margin-bottom: 2rem;">
+                <h3 style="color: var(--navy-blue); margin-bottom: 1rem;">The Problem with Traditional ML</h3>
+                <p style="color: var(--charcoal); line-height: 1.8;">
+                    Most AI treats every server as unique. Add a new server → retrain the model. Remove a server → retrain the model. Change fleet size → retrain everything. It's expensive, slow, and impractical.
+                </p>
+            </div>
+
+            <div style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%); padding: 2rem; border-radius: 8px; border: 2px solid var(--ice-blue);">
+                <h3 style="color: var(--ice-blue); margin-bottom: 1rem;">Our Solution: 7 Server Profiles</h3>
+                <p style="color: var(--charcoal); line-height: 1.8; margin-bottom: 1.5rem;">
+                    We recognize that servers of the same type behave similarly. A new ML training server (ppml0099) behaves like existing ML servers (ppml0001-ppml0098). So we learn patterns at the <strong>profile level</strong>, not individual server level.
+                </p>
+
+                <div style="display: grid; gap: 1rem;">
+                    <div style="background: white; padding: 1rem; border-radius: 8px;">
+                        <strong style="color: var(--navy-blue);">ML Compute</strong> (ppml####)<br>
+                        <span style="color: var(--medium-gray); font-size: 0.875rem;">High CPU/memory during training, Memory-intensive workloads</span>
+                    </div>
+                    <div style="background: white; padding: 1rem; border-radius: 8px;">
+                        <strong style="color: var(--navy-blue);">Database</strong> (ppdb###)<br>
+                        <span style="color: var(--medium-gray); font-size: 0.875rem;">High memory (page cache normal), Query CPU spikes expected</span>
+                    </div>
+                    <div style="background: white; padding: 1rem; border-radius: 8px;">
+                        <strong style="color: var(--navy-blue);">Web API</strong> (ppweb###)<br>
+                        <span style="color: var(--medium-gray); font-size: 0.875rem;">Low memory (stateless), Latency-sensitive, Network-heavy</span>
+                    </div>
+                    <div style="background: white; padding: 1rem; border-radius: 8px;">
+                        <strong style="color: var(--navy-blue);">Data Ingest</strong> (ppdi###)<br>
+                        <span style="color: var(--medium-gray); font-size: 0.875rem;">High disk I/O, Streaming workloads, Network-intensive</span>
+                    </div>
+                    <div style="background: white; padding: 1rem; border-radius: 8px;">
+                        <strong style="color: var(--navy-blue);">Conductor/Risk/Generic</strong><br>
+                        <span style="color: var(--medium-gray); font-size: 0.875rem;">Specialized workloads and fallback category</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem;">
+                <h3 style="color: var(--navy-blue); margin-bottom: 1rem; text-align: center;">Benefits</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚡</div>
+                        <h4>Instant Intelligence</h4>
+                        <p>New servers get strong predictions from day 1. No waiting for training data.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔄</div>
+                        <h4>80% Less Retraining</h4>
+                        <p>Add/remove servers without retraining. Only retrain when patterns shift.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📈</div>
+                        <h4>13% Better Accuracy</h4>
+                        <p>Profile-specific knowledge beats one-size-fits-all models.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Architecture -->
+<section class="section">
+    <div class="container">
+        <h2 class="text-center mb-lg">System Architecture</h2>
+
+        <div style="max-width: 900px; margin: 0 auto;">
+            <div style="background: var(--light-gray); padding: 2rem; border-radius: 8px;">
+                <h3 style="color: var(--navy-blue); margin-bottom: 1.5rem; text-align: center;">Microservices Design</h3>
+
+                <div style="display: grid; gap: 1.5rem;">
+                    <div style="background: white; padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--ice-blue);">
+                        <h4 style="color: var(--ice-blue); margin-bottom: 0.75rem;">1. Production Adapters</h4>
+                        <p style="color: var(--charcoal); margin-bottom: 0;">Pull metrics from your sources (MongoDB, Elasticsearch, Prometheus) every 5 seconds. Send to inference daemon via REST API.</p>
+                    </div>
+
+                    <div style="background: white; padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--ice-blue);">
+                        <h4 style="color: var(--ice-blue); margin-bottom: 0.75rem;">2. Inference Daemon</h4>
+                        <p style="color: var(--charcoal); margin-bottom: 0;">GPU-accelerated TFT model. <100ms latency per server. REST API (port 8000) + WebSocket streaming. Real-time predictions.</p>
+                    </div>
+
+                    <div style="background: white; padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--ice-blue);">
+                        <h4 style="color: var(--ice-blue); margin-bottom: 0.75rem;">3. Dashboard</h4>
+                        <p style="color: var(--charcoal); margin-bottom: 0;">Interactive web UI (port 8501). Fleet overview, heatmap, alerts, trends, cost avoidance calculator. Updates in real-time via WebSocket.</p>
+                    </div>
+
+                    <div style="background: white; padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--aurora-green);">
+                        <h4 style="color: var(--aurora-green); margin-bottom: 0.75rem;">4. Adaptive Retraining</h4>
+                        <p style="color: var(--charcoal); margin-bottom: 0;">Drift detection monitors accuracy. Auto-retrains when needed (not on fixed schedule). Validates before deployment.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- The Technology -->
+<section class="section section-gray">
+    <div class="container">
+        <h2 class="text-center mb-lg">The Technology Stack</h2>
+
+        <div style="max-width: 900px; margin: 0 auto;">
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>🧠 AI Model</h3>
+                    <p><strong>Temporal Fusion Transformers (TFT)</strong><br>Google Research, 2019. State-of-the-art for time series. 88K parameters, <100ms inference.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>⚡ Runtime</h3>
+                    <p><strong>PyTorch + GPU Acceleration</strong><br>NVIDIA RTX optimization. Batch processing. <2s dashboard load time.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>🔧 Framework</h3>
+                    <p><strong>Python + Streamlit</strong><br>Production-ready. Microservices. REST + WebSocket APIs. Easy integration.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>📊 Data</h3>
+                    <p><strong>Parquet + Time Series</strong><br>14 LINBORG metrics. 5-second granularity. Efficient storage and querying.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="section">
+    <div class="container text-center">
+        <h2 class="mb-md">Ready to See It in Action?</h2>
+        <p style="font-size: 1.25rem; color: var(--charcoal); max-width: 700px; margin: 0 auto var(--spacing-xl);">
+            Get a personalized demo and see NordIQ predict failures in your infrastructure.
+        </p>
+
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <a href="contact.html" class="btn btn-primary btn-large">Request a Demo</a>
+            <a href="pricing.html" class="btn btn-secondary btn-large">View Pricing</a>
+        </div>
+
+        <p style="margin-top: 2rem; color: var(--medium-gray);">
+            Questions? Email <a href="mailto:craig@nordiqai.io" style="color: var(--ice-blue); font-weight: 600;">craig@nordiqai.io</a>
+        </p>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>🧭 NordIQ AI</h4>
+                <p>AI-powered predictive monitoring. Prevent server failures before they happen.</p>
+                <p class="footer-tagline">"Nordic precision, AI intelligence"</p>
+            </div>
+
+            <div class="footer-section">
+                <h4>Product</h4>
+                <ul class="footer-links">
+                    <li><a href="product.html">Features</a></li>
+                    <li><a href="how-it-works.html">How It Works</a></li>
+                    <li><a href="pricing.html">Pricing</a></li>
+                    <li><a href="about.html">About</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Resources</h4>
+                <ul class="footer-links">
+                    <li><a href="#">Documentation (Coming Soon)</a></li>
+                    <li><a href="#">Blog (Coming Soon)</a></li>
+                    <li><a href="https://github.com/nordiqai" target="_blank">GitHub</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <ul class="footer-links">
+                    <li><a href="mailto:craig@nordiqai.io">craig@nordiqai.io</a></li>
+                    <li><a href="https://linkedin.com/in/craiggiannelli" target="_blank">LinkedIn</a></li>
+                    <li><a href="contact.html">Get a Demo</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2025 NordIQ AI Systems, LLC. All rights reserved.</p>
+            <p>Business Source License 1.1 | Built by Craig Giannelli</p>
+        </div>
+    </div>
+</footer>
+
+<script src="js/main.js"></script>
+
+</body>
+</html>
