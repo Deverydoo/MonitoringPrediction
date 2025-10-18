@@ -114,8 +114,10 @@ class AttentionVisualizer:
 
         # Component 2: Change detection
         # Timesteps with significant changes get more attention
-        if 'cpu_pct' in data.columns and len(data) >= window_size:
-            cpu_values = data['cpu_pct'].values[-window_size:]
+        # Use cpu_user_pct (LINBORG metric) instead of old cpu_pct
+        cpu_col = 'cpu_user_pct' if 'cpu_user_pct' in data.columns else 'cpu_pct'
+        if cpu_col in data.columns and len(data) >= window_size:
+            cpu_values = data[cpu_col].values[-window_size:]
             changes = np.abs(np.diff(cpu_values, prepend=cpu_values[0]))
 
             # Normalize changes to 0-1

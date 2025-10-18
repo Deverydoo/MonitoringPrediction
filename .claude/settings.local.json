@@ -1,9 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add Docs/RAG/SESSION_2025-10-18_DEBUGGING.md .claude/settings.local.json)",
-      "Bash(git log --all --oneline --grep=\"XAI\\|explainable\" -i)",
-      "Bash(git add -A)"
+      "Bash(git commit -m \"fix: correct counterfactual scenario field names\n\nFixed KeyError by using correct field names from counterfactual generator:\n- ''effectiveness'' → calculated score based on change/safety/effort\n- ''is_safe'' → ''safe''\n\nAdded smart scoring: negative change (reduction) + safety bonus + low effort bonus\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git commit -m \"fix: update XAI explainers to use LINBORG metrics\n\nUpdated all three XAI components to support new 14-metric LINBORG schema:\n\n1. SHAP Explainer (shap_explainer.py):\n   - Changed FEATURE_NAMES from old 4 metrics to all 14 LINBORG metrics\n   - Now analyzes: cpu_user_pct, cpu_sys_pct, cpu_iowait_pct, cpu_idle_pct,\n     java_cpu_pct, mem_used_pct, swap_used_pct, disk_usage_pct, net_in_mb_s,\n     net_out_mb_s, back_close_wait, front_close_wait, load_average, uptime_days\n\n2. Attention Visualizer (attention_visualizer.py):\n   - Updated to use cpu_user_pct instead of old cpu_pct\n   - Fallback support for legacy metric names\n\n3. Counterfactual Generator (counterfactual_generator.py):\n   - All scenarios now detect and use LINBORG metric names\n   - Updated: Stabilize, Restart, Reduce Memory, Scale Out scenarios\n   - Fallback support for both old (cpu_pct, mem_pct) and new (cpu_user_pct, mem_used_pct)\n\nThis fixes the \"\"0 neutral\"\" bug in XAI insights tab - now shows actual metric data!\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": [],
     "ask": []

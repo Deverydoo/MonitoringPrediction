@@ -126,11 +126,13 @@ class CounterfactualGenerator:
         """
         modified_data = data.copy()
 
-        if 'cpu_pct' in modified_data.columns and len(modified_data) >= 20:
+        # Support both old (cpu_pct) and new (cpu_user_pct) metric names
+        cpu_col = 'cpu_user_pct' if 'cpu_user_pct' in modified_data.columns else 'cpu_pct'
+        if cpu_col in modified_data.columns and len(modified_data) >= 20:
             # Flatten last 20% to recent average (stop upward trend)
             window = len(modified_data) // 5
-            recent_avg = modified_data['cpu_pct'].iloc[-window:].mean()
-            modified_data.loc[-window:, 'cpu_pct'] = recent_avg
+            recent_avg = modified_data[cpu_col].iloc[-window:].mean()
+            modified_data.loc[-window:, cpu_col] = recent_avg
 
         # Predict with modified data (approximation)
         predicted_cpu = self._estimate_prediction_change(
@@ -163,16 +165,20 @@ class CounterfactualGenerator:
         modified_data = data.copy()
 
         # Reset CPU and memory to baseline (typical after restart)
-        if 'cpu_pct' in modified_data.columns:
-            baseline_cpu = modified_data['cpu_pct'].quantile(0.25)  # 25th percentile
+        # Support both old and new metric names
+        cpu_col = 'cpu_user_pct' if 'cpu_user_pct' in modified_data.columns else 'cpu_pct'
+        mem_col = 'mem_used_pct' if 'mem_used_pct' in modified_data.columns else 'mem_pct'
+
+        if cpu_col in modified_data.columns:
+            baseline_cpu = modified_data[cpu_col].quantile(0.25)  # 25th percentile
             # Last 10% of data becomes baseline
             reset_window = len(modified_data) // 10
-            modified_data.loc[-reset_window:, 'cpu_pct'] = baseline_cpu
+            modified_data.loc[-reset_window:, cpu_col] = baseline_cpu
 
-        if 'mem_pct' in modified_data.columns:
-            baseline_mem = modified_data['mem_pct'].quantile(0.25)
+        if mem_col in modified_data.columns:
+            baseline_mem = modified_data[mem_col].quantile(0.25)
             reset_window = len(modified_data) // 10
-            modified_data.loc[-reset_window:, 'mem_pct'] = baseline_mem
+            modified_data.loc[-reset_window:, mem_col] = baseline_mem
 
         # Significant reduction expected from restart
         predicted_cpu = self._estimate_prediction_change(
@@ -204,9 +210,11 @@ class CounterfactualGenerator:
         """
         modified_data = data.copy()
 
-        if 'mem_pct' in modified_data.columns:
+        # Support both old and new metric names
+        mem_col = 'mem_used_pct' if 'mem_used_pct' in modified_data.columns else 'mem_pct'
+        if mem_col in modified_data.columns:
             # Reduce memory by 20%
-            modified_data['mem_pct'] *= 0.8
+            modified_data[mem_col] *= 0.8
 
         # Memory reduction often helps CPU (less GC, less swapping)
         predicted_cpu = self._estimate_prediction_change(
@@ -245,8 +253,10 @@ class CounterfactualGenerator:
         # After scaling: 3 instances = 33% load each
         load_factor = 1.0 / (1 + instances)
 
-        if 'cpu_pct' in modified_data.columns:
-            modified_data['cpu_pct'] *= load_factor
+        # Support both old and new metric names
+        cpu_col = 'cpu_user_pct' if 'cpu_user_pct' in modified_data.columns else 'cpu_pct'
+        if cpu_col in modified_data.columns:
+            modified_data[cpu_col] *= load_factor
 
         if 'disk_io_mb_s' in modified_data.columns:
             modified_data['disk_io_mb_s'] *= load_factor

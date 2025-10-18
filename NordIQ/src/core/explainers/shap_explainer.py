@@ -34,7 +34,14 @@ class TFTShapExplainer:
         # Output: "Primary driver: CPU Trend (+25% impact)"
     """
 
-    FEATURE_NAMES = ['cpu_pct', 'mem_pct', 'disk_io_mb_s', 'latency_ms']
+    # LINBORG metrics - all 14 production metrics
+    FEATURE_NAMES = [
+        'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
+        'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
+        'net_in_mb_s', 'net_out_mb_s',
+        'back_close_wait', 'front_close_wait',
+        'load_average', 'uptime_days'
+    ]
 
     def __init__(self, tft_inference, use_shap: bool = False):
         """
