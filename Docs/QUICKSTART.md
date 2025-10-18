@@ -13,11 +13,11 @@ This guide shows you how to perform the most common tasks in 60 seconds or less.
 ### Steps:
 
 1. Open [linborg_schema.py](linborg_schema.py)
-2. Find the `LINBORG_METRICS` list (around line 46)
+2. Find the `NordIQ Metrics Framework_METRICS` list (around line 46)
 3. Add your metric to the list:
 
 ```python
-LINBORG_METRICS = [
+NordIQ Metrics Framework_METRICS = [
     'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
     'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
     'net_in_mb_s', 'net_out_mb_s',
@@ -36,7 +36,7 @@ LINBORG_METRICS = [
 ✅ Inference daemon predicts it
 ✅ Dashboard displays it
 ✅ Validation helpers recognize it
-✅ `NUM_LINBORG_METRICS` updates automatically
+✅ `NUM_NordIQ Metrics Framework_METRICS` updates automatically
 
 **That's it. No other files to touch.**
 
@@ -49,7 +49,7 @@ LINBORG_METRICS = [
 ### Steps:
 
 1. Open [linborg_schema.py](linborg_schema.py)
-2. Find the `LINBORG_METRICS` list (around line 46)
+2. Find the `NordIQ Metrics Framework_METRICS` list (around line 46)
 3. Delete the line with your metric
 4. Save the file
 
@@ -104,7 +104,7 @@ PROFILE_BASELINES = {
         'cpu_user_pct': 30.0,
         'cpu_sys_pct': 5.0,
         'mem_used_pct': 50.0,
-        # ... add all 14 LINBORG metrics
+        # ... add all 14 NordIQ Metrics Framework metrics
     }
 }
 ```
@@ -130,7 +130,7 @@ PROFILE_BASELINES = {
 python metrics_generator.py --hours 24
 ```
 
-**What it does**: Creates 24 hours of synthetic server metrics with all 14 LINBORG metrics.
+**What it does**: Creates 24 hours of synthetic server metrics with all 14 NordIQ Metrics Framework metrics.
 
 ### Train the Model
 ```bash

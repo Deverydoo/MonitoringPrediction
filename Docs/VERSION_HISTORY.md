@@ -19,12 +19,12 @@
   - Display names for metrics ("CPU User %" vs "cpu_user_pct")
   - Scenario-specific emojis (🔄 Restart, 📈 Scale, ⚡ Optimize)
   - 30-second caching for performance
-- ✅ **LINBORG Metrics Support** - All 14 metrics in XAI analysis
+- ✅ **NordIQ Metrics Framework Metrics Support** - All 14 metrics in XAI analysis
 
 ### Bug Fixes
 - Fixed `List` import error in insights.py
 - Fixed API key authentication (403 errors) for XAI endpoint
-- Updated XAI explainers to use LINBORG schema (was using old 4-metric system)
+- Updated XAI explainers to use NordIQ Metrics Framework schema (was using old 4-metric system)
 - Fixed counterfactual field names (`safe` vs `is_safe`, calculated effectiveness score)
 
 ### Documentation
@@ -82,12 +82,12 @@
 
 ---
 
-## v1.0.0 (October 13-15, 2025) - LINBORG Metrics Refactor
+## v1.0.0 (October 13-15, 2025) - NordIQ Metrics Framework Metrics Refactor
 
-**Major Change:** Migrated from 4-metric system to 14-metric LINBORG production schema
+**Major Change:** Migrated from 4-metric system to 14-metric NordIQ Metrics Framework production schema
 
 ### Metrics System Overhaul
-- ✅ **14 LINBORG metrics** (industry-standard production monitoring)
+- ✅ **14 NordIQ Metrics Framework metrics** (industry-standard production monitoring)
   - CPU: user, system, iowait, idle, Java process
   - Memory: used, swap used
   - Disk: usage percentage
@@ -156,7 +156,7 @@
 **Format:** MAJOR.MINOR.PATCH
 
 - **MAJOR (1.x.x):** Breaking changes, major releases
-  - v1.0.0: LINBORG metrics (production-ready)
+  - v1.0.0: NordIQ Metrics Framework metrics (production-ready)
   - v2.0.0: (Future) React dashboard rewrite
 
 - **MINOR (x.1.x):** New features, no breaking changes

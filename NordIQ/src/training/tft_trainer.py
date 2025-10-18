@@ -39,7 +39,7 @@ from core.config import MODEL_CONFIG
 from core.server_encoder import ServerEncoder
 from core.data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
 from core.gpu_profiles import setup_gpu
-from core.linborg_schema import LINBORG_METRICS, validate_linborg_metrics
+from core.nordiq_metrics import NORDIQ_METRICS, validate_nordiq_metrics
 
 
 def set_random_seed(seed: int = 42):
@@ -303,19 +303,19 @@ class TFTTrainer:
             df['status'] = 'normal'  # Default value
         df['status'] = df['status'].fillna('normal').astype(str)
 
-        # Validate LINBORG metrics (using centralized schema)
-        available_metrics, missing_metrics = validate_linborg_metrics(df.columns)
+        # Validate NordIQ Metrics Framework metrics (using centralized schema)
+        available_metrics, missing_metrics = validate_nordiq_metrics(df.columns)
 
-        print(f"[INFO] Available LINBORG metrics: {len(available_metrics)}/{len(LINBORG_METRICS)}")
+        print(f"[INFO] Available NordIQ Metrics Framework metrics: {len(available_metrics)}/{len(NORDIQ_METRICS)}")
         if missing_metrics:
-            print(f"[WARNING] Missing LINBORG metrics: {missing_metrics}")
+            print(f"[WARNING] Missing NordIQ Metrics Framework metrics: {missing_metrics}")
             raise ValueError(
-                f"Data is missing {len(missing_metrics)} required LINBORG metrics.\n"
+                f"Data is missing {len(missing_metrics)} required NordIQ Metrics Framework metrics.\n"
                 f"Please regenerate training data with metrics_generator.py to include all 14 metrics."
             )
 
         # Fill any NaN values and ensure numeric types
-        for col in LINBORG_METRICS:
+        for col in NORDIQ_METRICS:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 # Use median for filling, or reasonable defaults
@@ -376,8 +376,8 @@ class TFTTrainer:
         print(f"[INFO] Using encoder length: {max_encoder_length}, prediction length: {max_prediction_length}")
         print(f"[INFO] Validation split: {validation_split:.1%} | Training cutoff: {training_cutoff}")
         
-        # Define features - use centralized LINBORG schema
-        time_varying_unknown_reals = LINBORG_METRICS.copy()
+        # Define features - use centralized NordIQ Metrics Framework schema
+        time_varying_unknown_reals = NORDIQ_METRICS.copy()
         time_varying_known_reals = ['hour', 'day_of_week', 'month', 'is_weekend']
         time_varying_unknown_categoricals = ['status']
 
@@ -391,10 +391,10 @@ class TFTTrainer:
         else:
             print("[WARNING] No profile column - transfer learning disabled")
 
-        # Phase 3: Multi-target prediction support with LINBORG metrics
+        # Phase 3: Multi-target prediction support with NordIQ Metrics Framework metrics
         multi_target = self.config.get('multi_target', False)
         if multi_target:
-            # Use key LINBORG metrics as targets (subset for manageability)
+            # Use key NordIQ Metrics Framework metrics as targets (subset for manageability)
             target_metrics = self.config.get('target_metrics', [
                 'cpu_user_pct', 'cpu_iowait_pct', 'mem_used_pct',
                 'swap_used_pct', 'load_average'

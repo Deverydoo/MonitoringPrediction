@@ -198,7 +198,7 @@ python generate_api_key.py --force
 ## 📊 Current System State
 
 **Production-Ready**:
-- ✅ 14 LINBORG metrics
+- ✅ 14 NordIQ Metrics Framework metrics
 - ✅ 7 server profiles
 - ✅ Modular dashboard (84.8% reduction)
 - ✅ API key authentication

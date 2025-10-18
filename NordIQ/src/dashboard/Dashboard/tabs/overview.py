@@ -317,7 +317,7 @@ def render(predictions: Optional[Dict], daemon_url: str = DAEMON_URL):
                     else:
                         continue
 
-                    # Get actual vs predicted for key LINBORG metrics (using helper)
+                    # Get actual vs predicted for key NordIQ Metrics Framework metrics (using helper)
                     cpu_actual = min(100.0, max(0.0, extract_cpu_used(server_pred, 'current')))
                     cpu_predicted = min(100.0, max(0.0, extract_cpu_used(server_pred, 'p50')))
 

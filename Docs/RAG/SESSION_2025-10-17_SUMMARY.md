@@ -61,7 +61,7 @@
 - Documented versioning process in PROJECT_CODEX.md with examples
 
 **Versioning Scheme** (Semantic Versioning 2.0.0):
-- **MAJOR**: Breaking changes (schema, API, LINBORG metrics)
+- **MAJOR**: Breaking changes (schema, API, NordIQ Metrics Framework metrics)
 - **MINOR**: New features (dashboard tabs, profiles, enhancements)
 - **PATCH**: Bug fixes, documentation, refactoring
 
@@ -174,7 +174,7 @@ CURRENT_STATE_RAG.md (consolidated)
 ## 🎯 Current System State (v1.0.0)
 
 ### Production-Ready Features
-- ✅ 14 LINBORG production metrics
+- ✅ 14 NordIQ Metrics Framework production metrics
 - ✅ 7 server profiles with transfer learning
 - ✅ Contextual risk intelligence (fuzzy logic)
 - ✅ Graduated severity levels (7 levels)

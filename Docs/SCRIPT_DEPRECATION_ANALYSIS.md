@@ -34,7 +34,7 @@
 | Script | Purpose | Used By | Status |
 |--------|---------|---------|--------|
 | **server_profiles.py** | 7 server profile definitions | metrics_generator, trainer | ✅ Config |
-| **linborg_schema.py** | LINBORG metric schema validation | metrics_generator_daemon | ✅ Config |
+| **linborg_schema.py** | NordIQ Metrics Framework metric schema validation | metrics_generator_daemon | ✅ Config |
 | **constants.py** | Global constants | Multiple scripts | ✅ Config |
 | **gpu_profiles.py** | GPU detection and optimization | tft_trainer.py | ✅ Config |
 | **server_encoder.py** | Hash-based server ID encoding | tft_trainer.py | ✅ Config |
@@ -121,7 +121,7 @@ python tft_inference_daemon.py --daemon --port 8000
 |--------|---------|---------------|----------------|
 | **debug_data_flow.py** | Debug data pipeline | No - v1.0.0 stable | ⚠️ **ARCHIVE** |
 | **debug_live_feed.py** | Debug live streaming | No - daemon works | ⚠️ **ARCHIVE** |
-| **verify_linborg_streaming.py** | Verify LINBORG metrics | No - certified | ⚠️ **ARCHIVE** |
+| **verify_linborg_streaming.py** | Verify NordIQ Metrics Framework metrics | No - certified | ⚠️ **ARCHIVE** |
 | **validate_linborg_schema.py** | Validate schema compliance | No - schema stable | ⚠️ **ARCHIVE** |
 | **verify_refactor.py** | Verify v1.0.0 refactor | No - refactor done | ⚠️ **ARCHIVE** |
 | **PIPELINE_VALIDATION.py** | End-to-end pipeline test | No - validated | ⚠️ **ARCHIVE** |

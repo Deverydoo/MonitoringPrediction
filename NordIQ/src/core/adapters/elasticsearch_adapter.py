@@ -277,7 +277,7 @@ class ElasticsearchAdapter:
                 system = doc.get('system', {})
                 metrics = doc.get('metrics', {})
 
-                # Build TFT record with LINBORG metrics
+                # Build TFT record with NordIQ Metrics Framework metrics
                 # Adapt field paths based on your Elasticsearch schema
                 record = {
                     'timestamp': timestamp,

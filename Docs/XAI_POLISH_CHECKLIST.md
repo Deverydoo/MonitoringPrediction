@@ -13,7 +13,7 @@
 - [x] All 3 XAI components integrated (SHAP, Attention, Counterfactuals)
 - [x] Dashboard tab created with 3 sub-tabs
 - [x] API key authentication working
-- [x] LINBORG metrics support (all 14 metrics)
+- [x] NordIQ Metrics Framework metrics support (all 14 metrics)
 - [x] Error handling and fallbacks
 
 ### Functionality

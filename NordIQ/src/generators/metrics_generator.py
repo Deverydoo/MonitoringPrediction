@@ -503,7 +503,7 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
     
     df = state_df.copy()
     
-    # Initialize LINBORG metric columns (14 metrics matching production monitoring)
+    # Initialize NordIQ Metrics Framework metric columns (14 metrics matching production monitoring)
     metric_columns = [
         'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
         'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
@@ -532,7 +532,7 @@ def simulate_metrics(state_df: pd.DataFrame, config: Config) -> pd.DataFrame:
 
         n_points = len(server_data)
 
-        # Generate base metrics for each LINBORG metric
+        # Generate base metrics for each NordIQ Metrics Framework metric
         for metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
                       'mem_used', 'swap_used', 'disk_usage',
                       'net_in_mb_s', 'net_out_mb_s',
@@ -706,7 +706,7 @@ def validate_output(df: pd.DataFrame, config: Config) -> bool:
         
         assert 0.08 <= problem_pct <= 0.12, f"Problem children % {problem_pct:.3f} outside [8%, 12%]"
         
-        # Check profile baselines with LINBORG metrics (sample ML compute servers)
+        # Check profile baselines with NordIQ Metrics Framework metrics (sample ML compute servers)
         ml_data = df[df['profile'] == 'ml_compute']
         if not ml_data.empty:
             # Total CPU usage (user + sys + iowait should be reasonable)
@@ -811,7 +811,7 @@ def stream_to_daemon(config: Config, daemon_url: str = "http://localhost:8000", 
                 if next_state == ServerState.OFFLINE:
                     continue
 
-                # Generate LINBORG metrics (14 metrics matching production monitoring)
+                # Generate NordIQ Metrics Framework metrics (14 metrics matching production monitoring)
                 profile_enum = ServerProfile(profile)
                 baselines = PROFILE_BASELINES[profile_enum]
 
@@ -871,7 +871,7 @@ def stream_to_daemon(config: Config, daemon_url: str = "http://localhost:8000", 
                 elif next_state == ServerState.RECOVERY:
                     notes = "service restart"
 
-                # Build record with LINBORG-compatible metrics
+                # Build record with NordIQ Metrics Framework-compatible metrics
                 record = {
                     'timestamp': current_time.isoformat(),
                     'server_name': server_name,
@@ -1067,7 +1067,7 @@ def main():
     
     print(f"\n👀 Sample Data (first 5 rows):")
     display_cols = ['timestamp', 'server_name', 'profile', 'status',  # Renamed from 'state'
-                   'cpu_user_pct', 'mem_used_pct', 'load_average']  # LINBORG metrics
+                   'cpu_user_pct', 'mem_used_pct', 'load_average']  # NordIQ Metrics Framework metrics
     sample_df = final_df[display_cols].head()
 
     for _, row in sample_df.iterrows():

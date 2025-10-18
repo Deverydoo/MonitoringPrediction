@@ -413,7 +413,7 @@ You should see:
 - You use Prometheus, InfluxDB, CloudWatch, or other sources
 - You need to aggregate data from multiple systems
 - You need custom business logic or filtering
-- Your data format doesn't match LINBORG schema
+- Your data format doesn't match NordIQ Metrics Framework schema
 - Example: "We pull metrics from Prometheus and Datadog APIs"
 
 **✅ Use Both if:**

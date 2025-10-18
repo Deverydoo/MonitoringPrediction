@@ -23,7 +23,7 @@ Created production-ready adapters to bridge internal Linborg monitoring system w
 
 #### **Key Features:**
 - ✅ Continuous streaming (fetches every 5 seconds)
-- ✅ Automatic field mapping to LINBORG 14 metrics
+- ✅ Automatic field mapping to NordIQ Metrics Framework 14 metrics
 - ✅ Read-only database operations (production safe)
 - ✅ API key authentication
 - ✅ SSL/TLS support (Elasticsearch)
@@ -273,7 +273,7 @@ scripts/deprecated/security/
 - Inference daemon (port 8000)
 - Dashboard (port 8501)
 - API key authentication
-- LINBORG 14 metrics support
+- NordIQ Metrics Framework 14 metrics support
 
 ✅ **Production Integration**
 - MongoDB adapter (production-ready)
@@ -359,7 +359,7 @@ scripts/deprecated/security/
 5. **[_StartHere.ipynb](../_StartHere.ipynb)** - Training walkthrough
 
 **Reference:**
-- **[Docs/LINBORG_METRICS.md](LINBORG_METRICS.md)** - Metric definitions
+- **[Docs/NordIQ Metrics Framework_METRICS.md](NordIQ Metrics Framework_METRICS.md)** - Metric definitions
 - **[Docs/API_KEY_SETUP.md](API_KEY_SETUP.md)** - Security config
 - **[Docs/PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md)** - Speed optimizations
 

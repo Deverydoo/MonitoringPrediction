@@ -13,7 +13,7 @@
 **[CURRENT_STATE.md](CURRENT_STATE.md)** (484 lines)
 - ⭐ **Single source of truth** for current system state
 - Combined and consolidated from ESSENTIAL_RAG + CURRENT_STATE_RAG
-- Contains: Architecture, LINBORG metrics, quick start, recent changes
+- Contains: Architecture, NordIQ Metrics Framework metrics, quick start, recent changes
 - **Start here** for understanding the current system
 
 **[PROJECT_CODEX.md](PROJECT_CODEX.md)** (844 lines)
@@ -53,7 +53,7 @@
 ### Changes Made:
 - ✅ Merged ESSENTIAL_RAG.md + CURRENT_STATE_RAG.md → **CURRENT_STATE.md**
 - ✅ Simplified TIME_TRACKING.md (634 → 201 lines, 68% reduction)
-- ✅ Moved SESSION_2025-10-13_LINBORG_METRICS_REFACTOR.md to Archive
+- ✅ Moved SESSION_2025-10-13_NordIQ Metrics Framework_METRICS_REFACTOR.md to Archive
 - ✅ Updated all cross-references to new structure
 - ✅ Eliminated redundancy and outdated information
 

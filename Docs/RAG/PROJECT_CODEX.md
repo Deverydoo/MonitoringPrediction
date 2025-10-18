@@ -177,7 +177,7 @@ This document defines the development rules, conventions, and standards for the 
 
 ## 🔒 Schema Rules
 
-### Immutable Columns (REQUIRED) - LINBORG Metrics v2.0
+### Immutable Columns (REQUIRED) - NordIQ Metrics Framework Metrics v2.0
 
 ```python
 REQUIRED_COLUMNS = [
@@ -187,34 +187,34 @@ REQUIRED_COLUMNS = [
     'profile',           # string - One of 7 profiles
     'state',             # string - One of VALID_STATES
 
-    # LINBORG CPU Metrics (5 metrics)
+    # NordIQ Metrics Framework CPU Metrics (5 metrics)
     'cpu_user_pct',      # float - 0.0 to 100.0 - User space CPU
     'cpu_sys_pct',       # float - 0.0 to 100.0 - System/kernel CPU
     'cpu_iowait_pct',    # float - 0.0 to 100.0 - I/O wait (CRITICAL)
     'cpu_idle_pct',      # float - 0.0 to 100.0 - Idle CPU
     'java_cpu_pct',      # float - 0.0 to 100.0 - Java/Spark CPU
 
-    # LINBORG Memory Metrics (2 metrics)
+    # NordIQ Metrics Framework Memory Metrics (2 metrics)
     'mem_used_pct',      # float - 0.0 to 100.0 - Memory utilization
     'swap_used_pct',     # float - 0.0 to 100.0 - Swap usage
 
-    # LINBORG Disk Metrics (1 metric)
+    # NordIQ Metrics Framework Disk Metrics (1 metric)
     'disk_usage_pct',    # float - 0.0 to 100.0 - Disk space usage
 
-    # LINBORG Network Metrics (2 metrics)
+    # NordIQ Metrics Framework Network Metrics (2 metrics)
     'net_in_mb_s',       # float - 0.0+ - Network ingress MB/s
     'net_out_mb_s',      # float - 0.0+ - Network egress MB/s
 
-    # LINBORG Connection Metrics (2 metrics)
+    # NordIQ Metrics Framework Connection Metrics (2 metrics)
     'back_close_wait',   # int - TCP backend connections
     'front_close_wait',  # int - TCP frontend connections
 
-    # LINBORG System Metrics (2 metrics)
+    # NordIQ Metrics Framework System Metrics (2 metrics)
     'load_average',      # float - 0.0+ - System load average
     'uptime_days'        # int - 0-30 - Days since reboot
 ]
 
-# Total: 4 core + 14 LINBORG metrics = 18 required columns
+# Total: 4 core + 14 NordIQ Metrics Framework metrics = 18 required columns
 ```
 
 ### DEPRECATED Columns (DO NOT USE):
@@ -259,10 +259,10 @@ VALID_PROFILES = [
 
 ---
 
-## 🚨 LINBORG Metrics Rules
+## 🚨 NordIQ Metrics Framework Metrics Rules
 
-### 1. LINBORG Metric Naming (Immutable)
-> **All 14 LINBORG metrics must use exact names. No variations allowed.**
+### 1. NordIQ Metrics Framework Metric Naming (Immutable)
+> **All 14 NordIQ Metrics Framework metrics must use exact names. No variations allowed.**
 
 ```python
 # ✅ CORRECT
@@ -702,7 +702,7 @@ This project uses [Semantic Versioning 2.0.0](https://semver.org/):
 **MAJOR version** (e.g., 1.0.0 → 2.0.0) - Breaking changes:
 - Schema changes requiring data regeneration
 - API changes that break existing clients
-- LINBORG metrics structure changes
+- NordIQ Metrics Framework metrics structure changes
 - Profile system changes requiring retraining
 - Incompatible configuration changes
 
@@ -777,7 +777,7 @@ git tag v1.1.0
 # Changed metric schema (breaks existing models)
 echo "2.0.0" > VERSION
 # Update CHANGELOG.md with migration guide
-git commit -m "feat!: migrate to LINBORG v2 schema
+git commit -m "feat!: migrate to NordIQ Metrics Framework v2 schema
 
 BREAKING CHANGE: All models must be retrained"
 git tag v2.0.0

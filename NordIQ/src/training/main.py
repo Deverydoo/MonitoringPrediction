@@ -21,7 +21,7 @@ from generators.metrics_generator import generate_dataset
 from training.tft_trainer import train_model
 # from tft_inference import predict  # TODO: Fix this import
 from core.config import MODEL_CONFIG, METRICS_CONFIG, API_CONFIG
-from core.linborg_schema import LINBORG_METRICS, NUM_LINBORG_METRICS, validate_linborg_metrics
+from core.nordiq_metrics import NORDIQ_METRICS, NUM_NORDIQ_METRICS, validate_nordiq_metrics
 
 
 def setup() -> bool:
@@ -105,12 +105,12 @@ def status():
                 time_span_hours = (df['timestamp'].max() - df['timestamp'].min()).total_seconds() / 3600
                 print(f"   Time span: {time_span_hours:.1f} hours ({time_span_hours/24:.1f} days)")
 
-            # Check for LINBORG metrics (using centralized schema)
-            present, missing = validate_linborg_metrics(df.columns)
+            # Check for NordIQ Metrics Framework metrics (using centralized schema)
+            present, missing = validate_nordiq_metrics(df.columns)
             if len(missing) == 0:
-                print(f"   Metrics: {NUM_LINBORG_METRICS} LINBORG metrics ✅")
+                print(f"   Metrics: {NUM_NORDIQ_METRICS} NordIQ Metrics Framework metrics ✅")
             elif len(present) > 0:
-                print(f"   Metrics: {len(present)}/{NUM_LINBORG_METRICS} LINBORG metrics (partial)")
+                print(f"   Metrics: {len(present)}/{NUM_NORDIQ_METRICS} NordIQ Metrics Framework metrics (partial)")
                 print(f"   Missing: {', '.join(missing[:5])}...")
             else:
                 # Legacy metrics check

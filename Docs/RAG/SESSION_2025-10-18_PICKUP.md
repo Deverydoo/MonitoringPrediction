@@ -188,7 +188,7 @@ Contact: hello@nordiqai.io
 ## �� Current System State (v1.1.0)
 
 ### Production-Ready Features (Unchanged from v1.0.0)
-- ✅ 14 LINBORG production metrics
+- ✅ 14 NordIQ Metrics Framework production metrics
 - ✅ 7 server profiles with transfer learning
 - ✅ Contextual risk intelligence (fuzzy logic)
 - ✅ Graduated severity levels (7 levels)

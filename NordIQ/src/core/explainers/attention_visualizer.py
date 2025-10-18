@@ -114,7 +114,7 @@ class AttentionVisualizer:
 
         # Component 2: Change detection
         # Timesteps with significant changes get more attention
-        # Use cpu_user_pct (LINBORG metric) instead of old cpu_pct
+        # Use cpu_user_pct (NordIQ Metrics Framework metric) instead of old cpu_pct
         cpu_col = 'cpu_user_pct' if 'cpu_user_pct' in data.columns else 'cpu_pct'
         if cpu_col in data.columns and len(data) >= window_size:
             cpu_values = data[cpu_col].values[-window_size:]

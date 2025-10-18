@@ -48,10 +48,10 @@
 - Transfer learning enabled in TFT
 - 90-server fleet across 7 profiles
 
-### Session 6: LINBORG Metrics Refactor (Oct 13)
+### Session 6: NordIQ Metrics Framework Metrics Refactor (Oct 13)
 **Duration:** ~40 hours
 **Impact:** BREAKING CHANGE
-- Replaced 4 synthetic metrics with 14 real LINBORG production metrics
+- Replaced 4 synthetic metrics with 14 real NordIQ Metrics Framework production metrics
 - Complete metrics generator rewrite (7 profiles × 14 metrics × 8 states)
 - Dashboard refactor with I/O Wait as critical metric
 - Risk scoring redesign
@@ -106,7 +106,7 @@
 ## 🎯 Key Achievements
 
 ### Technical
-- ✅ 14 LINBORG production metrics integrated
+- ✅ 14 NordIQ Metrics Framework production metrics integrated
 - ✅ Profile-based transfer learning (13% accuracy improvement)
 - ✅ Modular architecture (84.8% code reduction)
 - ✅ Performance optimization (60% faster)
@@ -148,7 +148,7 @@
 5. **Modular architecture** - Makes changes easy and safe
 
 ### What Took Longer Than Expected
-1. **LINBORG metrics refactor** - 40 hours (but necessary for production)
+1. **NordIQ Metrics Framework metrics refactor** - 40 hours (but necessary for production)
 2. **TFT integration** - 12 hours vs 8 estimated (unexpected complexity)
 3. **Risk scoring design** - Multiple iterations to get contextual intelligence right
 

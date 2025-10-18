@@ -14,7 +14,7 @@ from typing import List, Tuple, Dict, Any
 import pandas as pd
 
 
-# Data Contract Constants (v2.0.0 - LINBORG Metrics)
+# Data Contract Constants (v2.0.0 - NordIQ Metrics Framework Metrics)
 CONTRACT_VERSION = "2.0.0"
 
 VALID_STATES = [
@@ -28,7 +28,7 @@ VALID_STATES = [
     'recovery'
 ]
 
-# LINBORG Metrics (14 total)
+# NordIQ Metrics Framework Metrics (14 total)
 REQUIRED_COLUMNS = [
     'timestamp',
     'server_name',

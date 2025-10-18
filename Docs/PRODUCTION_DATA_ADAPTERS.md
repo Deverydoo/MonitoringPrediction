@@ -85,7 +85,7 @@ Linborg (Internal)
 ### **MongoDB Adapter**
 - ✅ Direct MongoDB collection queries
 - ✅ Time-based filtering (fetches only new data)
-- ✅ Automatic field mapping to LINBORG schema
+- ✅ Automatic field mapping to NordIQ Metrics Framework schema
 - ✅ Continuous streaming with state tracking
 - ✅ Read-only operations (safe for production)
 
@@ -143,7 +143,7 @@ Both adapters automatically transform your data to TFT-compatible format:
 }
 ```
 
-**14 LINBORG metrics fully supported!**
+**14 NordIQ Metrics Framework metrics fully supported!**
 
 ---
 
@@ -263,7 +263,7 @@ nssm start TFTAdapter
   - Production deployment guides
 
 **Related docs:**
-- **[LINBORG_METRICS.md](LINBORG_METRICS.md)** - Metric definitions
+- **[NordIQ Metrics Framework_METRICS.md](NordIQ Metrics Framework_METRICS.md)** - Metric definitions
 - **[API_KEY_SETUP.md](API_KEY_SETUP.md)** - Security configuration
 - **[SCRIPT_DEPRECATION_ANALYSIS.md](SCRIPT_DEPRECATION_ANALYSIS.md)** - Old forwarder template status
 

@@ -13,7 +13,7 @@ Usage:
 
 Module Organization:
     - model_config.py: TFT model hyperparameters, training settings
-    - metrics_config.py: LINBORG metrics, profile baselines, state multipliers
+    - metrics_config.py: NordIQ Metrics Framework metrics, profile baselines, state multipliers
     - api_config.py: API URLs, ports, endpoints, timeouts
     - dashboard_config.py: Dashboard UI settings, thresholds, display config (kept in Dashboard/ for modularity)
 

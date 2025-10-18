@@ -62,7 +62,7 @@ This interpretability is critical in production environments where you need to *
 - ❌ Requires extensive hyperparameter tuning
 
 **TFT (Best of Both Worlds)**:
-- ✅ Multi-variable forecasting (14 LINBORG metrics simultaneously)
+- ✅ Multi-variable forecasting (14 NordIQ Metrics Framework metrics simultaneously)
 - ✅ Interpretable (shows which metrics matter)
 - ✅ Handles known future inputs (hour, day of week)
 - ✅ Long horizons (8+ hours ahead)
@@ -89,7 +89,7 @@ This interpretability is critical in production environments where you need to *
 
 TFT receives three types of inputs for each server:
 
-**1. Time-Varying Unknown Reals** (14 LINBORG metrics to predict):
+**1. Time-Varying Unknown Reals** (14 NordIQ Metrics Framework metrics to predict):
 ```
 cpu_user_pct, cpu_sys_pct, cpu_iowait_pct, cpu_idle_pct, java_cpu_pct,
 mem_used_pct, swap_used_pct, disk_usage_pct,
@@ -223,7 +223,7 @@ safetensors         # Fast model serialization
 TimeSeriesDataSet(
     max_encoder_length=288,      # 24 hours lookback
     max_prediction_length=96,    # 8 hours forecast
-    time_varying_unknown_reals=[...14 LINBORG metrics...],
+    time_varying_unknown_reals=[...14 NordIQ Metrics Framework metrics...],
     time_varying_known_reals=['hour', 'day_of_week', ...],
     static_categoricals=['profile'],  # Transfer learning
     target='cpu_user_pct',           # Primary target
@@ -344,4 +344,4 @@ TFT isn't just better than traditional methods—it's a **category upgrade** fro
 
 **Last Updated**: October 15, 2025
 **Status**: Production-Ready
-**Version**: Integrated with LINBORG Metrics v2.0
+**Version**: Integrated with NordIQ Metrics Framework Metrics v2.0

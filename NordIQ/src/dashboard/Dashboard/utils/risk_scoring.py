@@ -21,7 +21,7 @@ def calculate_server_risk_score(server_pred: Dict) -> float:
     - Only flags truly critical situations
 
     Args:
-        server_pred: Server prediction dictionary with LINBORG metrics
+        server_pred: Server prediction dictionary with NordIQ Metrics Framework metrics
 
     Returns:
         Risk score 0-100 (higher = more urgent)
@@ -32,7 +32,7 @@ def calculate_server_risk_score(server_pred: Dict) -> float:
     profile = get_server_profile(server_pred.get('server_name', ''))
 
     # =========================================================================
-    # CPU RISK ASSESSMENT (LINBORG: using centralized helper)
+    # CPU RISK ASSESSMENT (NordIQ Metrics Framework: using centralized helper)
     # =========================================================================
     current_cpu = extract_cpu_used(server_pred, 'current')
     max_cpu_p90 = extract_cpu_used(server_pred, 'p90')
@@ -82,7 +82,7 @@ def calculate_server_risk_score(server_pred: Dict) -> float:
             predicted_risk += 8   # Will be elevated
 
     # =========================================================================
-    # MEMORY RISK ASSESSMENT (LINBORG: mem_used_pct)
+    # MEMORY RISK ASSESSMENT (NordIQ Metrics Framework: mem_used_pct)
     # =========================================================================
     if 'mem_used_pct' in server_pred:
         mem = server_pred['mem_used_pct']

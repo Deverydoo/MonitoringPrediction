@@ -93,7 +93,7 @@ def verify_api_key(api_key: str = Security(api_key_header)):
 from server_encoder import ServerEncoder
 from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
 from gpu_profiles import setup_gpu
-from linborg_schema import LINBORG_METRICS
+from nordiq_metrics import NORDIQ_METRICS
 
 # Import XAI components
 sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "explainers"))
@@ -249,7 +249,7 @@ class TFTInference:
                     'profile': NaNLabelEncoder(add_nan=True)
                 }
 
-                # LINBORG-compatible metrics - use centralized schema
+                # NordIQ Metrics Framework-compatible metrics - use centralized schema
                 self.training_data = TimeSeriesDataSet(
                     dummy_df,
                     time_idx='time_idx',
@@ -259,7 +259,7 @@ class TFTInference:
                     max_prediction_length=96,
                     min_encoder_length=12,
                     min_prediction_length=1,
-                    time_varying_unknown_reals=LINBORG_METRICS.copy(),
+                    time_varying_unknown_reals=NORDIQ_METRICS.copy(),
                     time_varying_known_reals=['hour', 'day_of_week', 'month', 'is_weekend'],
                     time_varying_unknown_categoricals=['status'],
                     static_categoricals=['profile'],
@@ -332,7 +332,7 @@ class TFTInference:
                         'time_idx': time_idx,
                         'server_id': server_id,
                         'profile': profile,
-                        # LINBORG-compatible metrics (14 metrics)
+                        # NordIQ Metrics Framework-compatible metrics (14 metrics)
                         'cpu_user_pct': 45.0,
                         'cpu_sys_pct': 8.0,
                         'cpu_iowait_pct': 2.0,
@@ -367,7 +367,7 @@ class TFTInference:
                         'time_idx': time_idx,
                         'server_id': server_id,
                         'profile': profile,
-                        # LINBORG-compatible metrics (14 metrics)
+                        # NordIQ Metrics Framework-compatible metrics (14 metrics)
                         'cpu_user_pct': 45.0,
                         'cpu_sys_pct': 8.0,
                         'cpu_iowait_pct': 2.0,
@@ -496,10 +496,10 @@ class TFTInference:
             return self._predict_heuristic(df, horizon)
 
     def _prepare_data_for_tft(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare input data for TFT prediction with LINBORG metrics."""
+        """Prepare input data for TFT prediction with NordIQ Metrics Framework metrics."""
         prediction_df = df.copy()
 
-        # LINBORG metrics should be passed directly - no mapping needed
+        # NordIQ Metrics Framework metrics should be passed directly - no mapping needed
         # Data from metrics_generator.py already has correct column names
         required_cols = ['server_name', 'timestamp'] + [
             'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
@@ -511,7 +511,7 @@ class TFTInference:
 
         missing = [col for col in required_cols if col not in prediction_df.columns]
         if missing:
-            raise ValueError(f"Missing required LINBORG metrics: {missing}")
+            raise ValueError(f"Missing required NordIQ Metrics Framework metrics: {missing}")
 
         # Convert server_name to server_id
         if 'server_name' in prediction_df.columns and self.server_encoder:
@@ -701,10 +701,10 @@ class TFTInference:
                     'trend': float(trend)
                 }
 
-            # Heuristic for other LINBORG metrics (TFT doesn't predict these yet)
+            # Heuristic for other NordIQ Metrics Framework metrics (TFT doesn't predict these yet)
             server_data = input_df[input_df['server_id'] == server_id]
 
-            # ALL 13 remaining LINBORG metrics (TFT only predicts cpu_user_pct)
+            # ALL 13 remaining NordIQ Metrics Framework metrics (TFT only predicts cpu_user_pct)
             for metric in ['cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
                           'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
                           'net_in_mb_s', 'net_out_mb_s',
@@ -745,11 +745,11 @@ class TFTInference:
         return predictions
 
     def _predict_heuristic(self, df: pd.DataFrame, horizon: int) -> Dict:
-        """Enhanced heuristic predictions (fallback) using LINBORG metrics."""
+        """Enhanced heuristic predictions (fallback) using NordIQ Metrics Framework metrics."""
         predictions = {}
 
-        # Use centralized LINBORG schema
-        linborg_metrics = LINBORG_METRICS
+        # Use centralized NordIQ Metrics Framework schema
+        nordiq_metrics = NORDIQ_METRICS
 
         servers = df['server_name'].unique() if 'server_name' in df.columns else ['default']
 
@@ -761,7 +761,7 @@ class TFTInference:
 
             server_preds = {}
 
-            for metric_name in linborg_metrics:
+            for metric_name in nordiq_metrics:
                 if metric_name not in server_data.columns:
                     continue
 

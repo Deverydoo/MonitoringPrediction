@@ -232,7 +232,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
 ## 🎯 Current System State (v1.1.0)
 
 ### Production-Ready Features (Unchanged)
-- ✅ 14 LINBORG production metrics
+- ✅ 14 NordIQ Metrics Framework production metrics
 - ✅ 7 server profiles with transfer learning
 - ✅ Contextual risk intelligence (fuzzy logic)
 - ✅ Graduated severity levels (7 levels)

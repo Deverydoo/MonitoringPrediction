@@ -91,7 +91,7 @@ Created a **complete, professional static website** for marketing NordIQ AI's pr
 **5. How It Works** (`how-it-works.html` - 600+ lines)
 - The Challenge (reactive monitoring is broken)
 - The 5-Step Process:
-  1. Data Collection (14 LINBORG metrics)
+  1. Data Collection (14 NordIQ Metrics Framework metrics)
   2. AI Analysis (Temporal Fusion Transformer explained)
   3. Risk Scoring (Contextual intelligence + 4 factors)
   4. Early Warning Alerts (7 graduated severity levels)
@@ -103,7 +103,7 @@ Created a **complete, professional static website** for marketing NordIQ AI's pr
 
 **6. Product** (`product.html` - 700+ lines) ✅
 - Product overview and value proposition
-- 6 core features explained (TFT, contextual intelligence, graduated alerts, transfer learning, LINBORG metrics, streaming architecture)
+- 6 core features explained (TFT, contextual intelligence, graduated alerts, transfer learning, NordIQ Metrics Framework metrics, streaming architecture)
 - Complete dashboard walkthrough (all 10 tabs with descriptions)
   - Fleet Overview, Heatmap, Top Risks, Historical, Cost Avoidance, Auto-Remediation, Alerting, Advanced, Documentation, Roadmap
 - Technical capabilities (performance, data sources, deployment, security, integrations, APIs)

@@ -1,8 +1,8 @@
 """
-Metrics Configuration - LINBORG Baselines and State Multipliers
+Metrics Configuration - NordIQ Metrics Framework Baselines and State Multipliers
 
 SINGLE SOURCE OF TRUTH for all metric generation parameters:
-- Profile baselines (7 server profiles × 14 LINBORG metrics)
+- Profile baselines (7 server profiles × 14 NordIQ Metrics Framework metrics)
 - State multipliers (8 operational states × 14 metrics)
 - Diurnal patterns (time-of-day effects)
 - Server naming conventions
@@ -48,11 +48,11 @@ class ServerState(Enum):
 
 
 # =============================================================================
-# LINBORG Metrics Configuration
+# NordIQ Metrics Framework Metrics Configuration
 # =============================================================================
 
-# 14 LINBORG Metrics (matches production monitoring)
-LINBORG_METRICS = [
+# 14 NordIQ Metrics Framework Metrics (matches production monitoring)
+NORDIQ_METRICS = [
     # CPU metrics (5)
     'cpu_user_pct',
     'cpu_sys_pct',
@@ -83,7 +83,7 @@ LINBORG_METRICS = [
 # =============================================================================
 # Profile Baselines - (mean, std) for each metric
 # =============================================================================
-# ** LINBORG-COMPATIBLE METRICS ** - Matches actual production monitoring
+# ** NordIQ Metrics Framework-COMPATIBLE METRICS ** - Matches actual production monitoring
 # All CPU metrics are 0-1 scale (will be converted to 0-100% in output)
 
 PROFILE_BASELINES = {
@@ -450,7 +450,7 @@ FLEET_CONFIG = {
 # =============================================================================
 
 TIMESERIES_CONFIG = {
-    'poll_interval_seconds': 5,       # Data collection interval (LINBORG standard)
+    'poll_interval_seconds': 5,       # Data collection interval (NordIQ Metrics Framework standard)
     'ar1_phi': 0.85,                  # AR(1) autocorrelation parameter
     'ar1_sigma_multiplier': 0.1,      # AR(1) noise as fraction of std
     'uptime_max_days': 30,            # Maximum uptime before restart
@@ -490,7 +490,7 @@ METRIC_BOUNDS = {
 
 # Package everything for easy import
 METRICS_CONFIG = {
-    'linborg_metrics': LINBORG_METRICS,
+    'nordiq_metrics': NORDIQ_METRICS,
     'profile_baselines': PROFILE_BASELINES,
     'state_multipliers': STATE_MULTIPLIERS,
     'diurnal_config': DIURNAL_CONFIG,
@@ -510,7 +510,7 @@ __all__ = [
     'ServerProfile',
     'ServerState',
     'METRICS_CONFIG',
-    'LINBORG_METRICS',
+    'NORDIQ_METRICS',
     'PROFILE_BASELINES',
     'STATE_MULTIPLIERS'
 ]

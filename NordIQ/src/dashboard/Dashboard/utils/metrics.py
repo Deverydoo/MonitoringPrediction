@@ -1,7 +1,7 @@
 """
 Metrics Extraction Utilities
 
-Helper functions for extracting and computing metrics from LINBORG data.
+Helper functions for extracting and computing metrics from NordIQ Metrics Framework data.
 """
 
 import numpy as np
@@ -12,12 +12,12 @@ from typing import Dict, Tuple
 @st.cache_data(ttl=10)  # Cache for 10 seconds - frequently called
 def extract_cpu_used(server_pred: Dict, metric_type: str = 'current') -> float:
     """
-    Extract CPU Used % from LINBORG metrics.
+    Extract CPU Used % from NordIQ Metrics Framework metrics.
 
-    LINBORG stores cpu_idle_pct, but we display as "CPU Used = 100 - idle" for human readability.
+    NordIQ Metrics Framework stores cpu_idle_pct, but we display as "CPU Used = 100 - idle" for human readability.
 
     Args:
-        server_pred: Server prediction dictionary containing LINBORG metrics
+        server_pred: Server prediction dictionary containing NordIQ Metrics Framework metrics
         metric_type: Type of value to extract:
             - 'current': Current actual value (float)
             - 'p50': P50 prediction list (list of floats)

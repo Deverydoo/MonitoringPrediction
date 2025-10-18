@@ -48,7 +48,7 @@ def render(predictions: Optional[Dict]):
                     if mk == 'risk':
                         value = calculate_server_risk_score(server_pred)
                     elif mk == 'cpu':
-                        # LINBORG: Use cpu_idle_pct and convert to CPU Used (100 - idle)
+                        # NordIQ Metrics Framework: Use cpu_idle_pct and convert to CPU Used (100 - idle)
                         # For p90, we want p10 of idle (since lower idle = higher CPU used)
                         cpu_idle = server_pred.get('cpu_idle_pct', {})
                         p10_idle = cpu_idle.get('p10', [])
@@ -61,7 +61,7 @@ def render(predictions: Optional[Dict]):
                             current_idle = cpu_idle.get('current', 0)
                             value = 100 - current_idle if current_idle > 0 else 0
                     elif mk == 'memory':
-                        # LINBORG: Use mem_used_pct directly
+                        # NordIQ Metrics Framework: Use mem_used_pct directly
                         mem = server_pred.get('mem_used_pct', {})
                         p90 = mem.get('p90', [])
                         value = max(p90[:6]) if len(p90) >= 6 else (max(p90) if p90 else 0)

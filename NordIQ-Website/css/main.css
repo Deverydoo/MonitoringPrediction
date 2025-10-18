@@ -259,12 +259,15 @@ nav {
    Hero Section
    ============================================ */
 .hero {
-  background: linear-gradient(135deg, var(--navy-blue) 0%, #1e3a5f 100%);
+  background:
+    linear-gradient(135deg, rgba(20, 30, 48, 0.92) 0%, rgba(30, 58, 95, 0.85) 100%),
+    url('../images/hero.png') center/cover no-repeat;
   color: var(--white);
   padding: var(--spacing-2xl) 0;
   min-height: 600px;
   display: flex;
   align-items: center;
+  position: relative;
 }
 
 .hero-content {
@@ -448,6 +451,48 @@ nav {
 .stat-label {
   color: var(--medium-gray);
   font-size: 1rem;
+}
+
+/* ============================================
+   Screenshot Gallery
+   ============================================ */
+.screenshot-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: var(--spacing-xl);
+  margin-top: var(--spacing-xl);
+}
+
+.screenshot-item {
+  background-color: var(--white);
+  border: 1px solid #e0e0e0;
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.screenshot-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.screenshot-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.screenshot-caption {
+  padding: var(--spacing-md);
+  color: var(--dark-gray);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.screenshot-caption strong {
+  color: var(--navy-blue);
 }
 
 /* ============================================

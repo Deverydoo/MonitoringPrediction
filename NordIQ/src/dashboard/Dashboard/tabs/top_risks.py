@@ -82,7 +82,7 @@ def render(predictions: Optional[Dict]):
                     # Show current vs predicted side-by-side
                     st.markdown("**Current State vs Predictions (30min ahead)**")
 
-                    # Create comparison table - LINBORG metrics
+                    # Create comparison table - NordIQ Metrics Framework metrics
                     metric_rows = []
 
                     # CPU Used (using helper)

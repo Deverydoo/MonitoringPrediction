@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-LINBORG Metrics Schema - Single Source of Truth
-Linux/NorBorg style metrics for production monitoring
+NordIQ Metrics Framework - Single Source of Truth
+Production-grade infrastructure monitoring metrics
 
-Version: 1.0.0_linborg
-Date: 2025-10-14
+Version: 1.2.1
+Date: 2025-10-18
 """
 
 # =============================================================================
-# ALL 14 LINBORG METRICS
+# ALL 14 NORDIQ METRICS
 # =============================================================================
 
-LINBORG_METRICS = [
+NORDIQ_METRICS = [
     # CPU metrics (5 percentages)
     'cpu_user_pct',      # User-space CPU usage (0-100%)
     'cpu_sys_pct',       # System/kernel CPU usage (0-100%)
@@ -42,19 +42,19 @@ LINBORG_METRICS = [
 # =============================================================================
 
 # Percentage metrics (8 total) - stored as 0-100
-LINBORG_METRICS_PCT = [
+NORDIQ_METRICS_PCT = [
     'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
     'mem_used_pct', 'swap_used_pct', 'disk_usage_pct'
 ]
 
 # Connection count metrics (2 total) - integer counts
-LINBORG_METRICS_COUNTS = [
+NORDIQ_METRICS_COUNTS = [
     'back_close_wait',
     'front_close_wait'
 ]
 
 # Continuous float metrics (4 total)
-LINBORG_METRICS_CONTINUOUS = [
+NORDIQ_METRICS_CONTINUOUS = [
     'net_in_mb_s',
     'net_out_mb_s',
     'load_average',
@@ -66,14 +66,14 @@ LINBORG_METRICS_CONTINUOUS = [
 # =============================================================================
 
 # Metrics that indicate immediate trouble
-LINBORG_CRITICAL_METRICS = [
+NORDIQ_CRITICAL_METRICS = [
     'cpu_iowait_pct',   # High I/O wait = disk/storage bottleneck
     'swap_used_pct',    # Swap usage = memory thrashing
     'mem_used_pct',     # Memory pressure
 ]
 
 # Metrics prominently displayed in dashboard
-LINBORG_DISPLAY_METRICS = [
+NORDIQ_DISPLAY_METRICS = [
     'cpu_idle_pct',     # Displayed as "CPU Used = 100 - idle"
     'cpu_iowait_pct',   # I/O Wait - CRITICAL
     'mem_used_pct',     # Memory
@@ -109,22 +109,22 @@ TIME_FEATURES = [
 # =============================================================================
 
 # Expected columns in training data
-TRAINING_SCHEMA = CORE_COLUMNS + TIME_FEATURES + LINBORG_METRICS
+TRAINING_SCHEMA = CORE_COLUMNS + TIME_FEATURES + NORDIQ_METRICS
 
 # Schema version for compatibility tracking
-SCHEMA_VERSION = "1.0.0_linborg"
+SCHEMA_VERSION = "1.0.0_nordiq"
 
 # Number of metrics (for validation)
-NUM_LINBORG_METRICS = len(LINBORG_METRICS)
-assert NUM_LINBORG_METRICS == 14, f"Expected 14 LINBORG metrics, got {NUM_LINBORG_METRICS}"
+NUM_NORDIQ_METRICS = len(NORDIQ_METRICS)
+assert NUM_NORDIQ_METRICS == 14, f"Expected 14 NordIQ Metrics Framework metrics, got {NUM_NORDIQ_METRICS}"
 
 # =============================================================================
 # VALIDATION HELPERS
 # =============================================================================
 
-def validate_linborg_metrics(df_columns: list) -> tuple:
+def validate_nordiq_metrics(df_columns: list) -> tuple:
     """
-    Validate that DataFrame contains all LINBORG metrics.
+    Validate that DataFrame contains all NordIQ Metrics Framework metrics.
 
     Args:
         df_columns: List of column names from DataFrame
@@ -132,14 +132,14 @@ def validate_linborg_metrics(df_columns: list) -> tuple:
     Returns:
         (present_metrics, missing_metrics) tuple
     """
-    present = [m for m in LINBORG_METRICS if m in df_columns]
-    missing = [m for m in LINBORG_METRICS if m not in df_columns]
+    present = [m for m in NORDIQ_METRICS if m in df_columns]
+    missing = [m for m in NORDIQ_METRICS if m not in df_columns]
     return present, missing
 
 
 def get_metric_type(metric_name: str) -> str:
     """
-    Get the type of a LINBORG metric.
+    Get the type of a NordIQ Metrics Framework metric.
 
     Args:
         metric_name: Name of the metric
@@ -147,11 +147,11 @@ def get_metric_type(metric_name: str) -> str:
     Returns:
         'percentage', 'count', 'continuous', or 'unknown'
     """
-    if metric_name in LINBORG_METRICS_PCT:
+    if metric_name in NORDIQ_METRICS_PCT:
         return 'percentage'
-    elif metric_name in LINBORG_METRICS_COUNTS:
+    elif metric_name in NORDIQ_METRICS_COUNTS:
         return 'count'
-    elif metric_name in LINBORG_METRICS_CONTINUOUS:
+    elif metric_name in NORDIQ_METRICS_CONTINUOUS:
         return 'continuous'
     else:
         return 'unknown'
@@ -162,24 +162,24 @@ def get_metric_type(metric_name: str) -> str:
 # =============================================================================
 
 if __name__ == "__main__":
-    print("LINBORG Schema v" + SCHEMA_VERSION)
+    print("NordIQ Metrics Framework Schema v" + SCHEMA_VERSION)
     print("=" * 70)
-    print(f"\nTotal Metrics: {NUM_LINBORG_METRICS}")
-    print(f"  - Percentages: {len(LINBORG_METRICS_PCT)}")
-    print(f"  - Counts: {len(LINBORG_METRICS_COUNTS)}")
-    print(f"  - Continuous: {len(LINBORG_METRICS_CONTINUOUS)}")
+    print(f"\nTotal Metrics: {NUM_NORDIQ_METRICS}")
+    print(f"  - Percentages: {len(NORDIQ_METRICS_PCT)}")
+    print(f"  - Counts: {len(NORDIQ_METRICS_COUNTS)}")
+    print(f"  - Continuous: {len(NORDIQ_METRICS_CONTINUOUS)}")
 
     print("\n" + "=" * 70)
     print("ALL METRICS:")
     print("=" * 70)
-    for i, metric in enumerate(LINBORG_METRICS, 1):
+    for i, metric in enumerate(NORDIQ_METRICS, 1):
         metric_type = get_metric_type(metric)
         print(f"{i:2d}. {metric:20s} ({metric_type})")
 
     print("\n" + "=" * 70)
     print("CRITICAL METRICS:")
     print("=" * 70)
-    for metric in LINBORG_CRITICAL_METRICS:
+    for metric in NORDIQ_CRITICAL_METRICS:
         print(f"  - {metric}")
 
     print("\n" + "=" * 70)
@@ -187,11 +187,11 @@ if __name__ == "__main__":
     print("=" * 70)
 
     # Example: Validate a sample schema
-    sample_columns = ['timestamp', 'server_name'] + LINBORG_METRICS
-    present, missing = validate_linborg_metrics(sample_columns)
+    sample_columns = ['timestamp', 'server_name'] + NORDIQ_METRICS
+    present, missing = validate_nordiq_metrics(sample_columns)
 
-    print(f"Present: {len(present)}/{NUM_LINBORG_METRICS}")
+    print(f"Present: {len(present)}/{NUM_NORDIQ_METRICS}")
     if missing:
         print(f"Missing: {missing}")
     else:
-        print("✅ All LINBORG metrics present!")
+        print("✅ All NordIQ Metrics Framework metrics present!")

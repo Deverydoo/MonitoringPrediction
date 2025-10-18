@@ -242,7 +242,7 @@ class MongoDBAdapter:
                 else:
                     timestamp = datetime.utcnow().isoformat()
 
-                # Build TFT record with LINBORG metrics
+                # Build TFT record with NordIQ Metrics Framework metrics
                 record = {
                     'timestamp': timestamp,
                     'server_name': doc.get('server_name', doc.get('hostname', 'unknown')),

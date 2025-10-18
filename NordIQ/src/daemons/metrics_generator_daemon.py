@@ -317,12 +317,12 @@ class MetricsGeneratorDaemon:
             if next_state == ServerState.OFFLINE:
                 continue
 
-            # Generate ALL 14 LINBORG metrics using profile baselines + state multipliers + diurnal
+            # Generate ALL 14 NordIQ Metrics Framework metrics using profile baselines + state multipliers + diurnal
             profile_enum = ServerProfile(profile)
             baselines = PROFILE_BASELINES[profile_enum]
 
-            # LINBORG metrics - use exact names AS THEY APPEAR in PROFILE_BASELINES (no _pct suffix yet)
-            linborg_metrics = [
+            # NordIQ Metrics Framework metrics - use exact names AS THEY APPEAR in PROFILE_BASELINES (no _pct suffix yet)
+            nordiq_metrics = [
                 'cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
                 'mem_used', 'swap_used', 'disk_usage',
                 'net_in_mb_s', 'net_out_mb_s',
@@ -331,7 +331,7 @@ class MetricsGeneratorDaemon:
             ]
 
             metrics = {}
-            for metric in linborg_metrics:
+            for metric in nordiq_metrics:
                 if metric in baselines:
                     mean, std = baselines[metric]
                     value = np.random.normal(mean, std)
@@ -401,7 +401,7 @@ class MetricsGeneratorDaemon:
                 'state': next_state.value,
                 'problem_child': bool(is_problem_child),
                 **metrics,
-                # OOM based on LINBORG mem_used_pct
+                # OOM based on NordIQ Metrics Framework mem_used_pct
                 'container_oom': int(np.random.random() < 0.01 if metrics.get('mem_used_pct', 0) > 85 else 0),
                 'notes': ''
             }

@@ -34,7 +34,7 @@ class TFTShapExplainer:
         # Output: "Primary driver: CPU Trend (+25% impact)"
     """
 
-    # LINBORG metrics - all 14 production metrics
+    # NordIQ Metrics Framework metrics - all 14 production metrics
     FEATURE_NAMES = [
         'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
         'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',

@@ -13,7 +13,7 @@
 - **[PYTHON_ENV.md](PYTHON_ENV.md)** - Environment setup
 
 ### Core System Documentation
-- **[DATA_CONTRACT.md](DATA_CONTRACT.md)** ⭐ - Schema specification (14 LINBORG metrics)
+- **[DATA_CONTRACT.md](DATA_CONTRACT.md)** ⭐ - Schema specification (14 NordIQ Metrics Framework metrics)
 - **[SERVER_PROFILES.md](SERVER_PROFILES.md)** - 7 server profiles for transfer learning
 - **[HOW_PREDICTIONS_WORK.md](HOW_PREDICTIONS_WORK.md)** - Technical explanation of TFT predictions
 - **[CONTEXTUAL_RISK_INTELLIGENCE.md](CONTEXTUAL_RISK_INTELLIGENCE.md)** - Design philosophy
@@ -60,7 +60,7 @@
 **...get the system running quickly**
 → [QUICKSTART.md](QUICKSTART.md)
 
-**...understand the LINBORG metrics**
+**...understand the NordIQ Metrics Framework metrics**
 → [DATA_CONTRACT.md](DATA_CONTRACT.md)
 
 **...train a new model**
@@ -90,7 +90,7 @@
 
 ### Essential (Read First)
 1. **QUICKSTART.md** - Get running in 30 seconds
-2. **DATA_CONTRACT.md** - Understand the 14 LINBORG metrics
+2. **DATA_CONTRACT.md** - Understand the 14 NordIQ Metrics Framework metrics
 3. **CONTEXTUAL_RISK_INTELLIGENCE.md** - Understand the design philosophy
 4. **HOW_PREDICTIONS_WORK.md** - Understand the technical approach
 
@@ -141,7 +141,7 @@
 ```
 
 **Key Components:**
-- **14 LINBORG Metrics**: Production-grade monitoring metrics
+- **14 NordIQ Metrics Framework Metrics**: Production-grade monitoring metrics
 - **7 Server Profiles**: Profile-based transfer learning
 - **Contextual Risk Scoring**: Multi-factor intelligent alerts
 - **Graduated Severity**: 7 levels from Healthy to Imminent Failure
@@ -150,11 +150,11 @@
 
 ## 🚨 Critical Information
 
-### LINBORG Metrics (Required)
-The system uses **14 production LINBORG metrics**. Old 4-metric system is deprecated.
+### NordIQ Metrics Framework Metrics (Required)
+The system uses **14 production NordIQ Metrics Framework metrics**. Old 4-metric system is deprecated.
 
 ```python
-LINBORG_METRICS = [
+NordIQ Metrics Framework_METRICS = [
     'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct',  # CPU components
     'cpu_idle_pct', 'java_cpu_pct',                    # CPU (cont.)
     'mem_used_pct', 'swap_used_pct',                   # Memory

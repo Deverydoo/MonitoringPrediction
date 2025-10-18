@@ -133,7 +133,7 @@ class DriftMonitor:
         from scipy.stats import ks_2samp
 
         scores = {}
-        for metric in LINBORG_METRICS:
+        for metric in NordIQ Metrics Framework_METRICS:
             stat, p_value = ks_2samp(
                 current_data[metric],
                 baseline_data[metric]
@@ -159,7 +159,7 @@ class DriftMonitor:
         """
         drift_scores = {}
 
-        for metric in LINBORG_METRICS:
+        for metric in NordIQ Metrics Framework_METRICS:
             current_mean = recent_window[metric].mean()
             current_std = recent_window[metric].std()
 

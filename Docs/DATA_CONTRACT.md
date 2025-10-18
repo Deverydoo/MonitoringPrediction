@@ -1,6 +1,6 @@
 # DATA CONTRACT - Single Source of Truth
 
-**Version:** 2.0.0 (LINBORG Metrics)
+**Version:** 2.0.0 (NordIQ Metrics Framework Metrics)
 **Created:** 2025-10-11
 **Updated:** 2025-10-14
 **Status:** ⚠️ AUTHORITATIVE - All code must conform to this contract
@@ -26,7 +26,7 @@ This document defines the **immutable data contract** for the TFT Monitoring Pre
 
 ## 🔑 Core Schema Definition
 
-### Required Columns (All Stages) - LINBORG Metrics v2.0
+### Required Columns (All Stages) - NordIQ Metrics Framework Metrics v2.0
 
 **Core Identification (3 columns):**
 
@@ -36,7 +36,7 @@ This document defines the **immutable data contract** for the TFT Monitoring Pre
 | `server_name` | string | Unique hostname | e.g., `ppml0001`, `ppdb001` |
 | `state` | string | Operational state | See State Contract below |
 
-**LINBORG CPU Metrics (5 columns):**
+**NordIQ Metrics Framework CPU Metrics (5 columns):**
 
 | Column | Type | Description | Range/Values |
 |--------|------|-------------|--------------|
@@ -46,41 +46,41 @@ This document defines the **immutable data contract** for the TFT Monitoring Pre
 | `cpu_idle_pct` | float | Idle CPU (% Used = 100 - idle) | 0.0 - 100.0 |
 | `java_cpu_pct` | float | Java/Spark CPU usage | 0.0 - 100.0 |
 
-**LINBORG Memory Metrics (2 columns):**
+**NordIQ Metrics Framework Memory Metrics (2 columns):**
 
 | Column | Type | Description | Range/Values |
 |--------|------|-------------|--------------|
 | `mem_used_pct` | float | Memory utilization | 0.0 - 100.0 |
 | `swap_used_pct` | float | Swap usage (thrashing indicator) | 0.0 - 100.0 |
 
-**LINBORG Disk Metrics (1 column):**
+**NordIQ Metrics Framework Disk Metrics (1 column):**
 
 | Column | Type | Description | Range/Values |
 |--------|------|-------------|--------------|
 | `disk_usage_pct` | float | Disk space usage | 0.0 - 100.0 |
 
-**LINBORG Network Metrics (2 columns):**
+**NordIQ Metrics Framework Network Metrics (2 columns):**
 
 | Column | Type | Description | Range/Values |
 |--------|------|-------------|--------------|
 | `net_in_mb_s` | float | Network ingress (MB/s) | 0.0+ |
 | `net_out_mb_s` | float | Network egress (MB/s) | 0.0+ |
 
-**LINBORG Connection Metrics (2 columns):**
+**NordIQ Metrics Framework Connection Metrics (2 columns):**
 
 | Column | Type | Description | Range/Values |
 |--------|------|-------------|--------------|
 | `back_close_wait` | int | TCP backend connections | 0+ |
 | `front_close_wait` | int | TCP frontend connections | 0+ |
 
-**LINBORG System Metrics (2 columns):**
+**NordIQ Metrics Framework System Metrics (2 columns):**
 
 | Column | Type | Description | Range/Values |
 |--------|------|-------------|--------------|
 | `load_average` | float | System load average | 0.0+ |
 | `uptime_days` | int | Days since reboot | 0-365 |
 
-**Total:** 3 core + 14 LINBORG metrics = **17 required columns**
+**Total:** 3 core + 14 NordIQ Metrics Framework metrics = **17 required columns**
 
 ### DEPRECATED Columns (DO NOT USE):
 
@@ -491,7 +491,7 @@ VALID_STATES = [
 ]
 ```
 
-### Required Columns (Copy-Paste) - LINBORG v2.0
+### Required Columns (Copy-Paste) - NordIQ Metrics Framework v2.0
 ```python
 REQUIRED_COLUMNS = [
     'timestamp',
@@ -522,11 +522,11 @@ REQUIRED_COLUMNS = [
 
 ---
 
-**Contract Version:** 2.0.0 (LINBORG Metrics)
+**Contract Version:** 2.0.0 (NordIQ Metrics Framework Metrics)
 **Last Updated:** 2025-10-14
 **Maintained By:** Project Team
 **Review Frequency:** Before any schema changes
 
 ⚠️ **THIS IS THE SOURCE OF TRUTH - ALL CODE MUST CONFORM TO THIS CONTRACT**
 
-**Breaking Change from v1.0.0:** All old metrics (cpu_pct, mem_pct, disk_io_mb_s, latency_ms) replaced with 14 LINBORG production metrics.
+**Breaking Change from v1.0.0:** All old metrics (cpu_pct, mem_pct, disk_io_mb_s, latency_ms) replaced with 14 NordIQ Metrics Framework production metrics.

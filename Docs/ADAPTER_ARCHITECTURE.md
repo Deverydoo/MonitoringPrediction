@@ -943,7 +943,7 @@ Servers × Metrics × Interval = Data Rate
 
 Example:
 - 50 servers
-- 14 LINBORG metrics each
+- 14 NordIQ Metrics Framework metrics each
 - 5 second interval
 - ~700 metrics every 5 seconds
 - ~140 metrics/second
@@ -959,7 +959,7 @@ Example:
 - **[PRODUCTION_DATA_ADAPTERS.md](PRODUCTION_DATA_ADAPTERS.md)** - Quick reference
 - **[adapters/README.md](../adapters/README.md)** - Comprehensive adapter guide
 - **[API_KEY_SETUP.md](API_KEY_SETUP.md)** - Security configuration
-- **[LINBORG_METRICS.md](LINBORG_METRICS.md)** - Metric definitions
+- **[NordIQ Metrics Framework_METRICS.md](NordIQ Metrics Framework_METRICS.md)** - Metric definitions
 
 ---
 

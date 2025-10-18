@@ -10,7 +10,7 @@
 
 ## 🎯 System Overview
 
-**What We Have**: Production-ready predictive monitoring dashboard with 14 LINBORG metrics
+**What We Have**: Production-ready predictive monitoring dashboard with 14 NordIQ Metrics Framework metrics
 **Company**: NordIQ AI Systems, LLC
 **Tagline**: "Nordic precision, AI intelligence"
 **Current Phase**: Post-demo enhancement and optimization
@@ -59,11 +59,11 @@ All confidential business docs moved to `BusinessPlanning/` folder:
 
 ---
 
-## 🚨 CRITICAL: LINBORG Metrics System
+## 🚨 CRITICAL: NordIQ Metrics Framework Metrics System
 
-**System uses 14 production LINBORG metrics. Old 4-metric system is DEPRECATED.**
+**System uses 14 production NordIQ Metrics Framework metrics. Old 4-metric system is DEPRECATED.**
 
-### LINBORG Metric Structure (REQUIRED):
+### NordIQ Metrics Framework Metric Structure (REQUIRED):
 ```python
 time_varying_unknown_reals = [
     'cpu_user_pct',      # User space CPU (Spark workers)
@@ -290,12 +290,12 @@ def calculate_server_risk_score(server_pred: Dict) -> float:
     """
     70% current state + 30% predictions
     Profile-aware thresholds
-    Multi-metric correlation with LINBORG metrics
+    Multi-metric correlation with NordIQ Metrics Framework metrics
     """
     current_risk = 0.0   # What's on fire NOW
     predicted_risk = 0.0  # Early warning
 
-    # Calculate CPU Used from LINBORG components (100 - idle)
+    # Calculate CPU Used from NordIQ Metrics Framework components (100 - idle)
     cpu_idle = server_pred.get('cpu_idle_pct', {}).get('current', 0)
     current_cpu = 100 - cpu_idle
 
@@ -510,7 +510,7 @@ See `FUTURE_ROADMAP.md` for complete enhancement plan.
 
 **Major Sessions**:
 - Initial release: ~40 hours
-- LINBORG metrics refactor: ~40 hours (BREAKING CHANGE)
+- NordIQ Metrics Framework metrics refactor: ~40 hours (BREAKING CHANGE)
 - Modular refactor: ~8 hours (84.8% code reduction)
 - Dashboard enhancements: ~20 hours
 - Bug fixes & polish: ~20 hours

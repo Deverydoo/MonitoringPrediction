@@ -29,7 +29,7 @@ MODEL_CONFIG = {
     'output_size': 7,                    # Output quantiles (p10, p20, p30, p40, p50, p60, p70, p80, p90)
     'loss': 'quantile',                  # Loss function (quantile for probabilistic forecasting)
 
-    # Time series dimensions (LINBORG 14-metric system)
+    # Time series dimensions (NordIQ Metrics Framework 14-metric system)
     'prediction_horizon': 96,            # 96 timesteps × 5min = 8 hours ahead
     'context_length': 288,               # 288 timesteps × 5min = 24 hours lookback
     'min_encoder_length': 144,           # Minimum encoder length (12 hours)
@@ -79,7 +79,7 @@ MODEL_CONFIG = {
     # =============================================================================
 
     # Time intervals
-    'poll_interval_minutes': 5,          # Data collection interval (LINBORG = 5 minutes)
+    'poll_interval_minutes': 5,          # Data collection interval (NordIQ Metrics Framework = 5 minutes)
     'poll_interval_seconds': 300,        # Same as above in seconds
     'time_span_hours': 720,              # Total data span (720h = 30 days)
 
@@ -95,10 +95,10 @@ MODEL_CONFIG = {
     'anomaly_ratio': 0.12,               # Expected % of anomalous data points
 
     # =============================================================================
-    # LINBORG Metrics (14 metrics)
+    # NordIQ Metrics Framework Metrics (14 metrics)
     # =============================================================================
 
-    # Target metrics to predict (14 LINBORG metrics)
+    # Target metrics to predict (14 NordIQ Metrics Framework metrics)
     'target_metrics': [
         # CPU metrics (5)
         'cpu_user_pct',
