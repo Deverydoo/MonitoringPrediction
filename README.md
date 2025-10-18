@@ -7,12 +7,12 @@
 > Predict server incidents 8 hours in advance with 88% accuracy
 > Production-ready AI for infrastructure monitoring and proactive incident prevention
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](VERSION)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-yellow.svg)](LICENSE)
 
-**Version 1.0.0** - First production release | [Changelog](CHANGELOG.md)
+**Version 1.1.0** - NordIQ AI branding release | [Changelog](CHANGELOG.md)
 
 **Copyright © 2025 NordIQ AI, LLC. All rights reserved.**
 Developed by Craig Giannelli
