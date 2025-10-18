@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NordIQ predictive monitoring features. Interactive dashboard, 8-hour predictions, contextual risk intelligence, graduated alerts. Complete feature walkthrough.">
+    <meta name="keywords" content="predictive monitoring features, AI dashboard, risk intelligence, fleet monitoring, server profiles">
+
+    <title>Product Features | NordIQ AI - Predictive Monitoring Platform</title>
+
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<!-- Header -->
+<header>
+    <div class="container">
+        <nav>
+            <a href="index.html" class="logo">
+                <span class="logo-icon">🧭</span>
+                <span>NordIQ</span>
+            </a>
+
+            <button class="menu-toggle" aria-label="Toggle menu">☰</button>
+
+            <ul class="nav-links">
+                <li><a href="product.html">Product</a></li>
+                <li><a href="how-it-works.html">How It Works</a></li>
+                <li><a href="pricing.html">Pricing</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="contact.html" class="btn btn-primary nav-cta">Contact</a></li>
+            </ul>
+        </nav>
+    </div>
+</header>
+
+<!-- Hero -->
+<section class="hero" style="min-height: 400px;">
+    <div class="container">
+        <div class="hero-content fade-in-up">
+            <h1>Predictive Monitoring That Actually Works</h1>
+            <p>From 8-hour predictions to intelligent alerts. Everything you need to prevent incidents before they impact your business.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Product Overview -->
+<section class="section">
+    <div class="container">
+        <h2>What is NordIQ?</h2>
+        <p class="section-intro">NordIQ is an <strong>AI-powered predictive monitoring platform</strong> that forecasts server incidents <strong>30-60 minutes before they happen</strong>. Unlike traditional monitoring that alerts you when things break, we give you time to fix problems during business hours—not at 2 AM.</p>
+
+        <div class="grid-3">
+            <div class="card">
+                <div class="icon">🔮</div>
+                <h3>Predict Problems</h3>
+                <p>8-hour prediction horizon with 30-60 minute early warning before critical incidents.</p>
+            </div>
+
+            <div class="card">
+                <div class="icon">🧠</div>
+                <h3>Understand Context</h3>
+                <p>Profile-aware risk intelligence that knows the difference between normal and dangerous.</p>
+            </div>
+
+            <div class="card">
+                <div class="icon">⚡</div>
+                <h3>Act Proactively</h3>
+                <p>Fix problems during business hours. No emergency pages. No user impact.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Key Features -->
+<section class="section bg-light">
+    <div class="container">
+        <h2>Core Features</h2>
+        <p class="section-intro">Production-ready capabilities built for enterprise infrastructure teams.</p>
+
+        <div class="feature-list">
+            <!-- Feature 1 -->
+            <div class="feature-item">
+                <div class="feature-icon">🔮</div>
+                <div class="feature-content">
+                    <h3>8-Hour Prediction Horizon</h3>
+                    <p>Our Temporal Fusion Transformer (TFT) model analyzes 24 hours of historical data to predict server behavior 8 hours into the future. You get <strong>30-60 minute advance warning</strong> before incidents become critical.</p>
+                    <ul>
+                        <li>Predictions refreshed every 5 seconds</li>
+                        <li>88% accuracy on critical incidents</li>
+                        <li>GPU-accelerated inference (&lt;100ms per server)</li>
+                        <li>Real-time WebSocket streaming to dashboard</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="feature-item">
+                <div class="feature-icon">🧠</div>
+                <div class="feature-content">
+                    <h3>Contextual Risk Intelligence</h3>
+                    <p>We don't just alert on raw thresholds. Our fuzzy logic system understands <strong>operational context</strong>—what's normal for your infrastructure, what's trending dangerous, and what requires immediate action.</p>
+                    <ul>
+                        <li><strong>Profile Awareness:</strong> Database at 98% memory = healthy (page cache). ML server at 98% = critical (OOM imminent).</li>
+                        <li><strong>Trend Analysis:</strong> 40% CPU steady = fine. 40% CPU climbing from 20% = dangerous trend detected.</li>
+                        <li><strong>Multi-Metric Correlation:</strong> High CPU alone = watch. High CPU + high memory + high I/O wait = critical compound stress.</li>
+                        <li><strong>Prediction-Aware:</strong> Current 40%, predicted 95% = early warning. Current 85%, predicted 60% = resolving issue.</li>
+                    </ul>
+                    <p><strong>Result:</strong> Intelligent alerts that understand your environment, not just arbitrary thresholds.</p>
+                </div>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="feature-item">
+                <div class="feature-icon">📊</div>
+                <div class="feature-content">
+                    <h3>7 Graduated Severity Levels</h3>
+                    <p>Traditional monitoring: everything is either OK or ON FIRE. Our system: <strong>graduated escalation</strong> with appropriate response times.</p>
+                    <ul>
+                        <li>🔴 <strong>Imminent Failure (90+):</strong> 5-minute SLA, CTO escalation, emergency response</li>
+                        <li>🔴 <strong>Critical (80-89):</strong> 15-minute SLA, page on-call engineer</li>
+                        <li>🟠 <strong>Danger (70-79):</strong> 30-minute SLA, team lead notification</li>
+                        <li>🟡 <strong>Warning (60-69):</strong> 1-hour SLA, team awareness</li>
+                        <li>🟢 <strong>Degrading (50-59):</strong> 2-hour SLA, email notification</li>
+                        <li>👁️ <strong>Watch (30-49):</strong> Background monitoring, no alerts</li>
+                        <li>✅ <strong>Healthy (0-29):</strong> Normal operation</li>
+                    </ul>
+                    <p><strong>Benefit:</strong> Right-sized responses. No alert fatigue. No false positives.</p>
+                </div>
+            </div>
+
+            <!-- Feature 4 -->
+            <div class="feature-item">
+                <div class="feature-icon">🎯</div>
+                <div class="feature-content">
+                    <h3>Profile-Based Transfer Learning</h3>
+                    <p>New servers get <strong>accurate predictions immediately</strong>—no training period required. Our model learns patterns from similar servers and applies that intelligence to new infrastructure.</p>
+
+                    <p><strong>7 Server Profiles:</strong></p>
+                    <ul>
+                        <li><strong>ML Compute:</strong> Training nodes, high CPU/memory bursts</li>
+                        <li><strong>Database:</strong> Oracle/Postgres, high disk I/O, large page cache</li>
+                        <li><strong>Web API:</strong> REST endpoints, high network throughput</li>
+                        <li><strong>Conductor/Management:</strong> Job scheduling, orchestration</li>
+                        <li><strong>Data Ingest:</strong> Kafka/Spark streaming, high write volume</li>
+                        <li><strong>Risk Analytics:</strong> Financial calculations, CPU-intensive</li>
+                        <li><strong>Generic:</strong> Fallback for unknown workloads</li>
+                    </ul>
+
+                    <p><strong>Benefits:</strong></p>
+                    <ul>
+                        <li>✅ No retraining when adding servers of known types</li>
+                        <li>✅ 13% better accuracy than generic models</li>
+                        <li>✅ 80% less retraining frequency</li>
+                        <li>✅ Immediate production value for new infrastructure</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Feature 5 -->
+            <div class="feature-item">
+                <div class="feature-icon">📈</div>
+                <div class="feature-content">
+                    <h3>14 Production LINBORG Metrics</h3>
+                    <p>We monitor the metrics that matter for <strong>real-world troubleshooting</strong>—not just CPU and memory.</p>
+
+                    <div class="metric-grid">
+                        <div>
+                            <h4>CPU Metrics</h4>
+                            <ul>
+                                <li>User space CPU (application work)</li>
+                                <li>System/kernel CPU (OS overhead)</li>
+                                <li><strong>I/O Wait</strong> (storage bottlenecks)—critical for troubleshooting</li>
+                                <li>Idle CPU (displayed as % Used for clarity)</li>
+                                <li>Java/Spark CPU (application-specific)</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Memory & Storage</h4>
+                            <ul>
+                                <li>Memory utilization %</li>
+                                <li>Swap usage (thrashing indicator)</li>
+                                <li>Disk space usage</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Network & System</h4>
+                            <ul>
+                                <li>Network ingress (MB/s)</li>
+                                <li>Network egress (MB/s)</li>
+                                <li>TCP backend connections</li>
+                                <li>TCP frontend connections</li>
+                                <li>System load average</li>
+                                <li>Uptime (maintenance tracking)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <p><strong>Why I/O Wait matters:</strong> High I/O wait is "system troubleshooting 101"—it's the first metric experienced engineers check when diagnosing performance issues. Database servers expect 10-15% I/O wait (normal). ML compute servers should have &lt;2% (high values indicate misconfiguration).</p>
+                </div>
+            </div>
+
+            <!-- Feature 6 -->
+            <div class="feature-item">
+                <div class="feature-icon">⚡</div>
+                <div class="feature-content">
+                    <h3>Real-Time Streaming Architecture</h3>
+                    <p>Microservices-based design for high performance and scalability.</p>
+                    <ul>
+                        <li><strong>Inference Daemon:</strong> REST API + WebSocket streaming on port 8000</li>
+                        <li><strong>Metrics Generator:</strong> Collects data from production sources (port 8001)</li>
+                        <li><strong>Dashboard:</strong> Streamlit web UI with 10 specialized tabs (port 8501)</li>
+                        <li><strong>Performance:</strong> &lt;100ms inference latency, &lt;2s dashboard load time</li>
+                        <li><strong>Caching:</strong> Strategic caching provides 60% performance improvement</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dashboard Walkthrough -->
+<section class="section">
+    <div class="container">
+        <h2>Interactive Dashboard - 10 Specialized Tabs</h2>
+        <p class="section-intro">Everything you need to monitor, analyze, and respond to your infrastructure—all in one place.</p>
+
+        <div class="dashboard-tabs">
+            <!-- Tab 1 -->
+            <div class="dashboard-tab">
+                <h3>1. Fleet Overview</h3>
+                <p>Your command center. Real-time view of all servers, risk scores, and predictions.</p>
+                <ul>
+                    <li>Environment status (Healthy, Caution, Warning, Critical)</li>
+                    <li>Fleet-wide statistics (P1 alerts, degrading servers, total fleet health)</li>
+                    <li>Server cards with current metrics and 8-hour predictions</li>
+                    <li>Risk score (0-100) with contextual intelligence</li>
+                    <li>Color-coded severity indicators</li>
+                    <li>Expandable metric details per server</li>
+                </ul>
+            </div>
+
+            <!-- Tab 2 -->
+            <div class="dashboard-tab">
+                <h3>2. Server Heatmap</h3>
+                <p>Visual fleet-wide view. Spot problems at a glance across all servers and metrics.</p>
+                <ul>
+                    <li>Interactive heatmap (servers x metrics)</li>
+                    <li>Color-coded: Green (healthy) → Yellow (watch) → Red (critical)</li>
+                    <li>Quickly identify which servers and metrics need attention</li>
+                    <li>Profile grouping (see all databases together, all ML servers together)</li>
+                </ul>
+            </div>
+
+            <!-- Tab 3 -->
+            <div class="dashboard-tab">
+                <h3>3. Top Problem Servers</h3>
+                <p>Focus on what matters. The 5 highest-risk servers that need immediate attention.</p>
+                <ul>
+                    <li>Ranked by risk score (highest risk first)</li>
+                    <li>What's wrong (specific metrics exceeding thresholds)</li>
+                    <li>Why it's dangerous (impact analysis)</li>
+                    <li>What to do about it (recommended actions)</li>
+                    <li>Predicted timeline to critical</li>
+                </ul>
+            </div>
+
+            <!-- Tab 4 -->
+            <div class="dashboard-tab">
+                <h3>4. Historical Trends</h3>
+                <p>Understand patterns. 24-hour historical data for all servers and metrics.</p>
+                <ul>
+                    <li>Time-series charts (current vs. predicted)</li>
+                    <li>Trend analysis (increasing, stable, decreasing)</li>
+                    <li>Anomaly detection (unexpected spikes or drops)</li>
+                    <li>Correlation analysis (which metrics move together)</li>
+                    <li>Export data for reporting</li>
+                </ul>
+            </div>
+
+            <!-- Tab 5 -->
+            <div class="dashboard-tab">
+                <h3>5. Cost Avoidance Calculator</h3>
+                <p>Prove ROI. Calculate the financial value of prevented incidents.</p>
+                <ul>
+                    <li>Prevented incidents this month/quarter/year</li>
+                    <li>Estimated downtime avoided (hours)</li>
+                    <li>Revenue protected (based on your hourly rate)</li>
+                    <li>Operational costs saved (emergency response, overtime)</li>
+                    <li>Customer satisfaction impact (prevented outages)</li>
+                    <li><strong>Real Example:</strong> 1 prevented 2-hour outage = $209,000 saved (for a $100M ARR SaaS company)</li>
+                </ul>
+            </div>
+
+            <!-- Tab 6 -->
+            <div class="dashboard-tab">
+                <h3>6. Auto-Remediation</h3>
+                <p>Take action automatically. Configure responses for common issues.</p>
+                <ul>
+                    <li><strong>Memory Pressure:</strong> Restart service, clear cache, scale horizontally</li>
+                    <li><strong>CPU Spikes:</strong> Kill runaway processes, adjust thread pools</li>
+                    <li><strong>Disk Space:</strong> Archive logs, clean temp files, expand volume</li>
+                    <li><strong>Network Issues:</strong> Restart networking, failover to backup</li>
+                    <li>Dry-run mode (test before enabling)</li>
+                    <li>Approval workflows for high-risk actions</li>
+                    <li>Audit trail (who did what, when)</li>
+                </ul>
+            </div>
+
+            <!-- Tab 7 -->
+            <div class="dashboard-tab">
+                <h3>7. Alert Routing</h3>
+                <p>Right alerts to right people. Intelligent routing based on severity and team.</p>
+                <ul>
+                    <li><strong>Integrations:</strong> PagerDuty, Slack, Microsoft Teams, Email, Webhooks</li>
+                    <li><strong>Routing Rules:</strong> Imminent Failure → CTO + On-Call, Critical → On-Call, Warning → Team Channel</li>
+                    <li><strong>Escalation Policies:</strong> Auto-escalate if not acknowledged within SLA</li>
+                    <li><strong>On-Call Schedules:</strong> Respect work hours, time zones, PTO</li>
+                    <li><strong>Alert Suppression:</strong> Maintenance windows, known issues</li>
+                    <li><strong>Alert Grouping:</strong> Combine related alerts to reduce noise</li>
+                </ul>
+            </div>
+
+            <!-- Tab 8 -->
+            <div class="dashboard-tab">
+                <h3>8. Advanced Diagnostics</h3>
+                <p>Deep technical insights for engineers.</p>
+                <ul>
+                    <li>Model confidence scores per prediction</li>
+                    <li>Attention weights (which metrics influenced the prediction)</li>
+                    <li>Risk calculation breakdown (how we arrived at the score)</li>
+                    <li>API health (daemon status, latency, error rates)</li>
+                    <li>WebSocket connection status</li>
+                    <li>Debug mode (raw prediction data, logs)</li>
+                </ul>
+            </div>
+
+            <!-- Tab 9 -->
+            <div class="dashboard-tab">
+                <h3>9. Documentation</h3>
+                <p>Everything you need to know, right in the dashboard.</p>
+                <ul>
+                    <li>Getting started guide</li>
+                    <li>Risk scoring explained (fuzzy logic, contextual intelligence)</li>
+                    <li>Server profile definitions</li>
+                    <li>Metric definitions (what each LINBORG metric means)</li>
+                    <li>Severity levels and response SLAs</li>
+                    <li>API reference</li>
+                    <li>Troubleshooting common issues</li>
+                </ul>
+            </div>
+
+            <!-- Tab 10 -->
+            <div class="dashboard-tab">
+                <h3>10. Roadmap</h3>
+                <p>See what's coming. Transparency about future features.</p>
+                <ul>
+                    <li>Planned features (next quarter)</li>
+                    <li>Research explorations (future vision)</li>
+                    <li>Customer-requested features</li>
+                    <li>Vote on priorities (what do you need most?)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Technical Capabilities -->
+<section class="section bg-light">
+    <div class="container">
+        <h2>Technical Capabilities</h2>
+        <p class="section-intro">Built for enterprise infrastructure teams with demanding requirements.</p>
+
+        <div class="grid-2">
+            <div class="tech-capability">
+                <h3>Performance</h3>
+                <ul>
+                    <li><strong>&lt;100ms</strong> inference latency per server</li>
+                    <li><strong>&lt;2 seconds</strong> dashboard load time</li>
+                    <li><strong>60% faster</strong> with strategic caching</li>
+                    <li><strong>GPU-accelerated</strong> predictions (CUDA support)</li>
+                    <li><strong>5-second refresh</strong> rate for real-time monitoring</li>
+                    <li>Handles <strong>1000+ servers</strong> per deployment</li>
+                </ul>
+            </div>
+
+            <div class="tech-capability">
+                <h3>Data Sources</h3>
+                <ul>
+                    <li><strong>MongoDB:</strong> Time-series collections</li>
+                    <li><strong>Elasticsearch:</strong> Log aggregation</li>
+                    <li><strong>Prometheus:</strong> Metrics scraping</li>
+                    <li><strong>InfluxDB:</strong> Time-series database</li>
+                    <li><strong>REST API:</strong> Push metrics from any source</li>
+                    <li><strong>Custom Adapters:</strong> Build your own (5-15K)</li>
+                </ul>
+            </div>
+
+            <div class="tech-capability">
+                <h3>Deployment Options</h3>
+                <ul>
+                    <li><strong>Self-Hosted:</strong> On-prem or your cloud (Docker, Kubernetes)</li>
+                    <li><strong>Managed SaaS:</strong> We host, you monitor</li>
+                    <li><strong>Hybrid:</strong> Data stays on-prem, we provide insights</li>
+                    <li><strong>Air-Gapped:</strong> No internet required</li>
+                    <li><strong>Multi-Region:</strong> Deploy across datacenters</li>
+                </ul>
+            </div>
+
+            <div class="tech-capability">
+                <h3>Security & Compliance</h3>
+                <ul>
+                    <li><strong>API Key Authentication:</strong> Auto-generated, rotatable</li>
+                    <li><strong>Okta SSO:</strong> Enterprise single sign-on</li>
+                    <li><strong>LDAP/Active Directory:</strong> Integrate with existing auth</li>
+                    <li><strong>Role-Based Access Control:</strong> Admin, Engineer, Viewer roles</li>
+                    <li><strong>Audit Logs:</strong> Track all actions and changes</li>
+                    <li><strong>Encrypted Connections:</strong> TLS 1.3 for all traffic</li>
+                    <li><strong>SOC 2 Ready:</strong> Compliance documentation included</li>
+                </ul>
+            </div>
+
+            <div class="tech-capability">
+                <h3>Integrations</h3>
+                <ul>
+                    <li><strong>PagerDuty:</strong> Incident management</li>
+                    <li><strong>Slack:</strong> Team notifications</li>
+                    <li><strong>Microsoft Teams:</strong> Enterprise chat</li>
+                    <li><strong>Email:</strong> SMTP/SendGrid/SES</li>
+                    <li><strong>Webhooks:</strong> Custom integrations</li>
+                    <li><strong>ServiceNow:</strong> ITSM ticketing</li>
+                    <li><strong>Jira:</strong> Project tracking</li>
+                </ul>
+            </div>
+
+            <div class="tech-capability">
+                <h3>APIs & Extensibility</h3>
+                <ul>
+                    <li><strong>REST API:</strong> Full CRUD operations</li>
+                    <li><strong>WebSocket API:</strong> Real-time streaming</li>
+                    <li><strong>Python SDK:</strong> Build custom tools</li>
+                    <li><strong>Webhooks:</strong> React to events</li>
+                    <li><strong>Custom Dashboards:</strong> Embed predictions in your tools</li>
+                    <li><strong>Data Export:</strong> CSV, JSON, Parquet</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- What Makes Us Different -->
+<section class="section">
+    <div class="container">
+        <h2>What Makes Us Different</h2>
+        <p class="section-intro">We prevent incidents. Traditional monitoring just detects them.</p>
+
+        <div class="comparison-table-wrapper">
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Capability</th>
+                        <th>Traditional Monitoring</th>
+                        <th>NordIQ Predictive</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Detection Time</strong></td>
+                        <td>❌ Alerts AFTER problems occur</td>
+                        <td>✅ 30-60 minute advance warning</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Alert Intelligence</strong></td>
+                        <td>❌ Dumb thresholds (CPU &gt; 80%)</td>
+                        <td>✅ Contextual risk scoring (fuzzy logic)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Profile Awareness</strong></td>
+                        <td>❌ One-size-fits-all</td>
+                        <td>✅ 7 specialized server profiles</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Alert Levels</strong></td>
+                        <td>❌ OK or Critical (binary)</td>
+                        <td>✅ 7 graduated severity levels</td>
+                    </tr>
+                    <tr>
+                        <td><strong>New Servers</strong></td>
+                        <td>❌ Need weeks of training data</td>
+                        <td>✅ Accurate predictions immediately</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Multi-Metric</strong></td>
+                        <td>❌ Isolated metrics (CPU alone)</td>
+                        <td>✅ Correlation analysis (14 metrics)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Response Time</strong></td>
+                        <td>❌ Emergency pages at 2 AM</td>
+                        <td>✅ Fix during business hours</td>
+                    </tr>
+                    <tr>
+                        <td><strong>False Positives</strong></td>
+                        <td>❌ High (alert fatigue)</td>
+                        <td>✅ Low (contextual intelligence)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>User Impact</strong></td>
+                        <td>❌ Users experience downtime first</td>
+                        <td>✅ Problems fixed before user impact</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cost</strong></td>
+                        <td>❌ $100K-500K/year (Datadog, New Relic)</td>
+                        <td>✅ $5K-150K/year (transparent pricing)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="cta-box" style="margin-top: 3rem;">
+            <h3>Ready to Try Predictive Monitoring?</h3>
+            <p>See the difference contextual intelligence makes for your infrastructure.</p>
+            <a href="contact.html" class="btn btn-primary btn-large">Request a Demo</a>
+        </div>
+    </div>
+</section>
+
+<!-- Real-World Performance -->
+<section class="section bg-light">
+    <div class="container">
+        <h2>Proven Performance</h2>
+        <p class="section-intro">Built in 158 hours with AI assistance. Production-ready from day one.</p>
+
+        <div class="grid-3">
+            <div class="stat-card">
+                <div class="stat-number">88%</div>
+                <div class="stat-label">Prediction Accuracy</div>
+                <p>On critical incidents (90+ risk score)</p>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-number">30-60 min</div>
+                <div class="stat-label">Early Warning Time</div>
+                <p>Before problems become critical</p>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-number">8 hours</div>
+                <div class="stat-label">Prediction Horizon</div>
+                <p>See the future of your infrastructure</p>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-number">&lt;100ms</div>
+                <div class="stat-label">Inference Latency</div>
+                <p>Per server prediction (GPU-accelerated)</p>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-number">14</div>
+                <div class="stat-label">LINBORG Metrics</div>
+                <p>Production-ready monitoring</p>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-number">1000+</div>
+                <div class="stat-label">Servers Supported</div>
+                <p>Per deployment instance</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 3rem; text-align: center;">
+            <p style="font-size: 1.1rem; color: #64748b; max-width: 700px; margin: 0 auto;">
+                <strong>Development Speed:</strong> 158 hours with AI assistance = 5-8x faster than traditional development (800-1,200 hours). Cost reduction: 76-93%. Same quality, fraction of the time.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="section">
+    <div class="container">
+        <div class="cta-box">
+            <h2>See NordIQ in Action</h2>
+            <p>Request a personalized demo. See how predictive monitoring works with your infrastructure.</p>
+            <p><strong>What you'll get:</strong></p>
+            <ul style="text-align: left; max-width: 600px; margin: 1rem auto;">
+                <li>30-minute live demo with the founder (Craig)</li>
+                <li>Walk through all 10 dashboard tabs</li>
+                <li>See predictions for your server profiles</li>
+                <li>Calculate ROI for your environment</li>
+                <li>Discuss integration with your existing tools</li>
+                <li>Get answers to technical questions</li>
+            </ul>
+            <a href="contact.html" class="btn btn-primary btn-large">Email Craig for a Demo</a>
+            <p class="cta-subtext">craig@nordiqai.io - Direct access to the founder. No sales pressure.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>NordIQ AI</h3>
+                <p>Nordic precision, AI intelligence. Predict server failures before they happen.</p>
+                <p style="margin-top: 1rem;">
+                    <a href="index.html" class="logo" style="color: #0EA5E9; text-decoration: none; font-size: 1.5rem;">
+                        <span class="logo-icon">🧭</span>
+                        <span>NordIQ</span>
+                    </a>
+                </p>
+            </div>
+
+            <div class="footer-section">
+                <h4>Product</h4>
+                <ul>
+                    <li><a href="product.html">Features</a></li>
+                    <li><a href="how-it-works.html">How It Works</a></li>
+                    <li><a href="pricing.html">Pricing</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="about.html">About Craig</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <p>Email: <a href="mailto:craig@nordiqai.io">craig@nordiqai.io</a></p>
+                <p>Direct access to the founder.<br>No forms, no friction.</p>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2025 NordIQ AI Systems, LLC. All rights reserved.</p>
+            <p>Built by a human, amplified by AI.</p>
+        </div>
+    </div>
+</footer>
+
+<!-- JavaScript -->
+<script src="js/main.js"></script>
+
+</body>
+</html>
