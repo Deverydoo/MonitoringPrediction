@@ -37,10 +37,9 @@ REM Strip trailing whitespace from API key (Windows batch bug workaround)
 REM This removes any newline or carriage return characters
 for /f "tokens=* delims= " %%a in ("%TFT_API_KEY%") do set "TFT_API_KEY=%%a"
 
-REM Debug: Show API key (first 8 chars only)
+REM Validate API key loaded
 if defined TFT_API_KEY (
     echo [OK] API key loaded from .env
-    echo [DEBUG] First 10 chars: %TFT_API_KEY:~0,10%
 ) else (
     echo [ERROR] Failed to load API key from .env
     pause

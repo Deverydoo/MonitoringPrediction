@@ -436,10 +436,6 @@ class MetricsGeneratorDaemon:
                 headers = {}
                 if self.api_key:
                     headers["X-API-Key"] = self.api_key
-                    # Debug: Log first attempt with key details
-                    if not hasattr(self, '_logged_key_debug'):
-                        print(f"[DEBUG] Sending API key: {self.api_key[:10]}... (length: {len(self.api_key)})")
-                        self._logged_key_debug = True
 
                 response = requests.post(
                     f"{self.inference_url}/feed/data",

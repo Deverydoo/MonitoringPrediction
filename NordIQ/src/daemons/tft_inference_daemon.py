@@ -81,14 +81,6 @@ def verify_api_key(api_key: str = Security(api_key_header)):
     if not expected_key:
         return None
 
-    # Debug: Log first authentication attempt
-    if not hasattr(verify_api_key, '_logged_first_attempt'):
-        print(f"[DEBUG] First auth attempt (after strip):")
-        print(f"[DEBUG]   Expected key: {expected_key[:10] if expected_key else 'None'}... (len={len(expected_key) if expected_key else 0})")
-        print(f"[DEBUG]   Received key: {api_key[:10] if api_key else 'None'}... (len={len(api_key) if api_key else 0})")
-        print(f"[DEBUG]   Match: {api_key == expected_key}")
-        verify_api_key._logged_first_attempt = True
-
     # If API key is configured, enforce it
     if not api_key or api_key != expected_key:
         raise HTTPException(
