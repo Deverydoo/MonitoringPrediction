@@ -40,6 +40,7 @@ from Dashboard.tabs import (
     cost_avoidance,
     auto_remediation,
     alerting,
+    insights,
     advanced,
     documentation,
     roadmap
@@ -468,7 +469,7 @@ else:
 # TABS - Now using modular components
 # =============================================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
     "📊 Overview",
     "🔥 Heatmap",
     "⚠️ Top 5 Servers",
@@ -476,6 +477,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
     "💰 Cost Avoidance",
     "🤖 Auto-Remediation",
     "📱 Alerting Strategy",
+    "🧠 Insights (XAI)",
     "⚙️ Advanced",
     "📚 Documentation",
     "🗺️ Roadmap"
@@ -509,16 +511,20 @@ with tab6:
 with tab7:
     alerting.render(predictions)
 
-# Tab 8: Advanced
+# Tab 8: Insights (XAI)
 with tab8:
+    insights.render(predictions, daemon_url)
+
+# Tab 9: Advanced
+with tab9:
     advanced.render(predictions, client, daemon_url)
 
-# Tab 9: Documentation
-with tab9:
+# Tab 10: Documentation
+with tab10:
     documentation.render(predictions)
 
-# Tab 10: Roadmap
-with tab10:
+# Tab 11: Roadmap
+with tab11:
     roadmap.render(predictions)
 
 # =============================================================================

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add Docs/RAG/SESSION_2025-10-18_DEBUGGING.md .claude/settings.local.json)"
+      "Bash(git add Docs/RAG/SESSION_2025-10-18_DEBUGGING.md .claude/settings.local.json)",
+      "Bash(git log --all --oneline --grep=\"XAI\\|explainable\" -i)",
+      "Bash(git add -A)"
     ],
     "deny": [],
     "ask": []

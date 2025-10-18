@@ -95,6 +95,12 @@ from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
 from gpu_profiles import setup_gpu
 from linborg_schema import LINBORG_METRICS
 
+# Import XAI components
+sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "explainers"))
+from shap_explainer import TFTShapExplainer
+from attention_visualizer import AttentionVisualizer
+from counterfactual_generator import CounterfactualGenerator
+
 # Suppress warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='lightning.pytorch.utilities.parsing')
 warnings.filterwarnings('ignore', message='.*is an instance of.*nn.Module.*')
@@ -1005,6 +1011,13 @@ class CleanInferenceDaemon:
         self.inference = TFTInference(model_path, use_real_model=True)
         print(f"[OK] Model loaded")
 
+        # Initialize XAI components
+        print(f"[INIT] Loading XAI components...")
+        self.shap_explainer = TFTShapExplainer(self.inference, use_shap=False)  # Fast approximation mode
+        self.attention_visualizer = AttentionVisualizer(self.inference)
+        self.counterfactual_generator = CounterfactualGenerator(self.inference)
+        print(f"[OK] XAI components initialized (SHAP, Attention, Counterfactuals)")
+
         # Track per-server data counts for warmup
         self.server_timesteps = {}
 
@@ -1287,6 +1300,84 @@ class CleanInferenceDaemon:
         import sys
         sys.exit(0)
 
+    def explain_prediction(self, server_name: str) -> Dict[str, Any]:
+        """
+        Generate explanation for a server's prediction using XAI components.
+
+        Args:
+            server_name: Server to explain
+
+        Returns:
+            Dict with SHAP feature importance, attention analysis, and counterfactuals
+        """
+        try:
+            # Get current prediction for this server
+            predictions = self.get_predictions()
+            if 'predictions' not in predictions or server_name not in predictions['predictions']:
+                return {
+                    'error': 'no_prediction',
+                    'message': f'No prediction available for {server_name}'
+                }
+
+            server_pred = predictions['predictions'][server_name]
+
+            # Get historical data for this server from rolling window
+            window_df = pd.DataFrame(list(self.rolling_window))
+            server_data = window_df[window_df['server_name'] == server_name].copy()
+
+            if len(server_data) < 10:
+                return {
+                    'error': 'insufficient_data',
+                    'message': f'Need at least 10 timesteps for explanation, have {len(server_data)}'
+                }
+
+            # Generate SHAP explanation
+            shap_explanation = self.shap_explainer.explain_prediction(
+                server_name=server_name,
+                current_data=server_data,
+                prediction=server_pred
+            )
+
+            # Generate attention analysis
+            attention_analysis = self.attention_visualizer.extract_attention_weights(
+                server_name=server_name,
+                historical_data=server_data,
+                window_size=min(len(server_data), 150)
+            )
+
+            # Generate counterfactual scenarios
+            # Extract current CPU prediction for counterfactual baseline
+            current_cpu = server_pred.get('cpu_idle_pct', {}).get('current', 0)
+            if current_cpu > 0:
+                current_cpu = 100 - current_cpu  # Convert idle to used
+            else:
+                # Fallback to any available current CPU metric
+                current_cpu = server_pred.get('cpu_user_pct', {}).get('current', 50)
+
+            counterfactuals = self.counterfactual_generator.generate_counterfactuals(
+                server_name=server_name,
+                current_data=server_data,
+                current_prediction=current_cpu
+            )
+
+            return {
+                'server_name': server_name,
+                'timestamp': datetime.now().isoformat(),
+                'shap': shap_explanation,
+                'attention': attention_analysis,
+                'counterfactuals': counterfactuals,
+                'prediction': server_pred,
+                'data_points': len(server_data)
+            }
+
+        except Exception as e:
+            import traceback
+            return {
+                'error': 'explanation_failed',
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+
     def _autosave_check(self):
         """Check if it's time to auto-save."""
         if self.tick_count - self.last_save_tick >= AUTOSAVE_INTERVAL:
@@ -1430,19 +1521,59 @@ async def get_active_alerts(request: Request, api_key: str = Depends(verify_api_
             "error": str(e)
         }
 
+@app.get("/explain/{server_name}")
+@limiter.limit("30/minute") if RATE_LIMITING_AVAILABLE else lambda func: func
+async def explain_server_prediction(request: Request, server_name: str, api_key: str = Depends(verify_api_key)):
+    """
+    Get XAI explanation for a specific server's prediction.
+
+    Rate limit: 30 requests/minute (1 every 2 seconds)
+
+    Returns:
+        - SHAP feature importance (which metrics drove the prediction)
+        - Attention analysis (which time periods the model focused on)
+        - Counterfactual scenarios (what-if analysis with actionable recommendations)
+
+    Example:
+        GET /explain/ppdb001
+
+    Response includes:
+        - shap: Feature importance with star ratings
+        - attention: Temporal focus analysis
+        - counterfactuals: What-if scenarios with impact estimates
+        - prediction: Current prediction for context
+    """
+    try:
+        explanation = daemon.explain_prediction(server_name)
+        return explanation
+    except Exception as e:
+        import traceback
+        return {
+            "error": "explanation_failed",
+            "server_name": server_name,
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }
+
 @app.get("/")
 async def root():
     """Root endpoint with info."""
     return {
         "service": "TFT Inference Daemon",
-        "version": "2.0",
+        "version": "2.1",  # Bumped for XAI integration
         "status": "running",
         "endpoints": {
             "health": "GET /health",
             "feed": "POST /feed/data",
             "predictions": "GET /predictions/current",
             "alerts": "GET /alerts/active",
+            "explain": "GET /explain/{server_name}",  # New XAI endpoint
             "status": "GET /status"
+        },
+        "features": {
+            "xai": "Explainable AI with SHAP, Attention, and Counterfactuals",
+            "retraining": "Automated data buffer for model retraining",
+            "persistence": "Rolling window state persistence"
         },
         "feed_example": "python metrics_generator.py --stream --servers 20 --scenario healthy"
     }

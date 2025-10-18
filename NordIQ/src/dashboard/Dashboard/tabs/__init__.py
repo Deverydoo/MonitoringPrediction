@@ -11,6 +11,7 @@ from . import historical
 from . import cost_avoidance
 from . import auto_remediation
 from . import alerting
+from . import insights
 from . import advanced
 from . import documentation
 from . import roadmap
@@ -23,6 +24,7 @@ __all__ = [
     'cost_avoidance',
     'auto_remediation',
     'alerting',
+    'insights',
     'advanced',
     'documentation',
     'roadmap'
