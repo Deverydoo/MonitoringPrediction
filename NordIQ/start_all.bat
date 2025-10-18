@@ -27,7 +27,8 @@ REM Load API key from .env file (trim whitespace)
 if exist .env (
     for /f "usebackq tokens=1,* delims==" %%a in (.env) do (
         if "%%a"=="TFT_API_KEY" (
-            set "TFT_API_KEY=%%b"
+            REM Don't quote the entire set command - just protect against spaces in path
+            set TFT_API_KEY=%%b
         )
     )
 )
@@ -35,6 +36,7 @@ if exist .env (
 REM Debug: Show API key (first 8 chars only)
 if defined TFT_API_KEY (
     echo [OK] API key loaded from .env
+    echo [DEBUG] First 10 chars: %TFT_API_KEY:~0,10%
 ) else (
     echo [ERROR] Failed to load API key from .env
     pause
