@@ -70,13 +70,20 @@ def verify_api_key(api_key: str = Security(api_key_header)):
     """Verify API key for protected endpoints."""
     expected_key = os.getenv("TFT_API_KEY")
 
+    # Defensive: Strip whitespace from both keys (handles Windows/Linux differences)
+    # This prevents issues with newlines, trailing spaces, etc. from shell scripts
+    if expected_key:
+        expected_key = expected_key.strip()
+    if api_key:
+        api_key = api_key.strip()
+
     # If no API key is configured, allow all requests (development mode)
     if not expected_key:
         return None
 
     # Debug: Log first authentication attempt
     if not hasattr(verify_api_key, '_logged_first_attempt'):
-        print(f"[DEBUG] First auth attempt:")
+        print(f"[DEBUG] First auth attempt (after strip):")
         print(f"[DEBUG]   Expected key: {expected_key[:10] if expected_key else 'None'}... (len={len(expected_key) if expected_key else 0})")
         print(f"[DEBUG]   Received key: {api_key[:10] if api_key else 'None'}... (len={len(api_key) if api_key else 0})")
         print(f"[DEBUG]   Match: {api_key == expected_key}")
