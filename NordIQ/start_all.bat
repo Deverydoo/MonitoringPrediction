@@ -23,10 +23,22 @@ echo [INFO] Checking API key...
 python bin\generate_api_key.py
 echo.
 
+REM Load API key from .env file (trim whitespace)
 if exist .env (
-    for /f "usebackq tokens=1,2 delims==" %%a in (.env) do (
-        if "%%a"=="TFT_API_KEY" set TFT_API_KEY=%%b
+    for /f "usebackq tokens=1,* delims==" %%a in (.env) do (
+        if "%%a"=="TFT_API_KEY" (
+            set "TFT_API_KEY=%%b"
+        )
     )
+)
+
+REM Debug: Show API key (first 8 chars only)
+if defined TFT_API_KEY (
+    echo [OK] API key loaded from .env
+) else (
+    echo [ERROR] Failed to load API key from .env
+    pause
+    exit /b 1
 )
 
 if not exist "models\" (
