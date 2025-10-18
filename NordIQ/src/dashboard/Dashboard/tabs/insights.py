@@ -14,7 +14,7 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from Dashboard.utils import (
     calculate_server_risk_score,
