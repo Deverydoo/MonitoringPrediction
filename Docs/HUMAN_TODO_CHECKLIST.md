@@ -282,7 +282,7 @@ Options:
 
 ## ✅ What's Already Done (October 18, 2025)
 
-**System (v1.1.0):**
+**System (v1.2.1):**
 - ✅ TFT model (111K parameters, 88% accuracy)
 - ✅ 20-server demo (healthy/degrading/critical scenarios)
 - ✅ 11-tab dashboard (modular architecture)
