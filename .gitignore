@@ -142,3 +142,9 @@ branding/
 customer_data/
 license_keys/
 contracts/
+
+# Website (already committed, but preventing future tracking)
+# Note: Website files are already in git history (commits b92639e, 629d3b5, 7c40da2)
+# This prevents future changes from being tracked
+# To deploy: Copy NordIQ-Website/ to a separate repo or directly to server
+NordIQ-Website/
