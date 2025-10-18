@@ -21,7 +21,7 @@ from Dashboard.utils import (
     extract_cpu_used,
     get_server_profile
 )
-from Dashboard.config.dashboard_config import DAEMON_URL
+from Dashboard.config.dashboard_config import DAEMON_URL, DAEMON_API_KEY
 
 
 def fetch_explanation(server_name: str, daemon_url: str = DAEMON_URL) -> Optional[Dict]:
@@ -36,11 +36,22 @@ def fetch_explanation(server_name: str, daemon_url: str = DAEMON_URL) -> Optiona
         Dict with SHAP, attention, and counterfactual explanations, or None if error
     """
     try:
-        response = requests.get(f"{daemon_url}/explain/{server_name}", timeout=10)
+        # Prepare headers with API key
+        headers = {}
+        if DAEMON_API_KEY:
+            headers["X-API-Key"] = DAEMON_API_KEY
+
+        response = requests.get(
+            f"{daemon_url}/explain/{server_name}",
+            headers=headers,
+            timeout=10
+        )
         if response.ok:
             return response.json()
         else:
             st.error(f"Failed to fetch explanation: {response.status_code}")
+            if response.status_code == 403:
+                st.error("❌ Authentication failed - check API key configuration")
             return None
     except requests.exceptions.Timeout:
         st.error("⏱️ Request timed out - XAI analysis can take a few seconds")
