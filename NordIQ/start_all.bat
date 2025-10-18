@@ -40,7 +40,7 @@ start "TFT Inference Daemon" cmd /k "cd /d "%~dp0" && conda activate py310 && se
 timeout /t 5 /nobreak >nul
 
 echo [INFO] Starting Metrics Generator...
-start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate py310 && python src\daemons\metrics_generator_daemon.py --stream --servers 20"
+start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\metrics_generator_daemon.py --stream --servers 20"
 
 timeout /t 3 /nobreak >nul
 

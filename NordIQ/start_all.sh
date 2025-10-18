@@ -37,15 +37,15 @@ fi
 
 # Start Inference Daemon
 echo "[INFO] Starting Inference Daemon..."
-gnome-terminal -- bash -c "cd $(pwd) && conda activate py310 && python src/daemons/tft_inference_daemon.py; exec bash" 2>/dev/null || \
-xterm -e "cd $(pwd) && conda activate py310 && python src/daemons/tft_inference_daemon.py" &
+gnome-terminal -- bash -c "cd $(pwd) && conda activate py310 && export TFT_API_KEY='$TFT_API_KEY' && python src/daemons/tft_inference_daemon.py; exec bash" 2>/dev/null || \
+xterm -e "cd $(pwd) && conda activate py310 && export TFT_API_KEY='$TFT_API_KEY' && python src/daemons/tft_inference_daemon.py" &
 
 sleep 5
 
 # Start Metrics Generator
 echo "[INFO] Starting Metrics Generator..."
-gnome-terminal -- bash -c "cd $(pwd) && conda activate py310 && python src/daemons/metrics_generator_daemon.py --stream --servers 20; exec bash" 2>/dev/null || \
-xterm -e "cd $(pwd) && conda activate py310 && python src/daemons/metrics_generator_daemon.py --stream --servers 20" &
+gnome-terminal -- bash -c "cd $(pwd) && conda activate py310 && export TFT_API_KEY='$TFT_API_KEY' && python src/daemons/metrics_generator_daemon.py --stream --servers 20; exec bash" 2>/dev/null || \
+xterm -e "cd $(pwd) && conda activate py310 && export TFT_API_KEY='$TFT_API_KEY' && python src/daemons/metrics_generator_daemon.py --stream --servers 20" &
 
 sleep 3
 
