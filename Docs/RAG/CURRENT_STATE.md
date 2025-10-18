@@ -1,10 +1,10 @@
 # Current State - NordIQ AI Systems
 
-**Version**: 1.1.0
-**Last Updated**: October 18, 2025
+**Version**: 1.1.0 (preparing for 1.2.0)
+**Last Updated**: October 18, 2025 (afternoon - post NordIQ/ reorganization)
 **Company**: NordIQ AI Systems, LLC
 **Purpose**: Single source of truth for current system state and context
-**Status**: ✅ **Production Ready** - NordIQ AI branded, modular architecture complete
+**Status**: ✅ **Production Ready** - NordIQ/ deployable structure, branded, modular architecture
 
 ---
 
@@ -516,8 +516,47 @@ See `FUTURE_ROADMAP.md` for complete enhancement plan.
 - Bug fixes & polish: ~20 hours
 - Documentation: ~22 hours
 - NordIQ AI branding & business planning: ~4 hours (v1.1.0)
+- NordIQ/ application reorganization: ~4 hours (Oct 18 - preparing v1.2.0)
 
-**Total Development**: ~154 hours with AI assistance
+**Total Development**: ~158 hours with AI assistance
+
+---
+
+## 📦 NordIQ/ Application Structure (October 18, 2025)
+
+**Major Change**: Reorganized entire application into self-contained `NordIQ/` directory
+
+### New Structure
+```
+NordIQ/                          # Self-contained deployable application
+├── start_all.bat/sh             # One-command startup
+├── stop_all.bat/sh              # Clean shutdown
+├── bin/                         # Utilities (API keys)
+├── src/                         # Application code
+│   ├── daemons/                 # Services
+│   ├── dashboard/               # Web UI
+│   ├── training/                # Model training
+│   ├── core/                    # Shared libraries
+│   └── generators/              # Data generation
+├── models/                      # Trained models
+├── data/                        # Runtime data
+├── logs/                        # Logs
+└── .streamlit/                  # Config
+```
+
+### Deployment
+**Old**: Multiple scattered files in root
+**New**: Copy `NordIQ/` folder → Ready to deploy!
+
+**Benefits**:
+- ✅ Self-contained application
+- ✅ Professional structure
+- ✅ Easy deployment
+- ✅ Clean separation (app vs docs vs business)
+
+**Status**: ✅ Committed (e4b726b), pending testing
+
+**See**: [SESSION_2025-10-18_SUMMARY.md](SESSION_2025-10-18_SUMMARY.md) for complete details
 
 ---
 
@@ -527,7 +566,7 @@ This document provides complete context for AI sessions and human developers to 
 
 ---
 
-**Document Version**: 2.1.0 (Updated for NordIQ AI branding)
-**System Version**: 1.1.0 (See [VERSION](../../../VERSION) and [CHANGELOG.md](../../../CHANGELOG.md))
+**Document Version**: 2.2.0 (Updated for NordIQ/ reorganization)
+**System Version**: 1.1.0 (preparing for 1.2.0 after NordIQ/ testing)
 **Company**: NordIQ AI Systems, LLC
-**Last Updated**: October 18, 2025
+**Last Updated**: October 18, 2025 (afternoon)
