@@ -23,15 +23,19 @@ echo [INFO] Checking API key...
 python bin\generate_api_key.py
 echo.
 
-REM Load API key from .env file (trim whitespace)
+REM Load API key from .env file (trim whitespace and newlines)
 if exist .env (
-    for /f "usebackq tokens=1,* delims==" %%a in (.env) do (
+    for /f "usebackq eol=# tokens=1,* delims==" %%a in (.env) do (
         if "%%a"=="TFT_API_KEY" (
-            REM Don't quote the entire set command - just protect against spaces in path
-            set TFT_API_KEY=%%b
+            REM Strip any trailing whitespace/newlines by using delayed expansion
+            set "TFT_API_KEY=%%b"
         )
     )
 )
+
+REM Strip trailing whitespace from API key (Windows batch bug workaround)
+REM This removes any newline or carriage return characters
+for /f "tokens=* delims= " %%a in ("%TFT_API_KEY%") do set "TFT_API_KEY=%%a"
 
 REM Debug: Show API key (first 8 chars only)
 if defined TFT_API_KEY (
