@@ -27,7 +27,8 @@ No dependencies on the messy old tft_inference.py file.
 # Setup Python path for imports
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
+# Add src/ directory to path so we can import core.*
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import asyncio
 import json
@@ -90,16 +91,15 @@ def verify_api_key(api_key: str = Security(api_key_header)):
     return api_key
 
 # Import our helper modules (these are clean)
-from server_encoder import ServerEncoder
-from data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
-from gpu_profiles import setup_gpu
-from nordiq_metrics import NORDIQ_METRICS
+from core.server_encoder import ServerEncoder
+from core.data_validator import DataValidator, CONTRACT_VERSION, VALID_STATES
+from core.gpu_profiles import setup_gpu
+from core.nordiq_metrics import NORDIQ_METRICS
 
 # Import XAI components
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "explainers"))
-from shap_explainer import TFTShapExplainer
-from attention_visualizer import AttentionVisualizer
-from counterfactual_generator import CounterfactualGenerator
+from core.explainers.shap_explainer import TFTShapExplainer
+from core.explainers.attention_visualizer import AttentionVisualizer
+from core.explainers.counterfactual_generator import CounterfactualGenerator
 
 # Import alert levels for risk scoring
 from core.alert_levels import (
