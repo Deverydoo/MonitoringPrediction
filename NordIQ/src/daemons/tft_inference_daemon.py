@@ -101,6 +101,15 @@ from shap_explainer import TFTShapExplainer
 from attention_visualizer import AttentionVisualizer
 from counterfactual_generator import CounterfactualGenerator
 
+# Import alert levels for risk scoring
+from core.alert_levels import (
+    get_alert_level,
+    get_alert_color,
+    get_alert_emoji,
+    get_alert_label,
+    AlertLevel
+)
+
 # Suppress warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='lightning.pytorch.utilities.parsing')
 warnings.filterwarnings('ignore', message='.*is an instance of.*nn.Module.*')
@@ -1092,12 +1101,163 @@ class CleanInferenceDaemon:
             "warmup_complete": is_warmed_up
         }
 
+    def _calculate_server_risk_score(self, server_pred: Dict) -> float:
+        """
+        Calculate risk score for a single server (daemon version - no Streamlit deps).
+
+        This is the SINGLE SOURCE OF TRUTH for risk calculations.
+        Dashboard will use pre-calculated scores from daemon response.
+
+        Args:
+            server_pred: Server prediction dict with metrics
+
+        Returns:
+            Risk score 0-100 (higher = more critical)
+        """
+        current_risk = 0.0
+        predicted_risk = 0.0
+
+        # Profile detection (simple version - can be enhanced)
+        server_name = server_pred.get('server_name', '')
+        if server_name.startswith('ppdb'):
+            profile = 'database'
+        elif server_name.startswith('ppml'):
+            profile = 'ml_compute'
+        else:
+            profile = 'generic'
+
+        # Helper: Extract CPU used from idle
+        def extract_cpu(mode='current'):
+            if 'cpu_idle_pct' in server_pred:
+                idle = server_pred['cpu_idle_pct'].get(mode, 0)
+                if isinstance(idle, list) and idle:
+                    idle = np.mean(idle[:6])  # 30-min avg
+                return 100 - idle
+            elif 'cpu_user_pct' in server_pred:
+                cpu = server_pred['cpu_user_pct'].get(mode, 0)
+                if isinstance(cpu, list) and cpu:
+                    cpu = np.mean(cpu[:6])
+                return cpu
+            return 0
+
+        # CPU RISK
+        current_cpu = extract_cpu('current')
+        predicted_cpu = extract_cpu('p90')  # p90 for conservative estimate
+
+        if current_cpu >= 98:
+            current_risk += 60
+        elif current_cpu >= 95:
+            current_risk += 40
+        elif current_cpu >= 90:
+            current_risk += 25
+        elif current_cpu >= 80:
+            current_risk += 15
+
+        if predicted_cpu >= 98:
+            predicted_risk += 40
+        elif predicted_cpu >= 95:
+            predicted_risk += 25
+        elif predicted_cpu >= 90:
+            predicted_risk += 15
+
+        # MEMORY RISK (profile-aware)
+        if 'mem_used_pct' in server_pred:
+            current_mem = server_pred['mem_used_pct'].get('current', 0)
+            p90_mem = server_pred['mem_used_pct'].get('p90', [])
+            predicted_mem = np.mean(p90_mem[:6]) if len(p90_mem) >= 6 else current_mem
+
+            # Database profile: higher thresholds (page cache is normal)
+            if profile == 'database':
+                if current_mem >= 99:
+                    current_risk += 50
+                elif current_mem >= 98:
+                    current_risk += 30
+                elif current_mem >= 95:
+                    current_risk += 15
+            else:
+                if current_mem >= 98:
+                    current_risk += 50
+                elif current_mem >= 95:
+                    current_risk += 30
+                elif current_mem >= 90:
+                    current_risk += 15
+                elif current_mem >= 85:
+                    current_risk += 10
+
+            if predicted_mem >= 98:
+                predicted_risk += 30
+            elif predicted_mem >= 95:
+                predicted_risk += 20
+
+        # I/O WAIT RISK (critical indicator)
+        if 'cpu_iowait_pct' in server_pred:
+            current_iowait = server_pred['cpu_iowait_pct'].get('current', 0)
+            p90_iowait = server_pred['cpu_iowait_pct'].get('p90', [])
+            predicted_iowait = np.mean(p90_iowait[:6]) if len(p90_iowait) >= 6 else current_iowait
+
+            if current_iowait >= 30:
+                current_risk += 40
+            elif current_iowait >= 20:
+                current_risk += 25
+            elif current_iowait >= 10:
+                current_risk += 15
+
+            if predicted_iowait >= 30:
+                predicted_risk += 25
+            elif predicted_iowait >= 20:
+                predicted_risk += 15
+
+        # SWAP RISK
+        if 'swap_used_pct' in server_pred:
+            current_swap = server_pred['swap_used_pct'].get('current', 0)
+            if current_swap >= 50:
+                current_risk += 30
+            elif current_swap >= 25:
+                current_risk += 20
+            elif current_swap >= 10:
+                current_risk += 10
+
+        # LOAD AVERAGE RISK
+        if 'load_average' in server_pred:
+            current_load = server_pred['load_average'].get('current', 0)
+            if current_load >= 12:
+                current_risk += 20
+            elif current_load >= 8:
+                current_risk += 10
+
+        # Weighted combination (70% current, 30% predicted)
+        final_risk = (current_risk * 0.70) + (predicted_risk * 0.30)
+
+        # Clamp to 0-100
+        return min(100.0, max(0.0, final_risk))
+
+    def _calculate_all_risk_scores(self, predictions: Dict) -> Dict[str, float]:
+        """
+        Calculate risk scores for ALL servers ONCE.
+
+        This is where heavy lifting happens (in daemon, not dashboard).
+        Dashboard will receive pre-calculated scores.
+
+        Args:
+            predictions: Dict of server predictions
+
+        Returns:
+            Dict mapping server_name -> risk_score
+        """
+        risk_scores = {}
+        for server_name, server_pred in predictions.items():
+            risk_scores[server_name] = self._calculate_server_risk_score(server_pred)
+        return risk_scores
+
     def get_predictions(self) -> Dict[str, Any]:
         """
         Run TFT predictions on current rolling window.
 
+        ENHANCED: Now includes pre-calculated risk scores and summary statistics.
+        Dashboard becomes pure display layer (no business logic).
+
         Returns:
-            Predictions dict with per-server forecasts
+            Predictions dict with per-server forecasts + risk scores + summary
         """
         if len(self.rolling_window) < 100:
             return {
@@ -1111,9 +1271,71 @@ class CleanInferenceDaemon:
 
         # Run inference
         try:
-            predictions = self.inference.predict(df, horizon=96)
-            # Return predictions directly in the format the dashboard expects
-            return predictions
+            result = self.inference.predict(df, horizon=96)
+
+            # Extract predictions dict
+            predictions = result.get('predictions', {})
+
+            # PERFORMANCE ENHANCEMENT: Calculate risk scores ONCE for all servers
+            # This moves expensive calculation from dashboard (270+ calls) to daemon (1 call)
+            print(f"[PERF] Calculating risk scores for {len(predictions)} servers...")
+            risk_scores = self._calculate_all_risk_scores(predictions)
+
+            # Enrich each server prediction with pre-calculated risk score and alert info
+            alert_counts = {'critical': 0, 'warning': 0, 'degrading': 0, 'healthy': 0}
+
+            for server_name, server_pred in predictions.items():
+                risk_score = risk_scores[server_name]
+
+                # Add risk score to prediction
+                server_pred['risk_score'] = round(risk_score, 1)
+
+                # Add alert level info
+                alert_level = get_alert_level(risk_score)
+                server_pred['alert'] = {
+                    'level': alert_level.value,  # "critical", "warning", etc.
+                    'score': round(risk_score, 1),
+                    'color': get_alert_color(risk_score, format='hex'),
+                    'emoji': get_alert_emoji(risk_score),
+                    'label': get_alert_label(risk_score),  # "🔴 Critical", etc.
+                }
+
+                # Count by severity
+                if risk_score >= 80:
+                    alert_counts['critical'] += 1
+                elif risk_score >= 60:
+                    alert_counts['warning'] += 1
+                elif risk_score >= 50:
+                    alert_counts['degrading'] += 1
+                else:
+                    alert_counts['healthy'] += 1
+
+            # Sort servers by risk (pre-calculate top N lists for dashboard)
+            sorted_servers = sorted(
+                predictions.keys(),
+                key=lambda s: risk_scores[s],
+                reverse=True
+            )
+
+            # Add summary statistics (dashboard-ready aggregates)
+            result['summary'] = {
+                'total_servers': len(predictions),
+                'critical_count': alert_counts['critical'],
+                'warning_count': alert_counts['warning'],
+                'degrading_count': alert_counts['degrading'],
+                'healthy_count': alert_counts['healthy'],
+                'top_5_risks': sorted_servers[:5],
+                'top_10_risks': sorted_servers[:10],
+                'top_20_risks': sorted_servers[:20],
+                'risk_calculation_time': datetime.now().isoformat(),
+            }
+
+            print(f"[OK] Risk scores calculated: {alert_counts['critical']} critical, {alert_counts['warning']} warning, {alert_counts['healthy']} healthy")
+
+            # Update predictions in result
+            result['predictions'] = predictions
+
+            return result
 
         except Exception as e:
             print(f"[ERROR] Prediction failed: {e}")
