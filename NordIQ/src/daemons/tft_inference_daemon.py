@@ -1249,6 +1249,141 @@ class CleanInferenceDaemon:
             risk_scores[server_name] = self._calculate_server_risk_score(server_pred)
         return risk_scores
 
+    def _format_display_metrics(self, server_pred: Dict) -> Dict:
+        """
+        Convert internal prediction format to dashboard-ready display format.
+
+        Dashboard should receive clean, ready-to-display data.
+        No metric extraction logic needed in dashboard.
+
+        Args:
+            server_pred: Server prediction dict with raw metrics
+
+        Returns:
+            Dict with display-ready metrics
+        """
+        display_metrics = {}
+
+        # CPU Used (aggregate from idle/user/sys)
+        if 'cpu_idle_pct' in server_pred:
+            cpu_current = 100 - server_pred['cpu_idle_pct'].get('current', 0)
+            cpu_p50 = server_pred['cpu_idle_pct'].get('p50', [])
+            cpu_predicted = 100 - np.mean(cpu_p50[:6]) if len(cpu_p50) >= 6 else cpu_current
+        elif 'cpu_user_pct' in server_pred:
+            cpu_current = server_pred['cpu_user_pct'].get('current', 0)
+            cpu_p50 = server_pred['cpu_user_pct'].get('p50', [])
+            cpu_predicted = np.mean(cpu_p50[:6]) if len(cpu_p50) >= 6 else cpu_current
+        else:
+            cpu_current = cpu_predicted = 0
+
+        display_metrics['cpu'] = {
+            'current': round(cpu_current, 1),
+            'predicted': round(cpu_predicted, 1),
+            'delta': round(cpu_predicted - cpu_current, 1),
+            'unit': '%',
+            'trend': 'increasing' if cpu_predicted > cpu_current else 'decreasing' if cpu_predicted < cpu_current else 'stable'
+        }
+
+        # Memory Used (direct)
+        if 'mem_used_pct' in server_pred:
+            mem_current = server_pred['mem_used_pct'].get('current', 0)
+            mem_p50 = server_pred['mem_used_pct'].get('p50', [])
+            mem_predicted = np.mean(mem_p50[:6]) if len(mem_p50) >= 6 else mem_current
+
+            display_metrics['memory'] = {
+                'current': round(mem_current, 1),
+                'predicted': round(mem_predicted, 1),
+                'delta': round(mem_predicted - mem_current, 1),
+                'unit': '%',
+                'trend': 'increasing' if mem_predicted > mem_current else 'decreasing' if mem_predicted < mem_current else 'stable'
+            }
+
+        # I/O Wait (critical indicator)
+        if 'cpu_iowait_pct' in server_pred:
+            iowait_current = server_pred['cpu_iowait_pct'].get('current', 0)
+            iowait_p50 = server_pred['cpu_iowait_pct'].get('p50', [])
+            iowait_predicted = np.mean(iowait_p50[:6]) if len(iowait_p50) >= 6 else iowait_current
+
+            display_metrics['iowait'] = {
+                'current': round(iowait_current, 1),
+                'predicted': round(iowait_predicted, 1),
+                'delta': round(iowait_predicted - iowait_current, 1),
+                'unit': '%',
+                'trend': 'increasing' if iowait_predicted > iowait_current else 'decreasing' if iowait_predicted < iowait_current else 'stable'
+            }
+
+        # Swap Usage
+        if 'swap_used_pct' in server_pred:
+            swap_current = server_pred['swap_used_pct'].get('current', 0)
+            swap_p50 = server_pred['swap_used_pct'].get('p50', [])
+            swap_predicted = np.mean(swap_p50[:6]) if len(swap_p50) >= 6 else swap_current
+
+            display_metrics['swap'] = {
+                'current': round(swap_current, 1),
+                'predicted': round(swap_predicted, 1),
+                'delta': round(swap_predicted - swap_current, 1),
+                'unit': '%',
+                'trend': 'increasing' if swap_predicted > swap_current else 'decreasing' if swap_predicted < swap_current else 'stable'
+            }
+
+        # Load Average
+        if 'load_average' in server_pred:
+            load_current = server_pred['load_average'].get('current', 0)
+            load_p50 = server_pred['load_average'].get('p50', [])
+            load_predicted = np.mean(load_p50[:6]) if len(load_p50) >= 6 else load_current
+
+            display_metrics['load'] = {
+                'current': round(load_current, 1),
+                'predicted': round(load_predicted, 1),
+                'delta': round(load_predicted - load_current, 1),
+                'unit': '',
+                'trend': 'increasing' if load_predicted > load_current else 'decreasing' if load_predicted < load_current else 'stable'
+            }
+
+        # Disk Usage
+        if 'disk_usage_pct' in server_pred:
+            disk_current = server_pred['disk_usage_pct'].get('current', 0)
+            disk_p50 = server_pred['disk_usage_pct'].get('p50', [])
+            disk_predicted = np.mean(disk_p50[:6]) if len(disk_p50) >= 6 else disk_current
+
+            display_metrics['disk'] = {
+                'current': round(disk_current, 1),
+                'predicted': round(disk_predicted, 1),
+                'delta': round(disk_predicted - disk_current, 1),
+                'unit': '%',
+                'trend': 'increasing' if disk_predicted > disk_current else 'decreasing' if disk_predicted < disk_current else 'stable'
+            }
+
+        # Network In
+        if 'net_in_mb_s' in server_pred:
+            net_in_current = server_pred['net_in_mb_s'].get('current', 0)
+            net_in_p50 = server_pred['net_in_mb_s'].get('p50', [])
+            net_in_predicted = np.mean(net_in_p50[:6]) if len(net_in_p50) >= 6 else net_in_current
+
+            display_metrics['net_in'] = {
+                'current': round(net_in_current, 1),
+                'predicted': round(net_in_predicted, 1),
+                'delta': round(net_in_predicted - net_in_current, 1),
+                'unit': 'MB/s',
+                'trend': 'increasing' if net_in_predicted > net_in_current else 'decreasing' if net_in_predicted < net_in_current else 'stable'
+            }
+
+        # Network Out
+        if 'net_out_mb_s' in server_pred:
+            net_out_current = server_pred['net_out_mb_s'].get('current', 0)
+            net_out_p50 = server_pred['net_out_mb_s'].get('p50', [])
+            net_out_predicted = np.mean(net_out_p50[:6]) if len(net_out_p50) >= 6 else net_out_current
+
+            display_metrics['net_out'] = {
+                'current': round(net_out_current, 1),
+                'predicted': round(net_out_predicted, 1),
+                'delta': round(net_out_predicted - net_out_current, 1),
+                'unit': 'MB/s',
+                'trend': 'increasing' if net_out_predicted > net_out_current else 'decreasing' if net_out_predicted < net_out_current else 'stable'
+            }
+
+        return display_metrics
+
     def get_predictions(self) -> Dict[str, Any]:
         """
         Run TFT predictions on current rolling window.
@@ -1290,6 +1425,22 @@ class CleanInferenceDaemon:
                 # Add risk score to prediction
                 server_pred['risk_score'] = round(risk_score, 1)
 
+                # Add profile (dashboard-ready display name)
+                if server_name.startswith('ppdb'):
+                    server_pred['profile'] = 'Database'
+                elif server_name.startswith('ppml'):
+                    server_pred['profile'] = 'ML Compute'
+                elif server_name.startswith('ppapi'):
+                    server_pred['profile'] = 'Web API'
+                elif server_name.startswith('ppcond'):
+                    server_pred['profile'] = 'Conductor Mgmt'
+                elif server_name.startswith('ppetl'):
+                    server_pred['profile'] = 'ETL/Ingest'
+                elif server_name.startswith('pprisk'):
+                    server_pred['profile'] = 'Risk Analytics'
+                else:
+                    server_pred['profile'] = 'Generic'
+
                 # Add alert level info
                 alert_level = get_alert_level(risk_score)
                 server_pred['alert'] = {
@@ -1299,6 +1450,9 @@ class CleanInferenceDaemon:
                     'emoji': get_alert_emoji(risk_score),
                     'label': get_alert_label(risk_score),  # "🔴 Critical", etc.
                 }
+
+                # Add display-ready metrics (dashboard doesn't need extraction logic)
+                server_pred['display_metrics'] = self._format_display_metrics(server_pred)
 
                 # Count by severity
                 if risk_score >= 80:
