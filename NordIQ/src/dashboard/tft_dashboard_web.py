@@ -413,11 +413,14 @@ if st.session_state.demo_running and st.session_state.demo_generator is not None
 # DATA FETCHING WITH SMART CACHING (Optimized for performance)
 # =============================================================================
 
-@st.cache_data(ttl=refresh_interval, show_spinner=False)
-def fetch_predictions_cached(daemon_url: str, api_key: str, timestamp: float):
+@st.cache_data(ttl=None, show_spinner=False)  # Manual invalidation only
+def fetch_predictions_cached(daemon_url: str, api_key: str, cache_key: str):
     """
-    Fetch predictions with automatic caching.
-    Cache key includes timestamp to invalidate after TTL.
+    Fetch predictions with manual cache invalidation.
+    Cache key changes only when we want to refresh data.
+
+    PERFORMANCE: Cache persists until explicitly cleared, avoiding
+    unnecessary fetches when user sets long refresh intervals (60s+).
     """
     try:
         client_temp = DaemonClient(daemon_url, api_key=api_key)
@@ -427,16 +430,18 @@ def fetch_predictions_cached(daemon_url: str, api_key: str, timestamp: float):
     except Exception as e:
         return None, None, False
 
-# Fetch current data (with smart caching to avoid re-fetching on UI changes)
+# Fetch current data (with smart caching matched to user refresh interval)
 if st.session_state.daemon_connected:
-    # Use current time bucket for cache key (refreshes every N seconds)
+    # SMART CACHING: Match cache lifetime to user's refresh interval
+    # Cache key changes only every refresh_interval seconds
     time_bucket = int(time.time() / refresh_interval)
+    cache_key = f"{time_bucket}_{refresh_interval}"  # Unique key per interval
 
-    # Fetch with caching (subsequent calls within TTL use cache)
+    # Fetch with caching (subsequent calls within interval use cache)
     predictions, alerts, success = fetch_predictions_cached(
         st.session_state.daemon_url,
         DAEMON_API_KEY,
-        time_bucket
+        cache_key
     )
 
     if success and predictions:
@@ -469,11 +474,14 @@ else:
 # PERFORMANCE OPTIMIZATION: Calculate risk scores once for all tabs
 # =============================================================================
 
-@st.cache_data(ttl=5, show_spinner=False)
-def calculate_all_risk_scores_global(predictions_hash: str, server_preds: Dict) -> Dict[str, float]:
+@st.cache_data(ttl=None, show_spinner=False)  # Manual invalidation (matches data refresh)
+def calculate_all_risk_scores_global(cache_key: str, server_preds: Dict) -> Dict[str, float]:
     """
-    Global risk score calculation (cached for 5 seconds).
+    Global risk score calculation (cached until data refreshes).
     Avoids redundant calculations across tabs (50-100x speedup).
+
+    PERFORMANCE: Cache tied to predictions cache_key, so risk scores
+    are recalculated only when new predictions arrive (not every 5s).
     """
     return {
         server_name: calculate_server_risk_score(server_pred)
@@ -481,11 +489,13 @@ def calculate_all_risk_scores_global(predictions_hash: str, server_preds: Dict) 
     }
 
 # Calculate risk scores once if we have predictions
+# Cache key matches predictions cache key for perfect sync
 risk_scores = None
 if predictions and predictions.get('predictions'):
     server_preds = predictions.get('predictions', {})
-    predictions_hash = str(predictions.get('timestamp', hash(str(predictions))))
-    risk_scores = calculate_all_risk_scores_global(predictions_hash, server_preds)
+    # Use same cache_key as predictions for perfect synchronization
+    pred_cache_key = cache_key if 'cache_key' in locals() else "default"
+    risk_scores = calculate_all_risk_scores_global(pred_cache_key, server_preds)
 
 # =============================================================================
 # TABS - Now using modular components
@@ -550,7 +560,16 @@ with tab11:
     roadmap.render(predictions)
 
 # =============================================================================
-# AUTO-REFRESH (Optimized: Fragment-based updates without full rerun)
+# AUTO-REFRESH WITH SMART CACHE MANAGEMENT (Performance Optimization)
+# =============================================================================
+#
+# OPTIMIZATION STRATEGY:
+# - Cache TTL matches user's refresh interval (not hardcoded 5s)
+# - If refresh=60s, cache persists for 60s (only 1 fetch per minute)
+# - If refresh=5s, cache persists for 5s (matches real-time needs)
+# - Manual "Refresh Now" clears cache immediately
+# - Result: Minimal API calls, maximum responsiveness
+#
 # =============================================================================
 
 if auto_refresh and st.session_state.daemon_connected:
@@ -563,18 +582,9 @@ if auto_refresh and st.session_state.daemon_connected:
 
     time_since_update = (current_time - st.session_state.last_update).total_seconds()
 
-    # Only trigger refresh if interval elapsed
-    # OPTIMIZATION: Use time.sleep() to wait, then invalidate cache instead of st.rerun()
-    # This allows Streamlit's @st.cache_data decorator to handle updates efficiently
-    if st.session_state.demo_running and time_since_update >= 5:
-        time.sleep(5)
-        # Clear cache to force new fetch on next render
-        fetch_predictions_cached.clear()
-        st.rerun()
-    elif time_since_update >= refresh_interval:
-        time.sleep(min(refresh_interval, 10))
-        # Clear cache to force new fetch on next render
-        fetch_predictions_cached.clear()
+    # Trigger refresh when interval elapsed
+    # Cache key auto-increments, so new data is fetched
+    if time_since_update >= refresh_interval:
         st.rerun()
 
 # =============================================================================
