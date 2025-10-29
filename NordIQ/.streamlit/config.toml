@@ -48,12 +48,14 @@ toolbarMode = "minimal"
 showSidebarNavigation = true
 
 [theme]
-# Professional dark theme (optional)
+# Customer Branding: Wells Fargo
+# Wells Fargo Red: #D71E28 (official brand color)
+# Using Wells Fargo red for primary interactive elements and header accents
 base = "light"
-primaryColor = "#FF4B4B"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#262730"
+primaryColor = "#D71E28"  # Wells Fargo Red - used for buttons, links, accents
+backgroundColor = "#FFFFFF"  # Clean white background
+secondaryBackgroundColor = "#F0F2F6"  # Light gray for cards/sections
+textColor = "#262730"  # Dark gray for readability
 font = "sans serif"
 
 [logger]

@@ -1,0 +1,9 @@
+# Plotly Dash PoC Requirements
+# Install with: pip install -r dash_poc_requirements.txt
+
+dash>=2.14.0
+dash-bootstrap-components>=1.5.0
+plotly>=5.18.0
+pandas>=2.1.0
+requests>=2.31.0
+numpy>=1.24.0

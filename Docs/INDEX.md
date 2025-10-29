@@ -36,6 +36,10 @@
 
 | Document | Purpose | Read When |
 |----------|---------|-----------|
+| **[DAEMON_MANAGEMENT.md](DAEMON_MANAGEMENT.md)** ⭐ **NEW** | Start/stop/restart services | Managing NordIQ services |
+| **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** ⭐ **NEW** | Connect to API, build custom dashboards | Integrating with other tools |
+| **[INTEGRATION_QUICKSTART.md](INTEGRATION_QUICKSTART.md)** ⭐ **NEW** | 5-minute integration guide | Need quick API integration |
+| **[STREAMLIT_PERFORMANCE_OPTIMIZATION.md](STREAMLIT_PERFORMANCE_OPTIMIZATION.md)** ⭐ **NEW** | Make dashboard 2-5× faster | Dashboard feels slow |
 | **[DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md)** | Dashboard usage | Running demos |
 | **[OPERATIONAL_MAINTENANCE_GUIDE.md](OPERATIONAL_MAINTENANCE_GUIDE.md)** | Production ops | Deploying |
 | **[MAINTENANCE_QUICK_REFERENCE.md](MAINTENANCE_QUICK_REFERENCE.md)** | Quick ops commands | Daily maintenance |
@@ -81,6 +85,11 @@
 2. [OPERATIONAL_MAINTENANCE_GUIDE.md](OPERATIONAL_MAINTENANCE_GUIDE.md) - Full operational guide
 3. [PROJECT_CODEX.md](PROJECT_CODEX.md) - Production rules
 4. [MAINTENANCE_QUICK_REFERENCE.md](MAINTENANCE_QUICK_REFERENCE.md) - Quick commands
+
+### I want to integrate with other tools
+1. **[INTEGRATION_QUICKSTART.md](INTEGRATION_QUICKSTART.md)** ⭐ **NEW** - 5-minute quick start
+2. **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** ⭐ **NEW** - Complete API reference & examples
+3. [Examples: Grafana, Python, JavaScript, React](#integration-examples)
 
 ### I want to modify the system
 1. [PROJECT_CODEX.md](PROJECT_CODEX.md) - Development rules
@@ -313,7 +322,24 @@ Docs/
 
 ## 🎉 What's New in This Update
 
-### Major Changes (2025-10-12) ⭐ **NEW**
+### Major Changes (2025-10-29) ⭐ **LATEST**
+- ✅ Created **INTEGRATION_GUIDE.md** (800+ lines) - Complete integration documentation
+- ✅ Created **INTEGRATION_QUICKSTART.md** - 5-minute quick start guide
+- ✅ Full API reference with all endpoints documented
+- ✅ Grafana integration guide (JSON API plugin setup)
+- ✅ Python, JavaScript, React example code
+- ✅ Custom dashboard building guide
+- ✅ Slack, CSV, email integration examples
+- ✅ Best practices and troubleshooting
+
+### Benefits
+- 🔌 **Easy Integration**: Connect any dashboard to NordIQ API
+- 📊 **Grafana Support**: Complete setup guide with panel examples
+- 💻 **Code Examples**: Python, JS, React ready-to-use clients
+- 📖 **Complete Docs**: 800+ lines covering all use cases
+- 🚀 **Quick Start**: Get integrated in 5 minutes
+
+### Major Changes (2025-10-12)
 - ✅ **Clean Architecture Refactor** - Production-ready inference system
 - ✅ Created **INFERENCE_README.md** - Complete deployment guide
 - ✅ Standalone inference daemon (900 lines, no dependencies)

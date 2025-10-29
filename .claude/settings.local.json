@@ -27,7 +27,16 @@
       "Bash(tree:*)",
       "Bash(awk:*)",
       "Bash(test:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(chmod:*)",
+      "Bash(conda run:*)",
+      "Bash(python -c:*)",
+      "Bash(git reset:*)",
+      "Bash(git push:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
