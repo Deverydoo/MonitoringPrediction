@@ -453,14 +453,13 @@ def update_predictions(n):
 
 
 @app.callback(
-    [Output('history-store', 'data'),
-     Output('connection-status', 'children')],
+    Output('history-store', 'data'),
     Input('predictions-store', 'data'),
     State('history-store', 'data')
 )
 def update_history_and_status(predictions, history):
     """
-    Update history store and connection status.
+    Update history store.
 
     Maintains rolling history of predictions for Historical Trends tab.
     Keeps last 100 snapshots (about 8 minutes at 5s refresh).
@@ -483,23 +482,10 @@ def update_history_and_status(predictions, history):
         # Keep last 100 entries (about 8 minutes of data)
         history = history[-100:]
 
-        # Connection status
-        num_servers = len(predictions['predictions'])
-        last_update = predictions.get('timestamp', 'Unknown')
-        status = dbc.Alert([
-            html.Strong("🟢 Connected"),
-            f" - {num_servers} servers | Last update: {last_update}"
-        ], color="success", className="mb-2")
-
-        return history, status
+        return history
     else:
-        # No predictions - keep existing history, show disconnected
-        status = dbc.Alert([
-            html.Strong("🔴 Disconnected"),
-            " - Start daemon: python src/daemons/tft_inference_daemon.py"
-        ], color="danger", className="mb-2")
-
-        return history if history else [], status
+        # No predictions - keep existing history
+        return history if history else []
 
 
 @app.callback(
