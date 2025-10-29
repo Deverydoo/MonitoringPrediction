@@ -131,7 +131,9 @@ app.layout = dbc.Container([
                 dbc.Col([
                     html.Div(id='refresh-interval-display', className="text-muted text-end")
                 ], width=3)
-            ])
+            ]),
+            # Performance timer (render time display)
+            html.Div(id='performance-timer', className="mt-2 text-muted small text-end")
         ])
     ], className="mb-3"),
 
@@ -185,9 +187,6 @@ app.layout = dbc.Container([
             html.Div(id='scenario-status-display', className="mt-2")
         ])
     ], className="mb-3"),
-
-    # Performance timer (updated by callback)
-    html.Div(id='performance-timer', className="mb-2"),
 
     # Data stores
     dcc.Store(id='predictions-store'),  # Current predictions
