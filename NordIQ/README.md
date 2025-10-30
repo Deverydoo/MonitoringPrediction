@@ -38,6 +38,17 @@ Open your browser to: **http://localhost:8501**
 NordIQ/
 ├── start_all.bat/sh         # Start all services
 ├── stop_all.bat/sh          # Stop all services
+├── daemon.bat/sh            # Daemon management (start/stop/status)
+├── dash_app.py              # Dash production dashboard (15× faster)
+├── dash_config.py           # Customer branding configuration
+├── Docs/                    # 📚 Complete documentation (21 guides)
+│   ├── README.md            # Documentation navigation
+│   ├── getting-started/     # Quick start, setup, environment
+│   ├── integration/         # REST API, Grafana, custom tools
+│   ├── operations/          # Daemon management, production ops
+│   ├── authentication/      # API keys, Okta SSO
+│   ├── understanding/       # How it works, why TFT, risk scoring
+│   └── marketing/           # Project summary, economics, roadmap
 ├── bin/                     # Utility scripts
 │   ├── generate_api_key.py  # API key management
 │   └── setup_api_key.*      # API key setup helpers
@@ -46,7 +57,7 @@ NordIQ/
 │   │   ├── tft_inference_daemon.py
 │   │   ├── metrics_generator_daemon.py
 │   │   └── adaptive_retraining_daemon.py
-│   ├── dashboard/           # Web dashboard
+│   ├── dashboard/           # Streamlit web dashboard
 │   │   ├── tft_dashboard_web.py
 │   │   └── Dashboard/       # Modular components
 │   ├── training/            # Model training
@@ -64,6 +75,34 @@ NordIQ/
 ├── logs/                    # Application logs
 └── .streamlit/              # Dashboard config
 ```
+
+---
+
+## 📚 Documentation
+
+**Complete documentation is available in the [Docs/](Docs/README.md) folder.**
+
+### Quick Links
+
+**Getting Started:**
+- [Quick Start Guide](Docs/getting-started/QUICK_START.md) - 10-minute setup
+- [API Key Setup](Docs/getting-started/API_KEY_SETUP.md) - Authentication
+- [Python Environment](Docs/getting-started/PYTHON_ENV.md) - Environment setup
+
+**Integration:**
+- [Integration Guide](Docs/integration/INTEGRATION_GUIDE.md) - REST API, Grafana, custom tools (800+ lines)
+- [API Reference](Docs/integration/QUICK_REFERENCE_API.md) - Quick reference
+
+**Operations:**
+- [Daemon Management](Docs/operations/DAEMON_MANAGEMENT.md) - systemd, Docker, nginx (700+ lines)
+- [Inference Service](Docs/operations/INFERENCE_README.md) - Service operations
+
+**Understanding:**
+- [How Predictions Work](Docs/understanding/HOW_PREDICTIONS_WORK.md) - Core technology
+- [Why TFT?](Docs/understanding/WHY_TFT.md) - Model selection
+- [Risk Scoring](Docs/understanding/CONTEXTUAL_RISK_INTELLIGENCE.md) - Contextual intelligence
+
+**See [Docs/README.md](Docs/README.md) for complete documentation index.**
 
 ---
 
