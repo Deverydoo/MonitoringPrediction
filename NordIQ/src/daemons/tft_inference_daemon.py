@@ -67,9 +67,39 @@ except ImportError:
 API_KEY_NAME = "X-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
+def load_nordiq_api_key() -> Optional[str]:
+    """
+    Load NordIQ API key with priority:
+    1. NORDIQ_API_KEY environment variable
+    2. .nordiq_key file
+    3. TFT_API_KEY environment variable (legacy fallback)
+    """
+    # Priority 1: NORDIQ_API_KEY environment variable
+    key = os.getenv("NORDIQ_API_KEY")
+    if key:
+        return key.strip()
+
+    # Priority 2: .nordiq_key file
+    nordiq_key_file = Path(__file__).parent.parent.parent / ".nordiq_key"
+    if nordiq_key_file.exists():
+        try:
+            with open(nordiq_key_file, 'r') as f:
+                key = f.read().strip()
+                if key:
+                    return key
+        except Exception as e:
+            print(f"[WARNING] Error reading .nordiq_key: {e}")
+
+    # Priority 3: TFT_API_KEY (legacy fallback for backward compatibility)
+    key = os.getenv("TFT_API_KEY")
+    if key:
+        return key.strip()
+
+    return None
+
 def verify_api_key(api_key: str = Security(api_key_header)):
     """Verify API key for protected endpoints."""
-    expected_key = os.getenv("TFT_API_KEY")
+    expected_key = load_nordiq_api_key()
 
     # Defensive: Strip whitespace from both keys (handles Windows/Linux differences)
     # This prevents issues with newlines, trailing spaces, etc. from shell scripts
@@ -973,6 +1003,118 @@ class TFTInference:
             }
         }
 
+    def reload_model(self, model_path: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Hot reload the TFT model without restarting the daemon.
+
+        Args:
+            model_path: Optional path to specific model. If None, loads latest model.
+
+        Returns:
+            Status dict with success/error info
+        """
+        try:
+            old_model_dir = self.model_dir
+
+            # Find and validate new model
+            new_model_dir = self._find_model(model_path)
+            if not new_model_dir:
+                return {
+                    'success': False,
+                    'error': 'No model found',
+                    'current_model': str(old_model_dir) if old_model_dir else None
+                }
+
+            # Check if it's the same model
+            if new_model_dir == old_model_dir:
+                return {
+                    'success': True,
+                    'message': 'Model already loaded (same version)',
+                    'model_path': str(new_model_dir)
+                }
+
+            print(f"[RELOAD] Loading new model: {new_model_dir}")
+
+            # Load new model
+            self.model_dir = new_model_dir
+            self.config = self._load_config()
+
+            if self.use_real_model:
+                # Clear old model from memory
+                if self.model:
+                    del self.model
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+
+                # Load new model
+                self._load_model()
+
+                if not self.model:
+                    # Rollback on failure
+                    self.model_dir = old_model_dir
+                    self.config = self._load_config()
+                    self._load_model()
+                    return {
+                        'success': False,
+                        'error': 'Failed to load new model, rolled back to previous',
+                        'current_model': str(old_model_dir) if old_model_dir else None
+                    }
+
+            print(f"[OK] Model reloaded successfully: {new_model_dir}")
+
+            return {
+                'success': True,
+                'message': 'Model reloaded successfully',
+                'previous_model': str(old_model_dir) if old_model_dir else None,
+                'new_model': str(new_model_dir),
+                'model_timestamp': new_model_dir.name.replace('tft_model_', '') if 'tft_model_' in new_model_dir.name else 'unknown'
+            }
+
+        except Exception as e:
+            import traceback
+            error_msg = f"Error reloading model: {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            traceback.print_exc()
+
+            return {
+                'success': False,
+                'error': error_msg,
+                'current_model': str(self.model_dir) if self.model_dir else None
+            }
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get information about the currently loaded model."""
+        if not self.model_dir:
+            return {
+                'loaded': False,
+                'mode': 'heuristic'
+            }
+
+        info = {
+            'loaded': True,
+            'mode': 'tft',
+            'model_path': str(self.model_dir),
+            'model_name': self.model_dir.name,
+            'model_timestamp': self.model_dir.name.replace('tft_model_', '') if 'tft_model_' in self.model_dir.name else 'unknown',
+        }
+
+        # Add config info
+        if self.config:
+            info['config'] = {
+                'max_prediction_length': self.config.get('max_prediction_length', 96),
+                'max_encoder_length': self.config.get('max_encoder_length', 288),
+            }
+
+        # Add server encoder info
+        if self.server_encoder:
+            stats = self.server_encoder.get_stats()
+            info['servers'] = {
+                'total': stats.get('total_servers', 0),
+                'known': stats.get('known_servers', 0)
+            }
+
+        return info
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
@@ -1033,18 +1175,32 @@ class CleanInferenceDaemon:
         # Initialize data buffer for automated retraining
         if enable_retraining:
             try:
-                from data_buffer import DataBuffer
+                from core.data_buffer import DataBuffer
+                from core.auto_retrainer import AutoRetrainer
+
                 self.data_buffer = DataBuffer(
                     buffer_dir='./data_buffer',
                     retention_days=60,
                     auto_rotate=True
                 )
                 print(f"[OK] Data buffer initialized for automated retraining")
-            except ImportError:
-                print(f"[WARNING] data_buffer.py not found - retraining disabled")
+
+                # Initialize auto-retrainer with callback to reload model
+                self.auto_retrainer = AutoRetrainer(
+                    data_buffer=self.data_buffer,
+                    reload_callback=self.reload_model,
+                    training_days=30,
+                    min_records_threshold=100000
+                )
+                print(f"[OK] Auto-retrainer initialized")
+
+            except ImportError as e:
+                print(f"[WARNING] Retraining components not found - disabled: {e}")
                 self.data_buffer = None
+                self.auto_retrainer = None
         else:
             self.data_buffer = None
+            self.auto_retrainer = None
 
         # Try to load persisted state
         self._load_state()
@@ -1528,6 +1684,74 @@ class CleanInferenceDaemon:
             }
         }
 
+    def list_available_models(self) -> Dict[str, Any]:
+        """
+        List all available trained models in the models/ directory.
+
+        Returns:
+            Dict with list of models and their metadata
+        """
+        models_dir = Path("./models")
+        if not models_dir.exists():
+            return {
+                'models': [],
+                'count': 0,
+                'models_dir': str(models_dir)
+            }
+
+        model_list = []
+        for model_dir in sorted(models_dir.glob("tft_model_*"), reverse=True):
+            if not model_dir.is_dir():
+                continue
+
+            model_info = {
+                'path': str(model_dir),
+                'name': model_dir.name,
+                'timestamp': model_dir.name.replace('tft_model_', '') if 'tft_model_' in model_dir.name else 'unknown',
+                'is_current': model_dir == self.inference.model_dir,
+            }
+
+            # Get file sizes
+            model_file = model_dir / "model.safetensors"
+            if model_file.exists():
+                model_info['size_mb'] = round(model_file.stat().st_size / (1024 * 1024), 2)
+                model_info['modified'] = datetime.fromtimestamp(model_file.stat().st_mtime).isoformat()
+
+            # Get training info if available
+            training_info_file = model_dir / "training_info.json"
+            if training_info_file.exists():
+                try:
+                    with open(training_info_file) as f:
+                        training_info = json.load(f)
+                        model_info['training'] = {
+                            'epochs': training_info.get('epochs'),
+                            'training_time': training_info.get('training_time_seconds'),
+                            'servers_trained': training_info.get('num_servers'),
+                        }
+                except Exception:
+                    pass
+
+            model_list.append(model_info)
+
+        return {
+            'models': model_list,
+            'count': len(model_list),
+            'models_dir': str(models_dir),
+            'current_model': str(self.inference.model_dir) if self.inference.model_dir else None
+        }
+
+    def reload_model(self, model_path: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Hot reload the model without restarting the daemon.
+
+        Args:
+            model_path: Optional specific model path. If None, loads latest.
+
+        Returns:
+            Status dict with success/error info
+        """
+        return self.inference.reload_model(model_path)
+
     def _load_state(self):
         """Load persisted rolling window from disk."""
         # Try Parquet first (secure), fall back to Pickle (legacy migration)
@@ -1931,25 +2155,160 @@ async def explain_server_prediction(request: Request, server_name: str, api_key:
             "traceback": traceback.format_exc()
         }
 
+@app.get("/admin/models")
+async def list_models(api_key: str = Depends(verify_api_key)):
+    """
+    List all available trained models.
+
+    Returns info about each model including size, training metadata, and whether it's currently loaded.
+    """
+    return daemon.list_available_models()
+
+@app.post("/admin/reload-model")
+async def reload_model(
+    request: Request,
+    model_path: Optional[str] = None,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Hot reload the TFT model without restarting the daemon.
+
+    Args:
+        model_path: Optional path to specific model. If None, loads latest model.
+
+    Example:
+        POST /admin/reload-model
+        POST /admin/reload-model?model_path=models/tft_model_20250130_120000
+    """
+    result = daemon.reload_model(model_path)
+    return result
+
+@app.get("/admin/model-info")
+async def get_model_info(api_key: str = Depends(verify_api_key)):
+    """Get information about the currently loaded model."""
+    return daemon.inference.get_model_info()
+
+@app.post("/admin/trigger-training")
+async def trigger_training(
+    request: Request,
+    epochs: int = 5,
+    incremental: bool = True,
+    blocking: bool = False,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Trigger automated model retraining.
+
+    Args:
+        epochs: Number of epochs to train (default: 5)
+        incremental: Resume from latest checkpoint (default: True)
+        blocking: Wait for training to complete before returning (default: False)
+
+    Returns:
+        Training job status
+
+    Example:
+        POST /admin/trigger-training?epochs=10&incremental=true
+    """
+    if not daemon.auto_retrainer:
+        return {
+            'success': False,
+            'error': 'Auto-retrainer not enabled. Start daemon with enable_retraining=True'
+        }
+
+    result = daemon.auto_retrainer.trigger_training(
+        epochs=epochs,
+        incremental=incremental,
+        blocking=blocking
+    )
+
+    return result
+
+@app.get("/admin/training-status")
+async def get_training_status(
+    job_id: Optional[str] = None,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get status of training job.
+
+    Args:
+        job_id: Optional job ID. If None, returns current job status.
+
+    Returns:
+        Training job status with progress info
+    """
+    if not daemon.auto_retrainer:
+        return {
+            'success': False,
+            'error': 'Auto-retrainer not enabled'
+        }
+
+    return daemon.auto_retrainer.get_job_status(job_id)
+
+@app.get("/admin/training-stats")
+async def get_training_stats(api_key: str = Depends(verify_api_key)):
+    """
+    Get overall training statistics and data buffer status.
+
+    Returns:
+        Training stats including history, data buffer info, and readiness
+    """
+    if not daemon.auto_retrainer:
+        return {
+            'success': False,
+            'error': 'Auto-retrainer not enabled'
+        }
+
+    return daemon.auto_retrainer.get_training_stats()
+
+@app.post("/admin/cancel-training")
+async def cancel_training(
+    request: Request,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Cancel the currently running training job.
+
+    Returns:
+        Cancellation status
+    """
+    if not daemon.auto_retrainer:
+        return {
+            'success': False,
+            'error': 'Auto-retrainer not enabled'
+        }
+
+    return daemon.auto_retrainer.cancel_current_job()
+
 @app.get("/")
 async def root():
     """Root endpoint with info."""
     return {
         "service": "TFT Inference Daemon",
-        "version": "2.1",  # Bumped for XAI integration
+        "version": "2.3",  # Bumped for automated retraining
         "status": "running",
         "endpoints": {
             "health": "GET /health",
             "feed": "POST /feed/data",
             "predictions": "GET /predictions/current",
             "alerts": "GET /alerts/active",
-            "explain": "GET /explain/{server_name}",  # New XAI endpoint
-            "status": "GET /status"
+            "explain": "GET /explain/{server_name}",
+            "status": "GET /status",
+            "admin_models": "GET /admin/models",
+            "admin_reload": "POST /admin/reload-model",
+            "admin_model_info": "GET /admin/model-info",
+            "admin_trigger_training": "POST /admin/trigger-training",
+            "admin_training_status": "GET /admin/training-status",
+            "admin_training_stats": "GET /admin/training-stats",
+            "admin_cancel_training": "POST /admin/cancel-training"
         },
         "features": {
             "xai": "Explainable AI with SHAP, Attention, and Counterfactuals",
-            "retraining": "Automated data buffer for model retraining",
-            "persistence": "Rolling window state persistence"
+            "retraining": "Automated background model retraining",
+            "persistence": "Rolling window state persistence",
+            "hot_reload": "Hot reload models without daemon restart",
+            "continuous_learning": "Data buffer accumulates metrics for retraining"
         },
         "feed_example": "python metrics_generator.py --stream --servers 20 --scenario healthy"
     }
@@ -1984,11 +2343,20 @@ def main():
     local_ip = get_local_ip()
 
     # Check API key configuration
-    api_key_env = os.getenv("TFT_API_KEY")
+    api_key_env = load_nordiq_api_key()
     if api_key_env:
-        print(f"[OK] API key loaded from environment: {api_key_env[:8]}...")
+        # Determine source
+        if os.getenv("NORDIQ_API_KEY"):
+            source = "NORDIQ_API_KEY environment variable"
+        elif (Path(__file__).parent.parent.parent / ".nordiq_key").exists():
+            source = ".nordiq_key file"
+        elif os.getenv("TFT_API_KEY"):
+            source = "TFT_API_KEY environment variable (legacy)"
+        else:
+            source = "unknown"
+        print(f"[OK] API key loaded from {source}: {api_key_env[:8]}...")
     else:
-        print("[WARNING] No TFT_API_KEY set - running in development mode (no authentication)")
+        print("[WARNING] No API key set - running in development mode (no authentication)")
 
     # Print friendly startup message
     print("\n" + "="*70)

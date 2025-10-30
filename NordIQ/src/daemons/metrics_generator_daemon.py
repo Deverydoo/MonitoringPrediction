@@ -38,8 +38,40 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
 from pydantic import BaseModel
 import uvicorn
+
+# Helper function for API key loading
+def load_nordiq_api_key() -> Optional[str]:
+    """
+    Load NordIQ API key with priority:
+    1. NORDIQ_API_KEY environment variable
+    2. .nordiq_key file
+    3. TFT_API_KEY environment variable (legacy fallback)
+    """
+    # Priority 1: NORDIQ_API_KEY environment variable
+    key = os.getenv("NORDIQ_API_KEY")
+    if key:
+        return key.strip()
+
+    # Priority 2: .nordiq_key file
+    nordiq_key_file = Path(__file__).parent.parent.parent / ".nordiq_key"
+    if nordiq_key_file.exists():
+        try:
+            with open(nordiq_key_file, 'r') as f:
+                key = f.read().strip()
+                if key:
+                    return key
+        except Exception as e:
+            print(f"[WARNING] Error reading .nordiq_key: {e}")
+
+    # Priority 3: TFT_API_KEY (legacy fallback for backward compatibility)
+    key = os.getenv("TFT_API_KEY")
+    if key:
+        return key.strip()
+
+    return None
 
 # Import our awesome metrics generator logic (which imports from config/)
 from generators.metrics_generator import (
@@ -88,12 +120,21 @@ class MetricsGeneratorDaemon:
         self.tick_count = 0
         self.start_time = datetime.now()
 
-        # Load API key from environment
-        self.api_key = os.getenv("TFT_API_KEY")
+        # Load API key
+        self.api_key = load_nordiq_api_key()
         if not self.api_key:
-            print("[WARNING] TFT_API_KEY not set - authentication may fail")
+            print("[WARNING] No API key set - authentication may fail")
         else:
-            print(f"[OK] API key loaded: {self.api_key[:8]}...")
+            # Determine source
+            if os.getenv("NORDIQ_API_KEY"):
+                source = "NORDIQ_API_KEY environment variable"
+            elif (Path(__file__).parent.parent.parent / ".nordiq_key").exists():
+                source = ".nordiq_key file"
+            elif os.getenv("TFT_API_KEY"):
+                source = "TFT_API_KEY (legacy)"
+            else:
+                source = "unknown"
+            print(f"[OK] API key loaded from {source}: {self.api_key[:8]}...")
 
         # Current scenario mode
         self.scenario = "healthy"

@@ -1,0 +1,34 @@
+# NordIQ Dashboard Requirements
+# Minimal dependencies for running the Dash dashboard only
+# (Does not include model training dependencies)
+
+# Core Dashboard Framework
+dash>=2.14.0
+dash-bootstrap-components>=1.5.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization (used by Plotly which Dash depends on)
+plotly>=5.17.0
+
+# HTTP Client (for API calls to inference daemon)
+requests>=2.28.0
+
+# Python Standard Library (no install needed, but listing for reference)
+# - datetime
+# - time
+# - typing
+# - functools
+# - pathlib
+# - os
+
+# Optional: For better development experience
+# watchdog>=3.0.0  # Auto-reload on file changes
+
+# Notes:
+# - This is for the Dash dashboard (dash_app.py) which is 16x faster than Streamlit
+# - For Streamlit dashboard, also install: streamlit>=1.28.0
+# - For inference daemon, see requirements_inference.txt
+# - For full system with training, see requirements.txt

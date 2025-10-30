@@ -1,0 +1,41 @@
+# NordIQ Inference Daemon Requirements
+# Dependencies for running the TFT inference daemon and metrics generator
+# (Does not include model training dependencies)
+
+# API Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# Deep Learning (Inference only - no CUDA training needed)
+torch>=2.1.0
+safetensors>=0.4.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# HTTP Client (for metrics generator)
+requests>=2.28.0
+
+# Rate Limiting (optional but recommended)
+slowapi>=0.1.9
+
+# Python Standard Library (no install needed, but listing for reference)
+# - asyncio
+# - collections
+# - datetime
+# - json
+# - os
+# - pathlib
+# - pickle
+# - signal
+# - sys
+# - typing
+# - warnings
+
+# Notes:
+# - This is for running inference only (not training)
+# - For training, you also need: pytorch-forecasting, pytorch-lightning, tensorboard
+# - For GPU acceleration: Install torch with CUDA support
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121

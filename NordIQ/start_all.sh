@@ -33,9 +33,24 @@ DASHBOARD_PORT=8050
 # Create necessary directories
 mkdir -p "$LOG_DIR" "$PID_DIR" "$DATA_DIR" "$MODELS_DIR"
 
-# Load environment variables
+# Load NordIQ API key from dedicated file
+if [ -f "$SCRIPT_DIR/.nordiq_key" ]; then
+    export NORDIQ_API_KEY=$(cat "$SCRIPT_DIR/.nordiq_key")
+fi
+
+# Also load other environment variables from .env if present
 if [ -f "$SCRIPT_DIR/.env" ]; then
-    export $(cat "$SCRIPT_DIR/.env" | grep -v '^#' | xargs)
+    # Load .env but don't overwrite NORDIQ_API_KEY if already set
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ $key =~ ^#.*$ ]] && continue
+        [[ -z $key ]] && continue
+        # Skip if key is NORDIQ_API_KEY or TFT_API_KEY (we manage these)
+        [[ $key == "NORDIQ_API_KEY" ]] && continue
+        [[ $key == "TFT_API_KEY" ]] && continue
+        # Export other variables
+        export "$key=$value"
+    done < "$SCRIPT_DIR/.env"
 fi
 
 # ============================================
@@ -109,9 +124,9 @@ echo
 if [ -f "$SCRIPT_DIR/bin/generate_api_key.py" ]; then
     echo "[INFO] Checking API key..."
     python "$SCRIPT_DIR/bin/generate_api_key.py"
-    # Reload .env after generation
-    if [ -f "$SCRIPT_DIR/.env" ]; then
-        export $(cat "$SCRIPT_DIR/.env" | grep -v '^#' | xargs)
+    # Reload .nordiq_key after generation
+    if [ -f "$SCRIPT_DIR/.nordiq_key" ]; then
+        export NORDIQ_API_KEY=$(cat "$SCRIPT_DIR/.nordiq_key")
     fi
     echo
 fi

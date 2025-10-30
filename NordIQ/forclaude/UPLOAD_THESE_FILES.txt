@@ -1,0 +1,100 @@
+===============================================================================
+UPLOAD ALL 7 FILES TO CLAUDE 3.7
+===============================================================================
+
+Upload these files to your Claude 3.7 conversation (in any order):
+
+1. README.md                      (6.5 KB) - Index and overview
+2. 00_READ_ME_FIRST.md            (5.1 KB) - Navigation
+3. 01_QUICK_START.md              (8.1 KB) - Quick overview
+4. 02_API_CONTRACT.md             (14 KB)  - Exact specifications
+5. 03_MINIMAL_TEMPLATE.py         (12 KB)  - Python template
+6. 04_TESTING_GUIDE.md            (13 KB)  - Testing procedures
+7. 05_SUMMARY_FOR_CLAUDE.md       (12 KB)  - Complete summary
+
+Total: 7 files, 88 KB
+
+===============================================================================
+TELL CLAUDE 3.7:
+===============================================================================
+
+"I need you to build a data adapter daemon that feeds monitoring data
+from our Wells Fargo systems to the NordIQ inference engine.
+
+I've uploaded 7 files that contain everything you need:
+- Complete API specification
+- Ready-to-use Python template
+- Testing guide
+- Examples
+
+Start by reading 05_SUMMARY_FOR_CLAUDE.md for a complete overview,
+then read 01_QUICK_START.md to understand what you're building.
+
+Our data source is: [LINBORG / ELASTICSEARCH / MONGODB / OTHER]
+
+Can you help me build this adapter?"
+
+===============================================================================
+WHAT CLAUDE WILL DO:
+===============================================================================
+
+1. Read the documentation (15 minutes)
+2. Ask you for sample data from your monitoring system
+3. Create a field mapping table
+4. Customize the template (03_MINIMAL_TEMPLATE.py)
+5. Help you test it
+6. Help you deploy it
+
+Estimated time: 4-6 hours
+
+===============================================================================
+WHAT YOU NEED TO PROVIDE:
+===============================================================================
+
+Claude will ask you:
+
+1. What is your data source?
+   → Linborg API, Elasticsearch, MongoDB, custom API, etc.
+
+2. What does your data look like?
+   → Provide sample JSON/data structure from your monitoring system
+
+3. How do I authenticate?
+   → API tokens, credentials, certificates, etc.
+
+4. How many servers are you monitoring?
+   → For batching strategy (10 vs 1000 servers)
+
+5. Do you have CMDB or service tags?
+   → For profile matching (or use auto-detection)
+
+===============================================================================
+EXPECTED RESULT:
+===============================================================================
+
+A Python script (your_adapter_daemon.py) that:
+- Connects to your data source
+- Polls every 5 seconds
+- Transforms 9 required fields
+- POSTs to NordIQ inference daemon
+- Runs continuously
+- Handles errors gracefully
+
+After 30 minutes of running:
+- Dashboard shows your servers
+- Predictions appear
+- Risk scores calculated
+- Alerts generated (if issues detected)
+
+===============================================================================
+KEY INSIGHT:
+===============================================================================
+
+This is SIMPLE - just a data ETL pipeline:
+- Extract: Query your monitoring system
+- Transform: Map 9 field names
+- Load: POST to REST API
+
+Don't over-engineer! The template does 90% of the work.
+
+===============================================================================

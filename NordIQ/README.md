@@ -93,6 +93,10 @@ NordIQ/
 - [Integration Guide](Docs/integration/INTEGRATION_GUIDE.md) - REST API, Grafana, custom tools (800+ lines)
 - [API Reference](Docs/integration/QUICK_REFERENCE_API.md) - Quick reference
 
+**For Developers (Building Custom Adapters):**
+- [Data Adapter Guide](Docs/for-developers/DATA_ADAPTER_GUIDE.md) - Build adapters for Linborg, Elasticsearch, etc.
+- [Quick Reference](Docs/for-developers/ADAPTER_QUICK_REFERENCE.md) - API contract and field mappings
+
 **Operations:**
 - [Daemon Management](Docs/operations/DAEMON_MANAGEMENT.md) - systemd, Docker, nginx (700+ lines)
 - [Inference Service](Docs/operations/INFERENCE_README.md) - Service operations
