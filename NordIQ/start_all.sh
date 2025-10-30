@@ -83,7 +83,7 @@ check_python() {
     fi
 
     # Check for required packages
-    if ! python -c "import torch, pytorch_forecasting, streamlit" 2>/dev/null; then
+    if ! python -c "import torch, pytorch_forecasting, dash" 2>/dev/null; then
         echo "[WARNING] Some required packages may be missing"
         echo "          Ensure you're in the correct Python environment"
     fi
