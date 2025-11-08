@@ -101,46 +101,46 @@ cd NordIQ
 ### Development/Training Pipeline
 ```
 ┌─────────────────────────────────────────────────┐
-│  NordIQ/src/generators/metrics_generator.py     │
-│  Generates realistic server metrics             │
-│  → NordIQ/data/training/*.parquet               │
+│ NordIQ/src/generators/metrics_generator.py │
+│ Generates realistic server metrics │
+│ → NordIQ/data/training/*.parquet │
 └─────────────────┬───────────────────────────────┘
-                  │
-                  ▼
+ │
+ ▼
 ┌─────────────────────────────────────────────────┐
-│  NordIQ/src/training/tft_trainer.py             │
-│  Trains Temporal Fusion Transformer             │
-│  → NordIQ/models/tft_model_*/                   │
+│ NordIQ/src/training/tft_trainer.py │
+│ Trains Temporal Fusion Transformer │
+│ → NordIQ/models/tft_model_*/ │
 └─────────────────────────────────────────────────┘
 ```
 
 ### Production Runtime Architecture (Microservices)
 ```
 ┌───────────────────────────────────────────────────────────┐
-│  MongoDB / Elasticsearch                                  │
-│  Production metrics from Linborg monitoring               │
+│ MongoDB / Elasticsearch │
+│ Production metrics from Linborg monitoring │
 └─────────────────┬─────────────────────────────────────────┘
-                  │
-                  ▼
+ │
+ ▼
 ┌─────────────────────────────────────────────────┐
-│  NordIQ/src/core/adapters/*_adapter.py          │
-│  Fetches metrics every 5s, forwards to daemon   │
-│  ↓ HTTP POST /feed                              │
+│ NordIQ/src/core/adapters/*_adapter.py │
+│ Fetches metrics every 5s, forwards to daemon │
+│ ↓ HTTP POST /feed │
 └─────────────────┬───────────────────────────────┘
-                  │
-                  ▼
+ │
+ ▼
 ┌─────────────────────────────────────────────────┐
-│  NordIQ/src/daemons/tft_inference_daemon.py     │
-│  Production inference server                    │
-│  Port 8000 - REST API + WebSocket               │
-│  ↓ HTTP GET /predict                            │
+│ NordIQ/src/daemons/tft_inference_daemon.py │
+│ Production inference server │
+│ Port 8000 - REST API + WebSocket │
+│ ↓ HTTP GET /predict │
 └─────────────────┬───────────────────────────────┘
-                  │
-                  ▼
+ │
+ ▼
 ┌─────────────────────────────────────────────────┐
-│  NordIQ/src/dashboard/tft_dashboard_web.py      │
-│  Interactive Streamlit dashboard                │
-│  → http://localhost:8501                        │
+│ NordIQ/src/dashboard/tft_dashboard_web.py │
+│ Interactive Streamlit dashboard │
+│ → http://localhost:8501 │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -183,13 +183,13 @@ Most AI treats every server as unique. This system is smarter.
 
 **7 Server Profiles:**
 ```python
-ml_compute      # ML training nodes (high CPU/memory)
-database        # Databases (disk I/O intensive)
-web_api         # Web servers (network heavy)
-conductor_mgmt  # Orchestration systems
-data_ingest     # ETL pipelines
-risk_analytics  # Risk calculation nodes
-generic         # Catch-all for other workloads
+ml_compute # ML training nodes (high CPU/memory)
+database # Databases (disk I/O intensive)
+web_api # Web servers (network heavy)
+conductor_mgmt # Orchestration systems
+data_ingest # ETL pipelines
+risk_analytics # Risk calculation nodes
+generic # Catch-all for other workloads
 ```
 
 **Why This Matters:**
@@ -235,50 +235,50 @@ cd NordIQ
 
 ```
 MonitoringPrediction/
-├── NordIQ/                          # 🎯 Main Application (Deploy This!)
-│   ├── start_all.bat/sh             # One-command startup
-│   ├── stop_all.bat/sh              # Stop all services
-│   ├── README.md                    # Deployment guide
-│   │
-│   ├── bin/                         # Utility scripts
-│   │   ├── generate_api_key.py      # API key management
-│   │   └── setup_api_key.*          # Setup helpers
-│   │
-│   ├── src/                         # Application source code
-│   │   ├── daemons/                 # Background services
-│   │   │   ├── tft_inference_daemon.py
-│   │   │   ├── metrics_generator_daemon.py
-│   │   │   └── adaptive_retraining_daemon.py
-│   │   ├── dashboard/               # Web interface
-│   │   │   ├── tft_dashboard_web.py
-│   │   │   └── Dashboard/           # Modular components
-│   │   ├── training/                # Model training
-│   │   │   ├── main.py              # CLI interface
-│   │   │   ├── tft_trainer.py       # Training engine
-│   │   │   └── precompile.py        # Optimization
-│   │   ├── core/                    # Shared libraries
-│   │   │   ├── config/              # Configuration
-│   │   │   ├── utils/               # Utilities
-│   │   │   ├── adapters/            # Production adapters
-│   │   │   ├── explainers/          # XAI components
-│   │   │   └── *.py                 # Core modules
-│   │   └── generators/              # Data generation
-│   │       └── metrics_generator.py
-│   │
-│   ├── models/                      # Trained models
-│   ├── data/                        # Runtime data
-│   ├── logs/                        # Application logs
-│   └── .streamlit/                  # Dashboard config
+├── NordIQ/ # 🎯 Main Application (Deploy This!)
+│ ├── start_all.bat/sh # One-command startup
+│ ├── stop_all.bat/sh # Stop all services
+│ ├── README.md # Deployment guide
+│ │
+│ ├── bin/ # Utility scripts
+│ │ ├── generate_api_key.py # API key management
+│ │ └── setup_api_key.* # Setup helpers
+│ │
+│ ├── src/ # Application source code
+│ │ ├── daemons/ # Background services
+│ │ │ ├── tft_inference_daemon.py
+│ │ │ ├── metrics_generator_daemon.py
+│ │ │ └── adaptive_retraining_daemon.py
+│ │ ├── dashboard/ # Web interface
+│ │ │ ├── tft_dashboard_web.py
+│ │ │ └── Dashboard/ # Modular components
+│ │ ├── training/ # Model training
+│ │ │ ├── main.py # CLI interface
+│ │ │ ├── tft_trainer.py # Training engine
+│ │ │ └── precompile.py # Optimization
+│ │ ├── core/ # Shared libraries
+│ │ │ ├── config/ # Configuration
+│ │ │ ├── utils/ # Utilities
+│ │ │ ├── adapters/ # Production adapters
+│ │ │ ├── explainers/ # XAI components
+│ │ │ └── *.py # Core modules
+│ │ └── generators/ # Data generation
+│ │ └── metrics_generator.py
+│ │
+│ ├── models/ # Trained models
+│ ├── data/ # Runtime data
+│ ├── logs/ # Application logs
+│ └── .streamlit/ # Dashboard config
 │
-├── Docs/                            # Documentation
-│   ├── RAG/                         # For AI assistants
-│   └── *.md                         # User guides
-├── BusinessPlanning/                # Confidential (gitignored)
-├── tools/                           # Development tools
-├── README.md                        # This file
-├── CHANGELOG.md                     # Version history
-├── VERSION                          # Current version (1.1.0)
-└── LICENSE                          # BSL 1.1
+├── Docs/ # Documentation
+│ ├── RAG/ # For AI assistants
+│ └── *.md # User guides
+├── BusinessPlanning/ # Confidential (gitignored)
+├── tools/ # Development tools
+├── README.md # This file
+├── CHANGELOG.md # Version history
+├── VERSION # Current version (1.1.0)
+└── LICENSE # BSL 1.1
 ```
 
 **Key Points:**
@@ -365,8 +365,8 @@ curl http://localhost:8000/status
 const ws = new WebSocket('ws://localhost:8000/ws');
 
 ws.onmessage = (event) => {
-  const prediction = JSON.parse(event.data);
-  console.log(`Server ${prediction.server_id}: ${prediction.risk_score}`);
+ const prediction = JSON.parse(event.data);
+ console.log(`Server ${prediction.server_id}: ${prediction.risk_score}`);
 };
 ```
 
@@ -376,32 +376,32 @@ ws.onmessage = (event) => {
 
 ```
 MonitoringPrediction/
-├── 📄 _StartHere.ipynb              # Interactive notebook walkthrough
-├── 🔧 config.py                     # System configuration
-├── 📊 metrics_generator.py          # Training data generator
-├── 🧠 tft_trainer.py                # Model training
-├── ⚡ tft_inference.py              # Production inference daemon
-├── 🎨 tft_dashboard_web.py          # Streamlit web dashboard
-├── 🔐 data_validator.py             # Contract validation
-├── 🔑 server_encoder.py             # Hash-based server encoding
-├── 🎮 gpu_profiles.py               # GPU optimization profiles
-├── 📁 training/                     # Training data directory
-│   ├── server_metrics.parquet       # Generated metrics
-│   └── server_mapping.json          # Server encoder mapping
-├── 📁 models/                       # Trained models
-│   └── tft_model_YYYYMMDD_HHMMSS/
-│       ├── model.safetensors        # Model weights
-│       ├── dataset_parameters.pkl   # Trained encoders (CRITICAL!)
-│       ├── server_mapping.json      # Server encoder
-│       ├── training_info.json       # Contract metadata
-│       └── config.json              # Model architecture
-└── 📁 Docs/                         # Comprehensive documentation
-    ├── ESSENTIAL_RAG.md             # Complete system reference (1200 lines)
-    ├── DATA_CONTRACT.md             # Schema specification
-    ├── QUICK_START.md               # Fast onboarding
-    ├── DASHBOARD_GUIDE.md           # Dashboard features
-    ├── SERVER_PROFILES.md           # Transfer learning design
-    └── PROJECT_CODEX.md             # Architecture deep dive
+├── 📄 _StartHere.ipynb # Interactive notebook walkthrough
+├── 🔧 config.py # System configuration
+├── 📊 metrics_generator.py # Training data generator
+├── 🧠 tft_trainer.py # Model training
+├── ⚡ tft_inference.py # Production inference daemon
+├── 🎨 tft_dashboard_web.py # Streamlit web dashboard
+├── 🔐 data_validator.py # Contract validation
+├── 🔑 server_encoder.py # Hash-based server encoding
+├── 🎮 gpu_profiles.py # GPU optimization profiles
+├── 📁 training/ # Training data directory
+│ ├── server_metrics.parquet # Generated metrics
+│ └── server_mapping.json # Server encoder mapping
+├── 📁 models/ # Trained models
+│ └── tft_model_YYYYMMDD_HHMMSS/
+│ ├── model.safetensors # Model weights
+│ ├── dataset_parameters.pkl # Trained encoders (CRITICAL!)
+│ ├── server_mapping.json # Server encoder
+│ ├── training_info.json # Contract metadata
+│ └── config.json # Model architecture
+└── 📁 Docs/ # complete documentation
+ ├── ESSENTIAL_RAG.md # Complete system reference (1200 lines)
+ ├── DATA_CONTRACT.md # Schema specification
+ ├── QUICK_START.md # Fast onboarding
+ ├── DASHBOARD_GUIDE.md # Dashboard features
+ ├── SERVER_PROFILES.md # Transfer learning design
+ └── PROJECT_CODEX.md # Architecture deep dive
 ```
 
 ---
@@ -419,9 +419,9 @@ ppml0002 → 1
 # Add ppml0003? All IDs shift!
 
 # After (stable)
-ppml0001 → hash('ppml0001') → '285039'  # Always the same
-ppml0002 → hash('ppml0002') → '215733'  # Deterministic
-ppml0003 → hash('ppml0003') → '921211'  # No conflicts
+ppml0001 → hash('ppml0001') → '285039' # Always the same
+ppml0002 → hash('ppml0002') → '215733' # Deterministic
+ppml0003 → hash('ppml0003') → '921211' # No conflicts
 ```
 
 ### 2. Data Contract System
@@ -443,9 +443,9 @@ ppml0003 → hash('ppml0003') → '921211'  # No conflicts
 ```python
 # Training saves:
 dataset_parameters.pkl → {
-  'server_id': NaNLabelEncoder(vocabulary=['285039', '215733', ...]),
-  'status': NaNLabelEncoder(vocabulary=['healthy', 'critical_issue', ...]),
-  'profile': NaNLabelEncoder(vocabulary=['ml_compute', 'database', ...])
+ 'server_id': NaNLabelEncoder(vocabulary=['285039', '215733', ...]),
+ 'status': NaNLabelEncoder(vocabulary=['healthy', 'critical_issue', ...]),
+ 'profile': NaNLabelEncoder(vocabulary=['ml_compute', 'database', ...])
 }
 
 # Inference loads → All servers recognized!
@@ -504,7 +504,7 @@ dataset_parameters.pkl → {
 
 ## 📚 Documentation
 
-Comprehensive docs in `/Docs/`:
+complete docs in `/Docs/`:
 
 ### Core Documentation
 - **[ESSENTIAL_RAG.md](Docs/ESSENTIAL_RAG.md)** - Complete system reference (1200 lines)

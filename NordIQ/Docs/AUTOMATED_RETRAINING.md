@@ -24,14 +24,14 @@ The inference daemon now features a **complete automated retraining pipeline**:
 
 ```
 Metrics → Inference Daemon → Data Buffer (60 days)
-                ↓                    ↓
-          Predictions         Auto-Retrainer
-                                     ↓
-                           Background Training Job
-                                     ↓
-                            Hot Reload New Model
-                                     ↓
-                           Predictions (improved!)
+ ↓ ↓
+ Predictions Auto-Retrainer
+ ↓
+ Background Training Job
+ ↓
+ Hot Reload New Model
+ ↓
+ Predictions (improved!)
 ```
 
 ### Components:
@@ -72,27 +72,27 @@ Start a new training job in the background.
 ```bash
 # Start 10-epoch training in background
 curl -X POST -H "X-API-Key: YOUR_KEY" \
-  "http://localhost:8000/admin/trigger-training?epochs=10&incremental=true"
+ "http://localhost:8000/admin/trigger-training? epochs=10&incremental=true"
 ```
 
 **Response (Success):**
 ```json
 {
-  "success": true,
-  "job_id": "train_20250130_143022",
-  "status": "queued",
-  "message": "Training started in background",
-  "epochs": 10,
-  "incremental": true
+ "success": true,
+ "job_id": "train_20250130_143022",
+ "status": "queued",
+ "message": "Training started in background",
+ "epochs": 10,
+ "incremental": true
 }
 ```
 
 **Response (Insufficient Data):**
 ```json
 {
-  "success": false,
-  "error": "Insufficient data: 50000 < 100000 records",
-  "status": "rejected"
+ "success": false,
+ "error": "Insufficient data: 50000 < 100000 records",
+ "status": "rejected"
 }
 ```
 
@@ -113,38 +113,38 @@ curl -H "X-API-Key: YOUR_KEY" http://localhost:8000/admin/training-status
 
 # Get specific job status
 curl -H "X-API-Key: YOUR_KEY" \
-  "http://localhost:8000/admin/training-status?job_id=train_20250130_143022"
+ "http://localhost:8000/admin/training-status? job_id=train_20250130_143022"
 ```
 
 **Response (Running):**
 ```json
 {
-  "job_id": "train_20250130_143022",
-  "status": "running",
-  "progress_pct": 65,
-  "epochs": 10,
-  "incremental": true,
-  "started_at": "2025-01-30T14:30:22",
-  "completed_at": null,
-  "duration_seconds": 320,
-  "model_path": null,
-  "error": null
+ "job_id": "train_20250130_143022",
+ "status": "running",
+ "progress_pct": 65,
+ "epochs": 10,
+ "incremental": true,
+ "started_at": "2025-01-30T14:30:22",
+ "completed_at": null,
+ "duration_seconds": 320,
+ "model_path": null,
+ "error": null
 }
 ```
 
 **Response (Completed):**
 ```json
 {
-  "job_id": "train_20250130_143022",
-  "status": "completed",
-  "progress_pct": 100,
-  "epochs": 10,
-  "incremental": true,
-  "started_at": "2025-01-30T14:30:22",
-  "completed_at": "2025-01-30T14:42:15",
-  "duration_seconds": 713,
-  "model_path": "models/tft_model_20250130_144215",
-  "error": null
+ "job_id": "train_20250130_143022",
+ "status": "completed",
+ "progress_pct": 100,
+ "epochs": 10,
+ "incremental": true,
+ "started_at": "2025-01-30T14:30:22",
+ "completed_at": "2025-01-30T14:42:15",
+ "duration_seconds": 713,
+ "model_path": "models/tft_model_20250130_144215",
+ "error": null
 }
 ```
 
@@ -163,32 +163,32 @@ curl -H "X-API-Key: YOUR_KEY" http://localhost:8000/admin/training-stats
 **Response:**
 ```json
 {
-  "current_job": {
-    "job_id": "train_20250130_143022",
-    "status": "running",
-    "progress_pct": 45
-  },
-  "history": {
-    "total_trainings": 12,
-    "successful": 11,
-    "failed": 1,
-    "last_training": "2025-01-30T14:30:22"
-  },
-  "data_buffer": {
-    "total_records": 2500000,
-    "file_count": 45,
-    "date_range": {
-      "start": "2024-12-15",
-      "end": "2025-01-30"
-    },
-    "disk_usage_mb": 245.3
-  },
-  "ready_to_train": true,
-  "ready_reason": "Ready to train",
-  "config": {
-    "training_days": 30,
-    "min_records_threshold": 100000
-  }
+ "current_job": {
+ "job_id": "train_20250130_143022",
+ "status": "running",
+ "progress_pct": 45
+ },
+ "history": {
+ "total_trainings": 12,
+ "successful": 11,
+ "failed": 1,
+ "last_training": "2025-01-30T14:30:22"
+ },
+ "data_buffer": {
+ "total_records": 2500000,
+ "file_count": 45,
+ "date_range": {
+ "start": "2024-12-15",
+ "end": "2025-01-30"
+ },
+ "disk_usage_mb": 245.3
+ },
+ "ready_to_train": true,
+ "ready_reason": "Ready to train",
+ "config": {
+ "training_days": 30,
+ "min_records_threshold": 100000
+ }
 }
 ```
 
@@ -202,15 +202,15 @@ Cancel the currently running training job (soft cancel).
 
 ```bash
 curl -X POST -H "X-API-Key": YOUR_KEY" \
-  http://localhost:8000/admin/cancel-training
+ http://localhost:8000/admin/cancel-training
 ```
 
 **Response:**
 ```json
 {
-  "success": true,
-  "message": "Training job marked as cancelled",
-  "job_id": "train_20250130_143022"
+ "success": true,
+ "message": "Training job marked as cancelled",
+ "job_id": "train_20250130_143022"
 }
 ```
 
@@ -231,30 +231,30 @@ curl -H "X-API-Key: $API_KEY" http://localhost:8000/admin/training-stats
 
 # 2. Trigger training (10 epochs, incremental)
 curl -X POST -H "X-API-Key: $API_KEY" \
-  "http://localhost:8000/admin/trigger-training?epochs=10&incremental=true"
+ "http://localhost:8000/admin/trigger-training? epochs=10&incremental=true"
 
 # Response:
 # {
-#   "success": true,
-#   "job_id": "train_20250130_143022",
-#   "status": "queued"
+# "success": true,
+# "job_id": "train_20250130_143022",
+# "status": "queued"
 # }
 
 # 3. Monitor progress
 while true; do
-  STATUS=$(curl -s -H "X-API-Key: $API_KEY" \
-    http://localhost:8000/admin/training-status)
+ STATUS=$(curl -s -H "X-API-Key: $API_KEY" \
+ http://localhost:8000/admin/training-status)
 
-  PROGRESS=$(echo $STATUS | jq -r '.progress_pct')
-  STATUS_VAL=$(echo $STATUS | jq -r '.status')
+ PROGRESS=$(echo $STATUS | jq -r '.progress_pct')
+ STATUS_VAL=$(echo $STATUS | jq -r '.status')
 
-  echo "Status: $STATUS_VAL | Progress: $PROGRESS%"
+ echo "Status: $STATUS_VAL | Progress: $PROGRESS%"
 
-  if [ "$STATUS_VAL" != "running" ]; then
-    break
-  fi
+ if [ "$STATUS_VAL" != "running" ]; then
+ break
+ fi
 
-  sleep 10
+ sleep 10
 done
 
 # 4. Check result
@@ -289,24 +289,24 @@ STATS=$(curl -s -H "X-API-Key: $API_KEY" $DAEMON_URL/admin/training-stats)
 READY=$(echo $STATS | jq -r '.ready_to_train')
 
 if [ "$READY" != "true" ]; then
-    REASON=$(echo $STATS | jq -r '.ready_reason')
-    echo "[$(date)] Not ready to train: $REASON"
-    exit 1
+ REASON=$(echo $STATS | jq -r '.ready_reason')
+ echo "[$(date)] Not ready to train: $REASON"
+ exit 1
 fi
 
 # Trigger training
 RESPONSE=$(curl -s -X POST -H "X-API-Key: $API_KEY" \
-  "$DAEMON_URL/admin/trigger-training?epochs=5&incremental=true")
+ "$DAEMON_URL/admin/trigger-training? epochs=5&incremental=true")
 
 SUCCESS=$(echo $RESPONSE | jq -r '.success')
 
 if [ "$SUCCESS" == "true" ]; then
-    JOB_ID=$(echo $RESPONSE | jq -r '.job_id')
-    echo "[$(date)] Training started: $JOB_ID"
+ JOB_ID=$(echo $RESPONSE | jq -r '.job_id')
+ echo "[$(date)] Training started: $JOB_ID"
 else
-    ERROR=$(echo $RESPONSE | jq -r '.error')
-    echo "[$(date)] Training failed to start: $ERROR"
-    exit 1
+ ERROR=$(echo $RESPONSE | jq -r '.error')
+ echo "[$(date)] Training failed to start: $ERROR"
+ exit 1
 fi
 
 echo "[$(date)] Weekly retraining complete!"
@@ -333,32 +333,32 @@ DAEMON_URL = "http://localhost:8000"
 API_KEY = open('.nordiq_key').read().strip()
 
 def weekly_retrain():
-    """Run weekly retraining."""
-    print(f"[{datetime.now()}] Starting weekly retraining...")
+ """Run weekly retraining."""
+ print(f"[{datetime.now()}] Starting weekly retraining...")
 
-    headers = {"X-API-Key": API_KEY}
+ headers = {"X-API-Key": API_KEY}
 
-    # Check readiness
-    response = requests.get(f"{DAEMON_URL}/admin/training-stats", headers=headers)
-    stats = response.json()
+ # Check readiness
+ response = requests.get(f"{DAEMON_URL}/admin/training-stats", headers=headers)
+ stats = response.json()
 
-    if not stats['ready_to_train']:
-        print(f"Not ready: {stats['ready_reason']}")
-        return
+ if not stats['ready_to_train']:
+ print(f"Not ready: {stats['ready_reason']}")
+ return
 
-    # Trigger training
-    response = requests.post(
-        f"{DAEMON_URL}/admin/trigger-training",
-        params={'epochs': 5, 'incremental': True},
-        headers=headers
-    )
+ # Trigger training
+ response = requests.post(
+ f"{DAEMON_URL}/admin/trigger-training",
+ params={'epochs': 5, 'incremental': True},
+ headers=headers
+ )
 
-    result = response.json()
+ result = response.json()
 
-    if result['success']:
-        print(f"Training started: {result['job_id']}")
-    else:
-        print(f"Training failed: {result['error']}")
+ if result['success']:
+ print(f"Training started: {result['job_id']}")
+ else:
+ print(f"Training failed: {result['error']}")
 
 # Schedule every Sunday at 2 AM
 schedule.every().sunday.at("02:00").do(weekly_retrain)
@@ -366,8 +366,8 @@ schedule.every().sunday.at("02:00").do(weekly_retrain)
 print("Scheduler started. Press Ctrl+C to exit.")
 
 while True:
-    schedule.run_pending()
-    time.sleep(60)
+ schedule.run_pending()
+ time.sleep(60)
 ```
 
 **Run as systemd service:**
@@ -397,12 +397,12 @@ The data buffer accumulates ALL incoming metrics into daily parquet files:
 
 ```
 data_buffer/
-├── metrics_2025-01-15.parquet  (45,000 records, 4.2 MB)
-├── metrics_2025-01-16.parquet  (47,200 records, 4.5 MB)
-├── metrics_2025-01-17.parquet  (46,800 records, 4.4 MB)
+├── metrics_2025-01-15.parquet (45,000 records, 4.2 MB)
+├── metrics_2025-01-16.parquet (47,200 records, 4.5 MB)
+├── metrics_2025-01-17.parquet (46,800 records, 4.4 MB)
 ...
-├── metrics_2025-01-29.parquet  (48,100 records, 4.6 MB)
-└── metrics_2025-01-30.parquet  (12,300 records, 1.1 MB)  ← Today (incomplete)
+├── metrics_2025-01-29.parquet (48,100 records, 4.6 MB)
+└── metrics_2025-01-30.parquet (12,300 records, 1.1 MB) ← Today (incomplete)
 ```
 
 **Default Configuration:**
@@ -423,7 +423,7 @@ By default, training uses last 30 days:
 
 ```python
 # In auto_retrainer.py
-training_days = 30  # Use last 30 days of data
+training_days = 30 # Use last 30 days of data
 ```
 
 **Adjust for your needs:**
@@ -450,7 +450,7 @@ Number of training iterations:
 **incremental=true** (default):
 - Resumes from latest checkpoint
 - Adds epochs to existing model
-- Faster training (leverages previous learning)
+- Faster training (use previous learning)
 - Continuous improvement
 
 **incremental=false**:
@@ -504,36 +504,36 @@ headers = {"X-API-Key": API_KEY}
 
 # Trigger training
 response = requests.post(
-    "http://localhost:8000/admin/trigger-training",
-    params={'epochs': 10},
-    headers=headers
+ "http://localhost:8000/admin/trigger-training",
+ params={'epochs': 10},
+ headers=headers
 )
 
 job_id = response.json()['job_id']
 
 # Poll until complete
 while True:
-    response = requests.get(
-        f"http://localhost:8000/admin/training-status?job_id={job_id}",
-        headers=headers
-    )
+ response = requests.get(
+ f"http://localhost:8000/admin/training-status? job_id={job_id}",
+ headers=headers
+ )
 
-    status = response.json()
+ status = response.json()
 
-    print(f"Status: {status['status']} | Progress: {status['progress_pct']}%")
+ print(f"Status: {status['status']} | Progress: {status['progress_pct']}%")
 
-    if status['status'] in ['completed', 'failed', 'cancelled']:
-        break
+ if status['status'] in ['completed', 'failed', 'cancelled']:
+ break
 
-    time.sleep(10)
+ time.sleep(10)
 
 # Check result
 if status['status'] == 'completed':
-    print(f"✅ Training successful!")
-    print(f"   Model: {status['model_path']}")
-    print(f"   Duration: {status['duration_seconds']}s")
+ print(f"✅ Training successful!")
+ print(f" Model: {status['model_path']}")
+ print(f" Duration: {status['duration_seconds']}s")
 else:
-    print(f"❌ Training failed: {status['error']}")
+ print(f"❌ Training failed: {status['error']}")
 ```
 
 ---
@@ -588,7 +588,7 @@ curl -H "X-API-Key: $API_KEY" http://localhost:8000/admin/training-status
 
 # If model trained but not reloaded, manually reload
 curl -X POST -H "X-API-Key: $API_KEY" \
-  http://localhost:8000/admin/reload-model
+ http://localhost:8000/admin/reload-model
 ```
 
 ---
@@ -628,12 +628,12 @@ Training jobs are logged. Review periodically:
 
 ```json
 {
-  "history": {
-    "total_trainings": 12,
-    "successful": 11,
-    "failed": 1,
-    "last_training": "2025-01-30T14:30:22"
-  }
+ "history": {
+ "total_trainings": 12,
+ "successful": 11,
+ "failed": 1,
+ "last_training": "2025-01-30T14:30:22"
+ }
 }
 ```
 
