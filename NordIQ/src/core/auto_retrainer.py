@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 """
+NordIQ AI Systems - Automated Retraining System
+Nordic precision, AI intelligence
+
+Copyright (c) 2025 NordIQ AI, LLC. All rights reserved.
+Developed by Craig Giannelli
+
+This software is licensed under the Business Source License 1.1.
+See LICENSE file for details.
+
 Automated Retraining System - Background Model Training
 
 Handles automated model retraining triggered by:

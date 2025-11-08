@@ -4,6 +4,8 @@
 
 Copyright © 2025 NordIQ AI, LLC. All rights reserved.
 
+**License**: [Business Source License 1.1](LICENSE) - Free for development/testing, commercial license required for production use. Converts to Apache 2.0 on 2029-01-01.
+
 ---
 
 ## 🚀 Quick Start

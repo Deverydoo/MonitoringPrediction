@@ -1,0 +1,94 @@
+NordIQ Predictive Infrastructure Monitoring System
+Copyright (c) 2025 NordIQ AI, LLC. All rights reserved.
+Developed by Craig Giannelli
+
+This software is licensed under the Business Source License 1.1.
+See LICENSE file for details.
+
+-----------------------------------------------------------------------------
+
+LICENSING SUMMARY
+
+Free for Development & Testing
+✓ Use for development, testing, and evaluation
+✓ Deploy in non-production environments
+✓ Educational and research use
+✓ Modify for your own use
+
+Requires Commercial License for Production
+✗ Production deployment requires commercial license
+✗ Business-critical operations require commercial license
+✗ Revenue-generating use requires commercial license
+✗ Commercial services to third parties require commercial license
+
+For commercial licensing: licensing@nordiq.ai
+
+-----------------------------------------------------------------------------
+
+OPEN SOURCE CONVERSION
+
+On 2029-01-01 (Change Date), this software will automatically convert to
+Apache License 2.0, making it fully open source.
+
+-----------------------------------------------------------------------------
+
+THIRD-PARTY DEPENDENCIES
+
+This software uses the following open-source components:
+
+PyTorch - BSD-style License
+  Copyright (c) 2016-2023 Facebook, Inc. and its affiliates
+  https://github.com/pytorch/pytorch/blob/master/LICENSE
+
+PyTorch Forecasting - MIT License
+  Copyright (c) 2020 Jan Beitner
+  https://github.com/jdb78/pytorch-forecasting
+
+Pandas - BSD 3-Clause License
+  Copyright (c) 2008-2023, AQR Capital Management, LLC, Lambda Foundry, Inc.
+  and PyData Development Team
+  https://github.com/pandas-dev/pandas/blob/main/LICENSE
+
+NumPy - BSD 3-Clause License
+  Copyright (c) 2005-2023, NumPy Developers
+  https://numpy.org/doc/stable/license.html
+
+Dash / Plotly - MIT License
+  Copyright (c) 2016-2023 Plotly, Inc.
+  https://github.com/plotly/dash/blob/dev/LICENSE
+
+FastAPI - MIT License
+  Copyright (c) 2018-2023 Sebastián Ramírez
+  https://github.com/tiangolo/fastapi/blob/master/LICENSE
+
+Uvicorn - BSD 3-Clause License
+  Copyright (c) 2017-2023, Encode OSS Ltd.
+  https://github.com/encode/uvicorn/blob/master/LICENSE.md
+
+SHAP - MIT License
+  Copyright (c) 2018 Scott Lundberg
+  https://github.com/slundberg/shap/blob/master/LICENSE
+
+For a complete list of dependencies and their licenses, see requirements.txt
+and requirements_inference.txt.
+
+-----------------------------------------------------------------------------
+
+CONTACT
+
+NordIQ AI, LLC
+Developer: Craig Giannelli
+Email: licensing@nordiq.ai
+Web: https://nordiq.ai
+
+For support, bug reports, and feature requests:
+https://github.com/Deverydoo/MonitoringPrediction/issues
+
+-----------------------------------------------------------------------------
+
+TRADEMARKS
+
+"NordIQ" is a trademark of NordIQ AI, LLC.
+"Nordic precision, AI intelligence" is a trademark of NordIQ AI, LLC.
+
+All other trademarks are property of their respective owners.
