@@ -1,4 +1,4 @@
-# Managed Hosting Economics - NordIQ AI
+# Managed Hosting Economics - ArgusAI
 
 **Version:** 1.2.1
 **Updated:** 2025-10-18
@@ -8,7 +8,7 @@
 
 ## Overview
 
-NordIQ offers **Managed Hosting** as a premium tier where we deploy and manage the NordIQ AI system on AWS infrastructure on behalf of the customer. This provides the "SaaS experience" without requiring automated multi-tenant infrastructure.
+NordIQ offers **Managed Hosting** as a premium tier where we deploy and manage the ArgusAI system on AWS infrastructure on behalf of the customer. This provides the "SaaS experience" without requiring automated multi-tenant infrastructure.
 
 ---
 
@@ -319,6 +319,6 @@ When you hit 5+ managed hosting customers ($187K+ ARR), invest in:
 
 ---
 
-**Document Owner:** Craig Giannelli (NordIQ AI, LLC)
+**Document Owner:** Craig Giannelli (ArgusAI, LLC)
 **Last Updated:** 2025-10-18
 **Next Review:** After first managed hosting customer or Q1 2026

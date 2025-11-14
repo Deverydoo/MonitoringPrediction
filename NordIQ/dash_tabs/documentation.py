@@ -37,7 +37,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
         html.H4("📚 Dashboard Documentation", className="mb-3"),
         dbc.Alert([
             html.Strong("Complete Guide: "),
-            "Understanding and using the NordIQ AI Monitoring Dashboard"
+            "Understanding and using the ArgusAI Monitoring Dashboard"
         ], color="info")
     ])
 
@@ -303,7 +303,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
     footer = dbc.Alert([
         html.Strong("📚 Documentation Complete!"),
         html.Br(), html.Br(),
-        "This guide covers the core concepts and operational procedures for the NordIQ AI Monitoring Dashboard. ",
+        "This guide covers the core concepts and operational procedures for the ArgusAI Monitoring Dashboard. ",
         "For system diagnostics, see the Advanced tab. For future enhancements, see the Roadmap tab."
     ], color="success", className="mt-4")
 

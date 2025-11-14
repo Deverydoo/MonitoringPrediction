@@ -1,7 +1,7 @@
 @echo off
-REM NordIQ AI Systems - Windows Stop Script
+REM ArgusAI - Windows Stop Script
 
-echo Stopping NordIQ AI Systems...
+echo Stopping ArgusAI...
 echo.
 
 taskkill /FI "WINDOWTITLE eq TFT Inference Daemon*" /T /F 2>nul

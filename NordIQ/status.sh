@@ -1,7 +1,7 @@
 #!/bin/bash
-# NordIQ AI Systems - Status Check Script
-# Copyright (c) 2025 NordIQ AI, LLC.
-# Nordic precision, AI intelligence
+# ArgusAI - Status Check Script
+# Built by Craig Giannelli and Claude Code
+# Predictive System Monitoring
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_DIR="$SCRIPT_DIR/logs/pids"
@@ -13,7 +13,7 @@ METRICS_PORT=8001
 DASHBOARD_PORT=8050
 
 echo "============================================"
-echo "NordIQ AI Systems - Service Status"
+echo "ArgusAI - Service Status"
 echo "============================================"
 echo
 

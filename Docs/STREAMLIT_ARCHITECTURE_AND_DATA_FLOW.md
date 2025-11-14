@@ -1,4 +1,4 @@
-# Streamlit Architecture and Data Flow - NordIQ Dashboard
+# Dash Architecture and Data Flow - NordIQ Dashboard
 
 **Created:** October 18, 2025
 **Purpose:** Understanding how data flows through the system to optimize performance
@@ -17,7 +17,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Streamlit Dashboard                          │
+│                     Dash Dashboard                          │
 │                   (tft_dashboard_web.py)                         │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -200,7 +200,7 @@ def get_predictions(self) -> Dict[str, Any]:
 
 ---
 
-### 4. Dashboard Data Fetch (Streamlit → Inference Daemon)
+### 4. Dashboard Data Fetch (Dash → Inference Daemon)
 
 **File:** `NordIQ/src/dashboard/tft_dashboard_web.py`
 
@@ -327,7 +327,7 @@ with tab3:  # Top 5 Risks
 - Prediction cache: ~450KB (current predictions)
 - **Total: ~100MB** (very reasonable)
 
-**Streamlit Dashboard:**
+**Dash Dashboard:**
 - Cached predictions: ~450KB
 - Cached risk scores: ~10KB (90 servers × ~100 bytes)
 - UI state: ~50KB
@@ -337,13 +337,13 @@ with tab3:  # Top 5 Risks
 
 ---
 
-## Streamlit Execution Model
+## Dash Execution Model
 
-### How Streamlit Reruns Work
+### How Dash Reruns Work
 
 ```python
 # Every time user interacts with UI (click button, switch tab, etc.):
-# 1. Streamlit reruns ENTIRE script from top to bottom
+# 1. Dash reruns ENTIRE script from top to bottom
 # 2. BUT: @st.cache_data prevents redundant computation
 # 3. Only uncached code actually executes
 
@@ -412,7 +412,7 @@ def get_all_server_profiles(server_names: tuple):
 - Already optimal!
 
 ✅ **Data Fetch:**
-- Streamlit caches with 5-second TTL
+- Dash caches with 5-second TTL
 - Cache hit rate >90% during normal use
 - No redundant API calls
 
@@ -566,7 +566,7 @@ elif active_tab == 'Heatmap':
 
 1. **API Design:** Single request for all servers (not N+1)
 2. **Batch Processing:** TFT runs predictions for all servers at once
-3. **Caching:** Streamlit cache prevents redundant API calls
+3. **Caching:** Dash cache prevents redundant API calls
 4. **Memory:** Efficient (~100MB daemon, ~500KB dashboard)
 
 ### ✅ What Phase 1 Fixed
@@ -610,7 +610,7 @@ elif active_tab == 'Heatmap':
 
 ---
 
-**Maintained By:** Craig Giannelli / NordIQ AI Systems, LLC
+**Maintained By:** Craig Giannelli / ArgusAI, LLC
 **Created:** October 18, 2025
 **Last Updated:** October 18, 2025
 **Status:** Complete - Ready for Phase 2 planning

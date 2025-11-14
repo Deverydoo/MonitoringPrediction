@@ -1,13 +1,13 @@
 #!/bin/bash
-# NordIQ AI Systems - Production Stop Script
-# Copyright (c) 2025 NordIQ AI, LLC.
-# Nordic precision, AI intelligence
+# ArgusAI - Production Stop Script
+# Built by Craig Giannelli and Claude Code
+# Predictive System Monitoring
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_DIR="$SCRIPT_DIR/logs/pids"
 
 echo "============================================"
-echo "NordIQ AI Systems - Stopping Services"
+echo "ArgusAI - Stopping Services"
 echo "============================================"
 echo
 

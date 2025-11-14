@@ -1,8 +1,8 @@
-# NordIQ AI Systems - Predictive Infrastructure Monitoring
+# ArgusAI - Predictive Infrastructure Monitoring
 
-**Nordic precision, AI intelligence**
+**Predictive System Monitoring**
 
-Copyright © 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 
 **License**: [Business Source License 1.1](LICENSE) - Free for development/testing, commercial license required for production use. Converts to Apache 2.0 on 2029-01-01.
 
@@ -59,7 +59,7 @@ NordIQ/
 │   │   ├── tft_inference_daemon.py
 │   │   ├── metrics_generator_daemon.py
 │   │   └── adaptive_retraining_daemon.py
-│   ├── dashboard/           # Streamlit web dashboard
+│   ├── dashboard/           # Dash web dashboard
 │   │   ├── tft_dashboard_web.py
 │   │   └── Dashboard/       # Modular components
 │   ├── training/            # Model training
@@ -75,7 +75,7 @@ NordIQ/
 ├── models/                  # Trained models
 ├── data/                    # Runtime data
 ├── logs/                    # Application logs
-└── .streamlit/              # Dashboard config
+└── dash_config.py              # Dashboard config
 ```
 
 ---
@@ -153,7 +153,7 @@ python bin/generate_api_key.py --force
 
 Models are stored in `models/` directory. The system automatically uses the most recent model.
 
-To use a specific model, set in `.streamlit/config.toml`:
+To use a specific model, set in `dash_config.pydash_config.py`:
 ```toml
 [server]
 model_path = "models/tft_model_YYYYMMDD_HHMMSS"
@@ -217,7 +217,7 @@ CMD ["./start_all.sh"]
 Create `/etc/systemd/system/nordiq.service`:
 ```ini
 [Unit]
-Description=NordIQ AI Monitoring System
+Description=ArgusAI Monitoring System
 After=network.target
 
 [Service]
@@ -259,7 +259,7 @@ WantedBy=multi-user.target
 
 2. Check API key matches in:
    - `.env` file
-   - `.streamlit/secrets.toml`
+   - `dash_config.py.env`
 
 ### No predictions appearing
 
@@ -288,10 +288,10 @@ WantedBy=multi-user.target
 
 Business Source License 1.1
 
-Copyright © 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 
 See LICENSE file for details.
 
 ---
 
-**Nordic precision, AI intelligence** 🧭
+**Predictive System Monitoring** 🧭

@@ -50,12 +50,12 @@
 
 ## v1.1.0 (October 17, 2025) - NordIQ Branding Release
 
-**Major Change:** Rebranding from generic "TFT Monitoring" to **NordIQ AI Systems**
+**Major Change:** Rebranding from generic "TFT Monitoring" to **ArgusAI**
 
 ### Branding
-- ✅ Company name: NordIQ AI Systems, LLC
+- ✅ Company name: ArgusAI, LLC
 - ✅ Brand identity: 🧭 Nordic compass (precision, direction)
-- ✅ Tagline: "Nordic precision, AI intelligence"
+- ✅ Tagline: "Predictive System Monitoring"
 - ✅ Color scheme: Ice blue (#00D4FF) + Navy blue (#141E30)
 - ✅ Website: 6/6 pages complete (nordiqai.io planned)
 
@@ -139,7 +139,7 @@
 ### Core Functionality
 - ✅ TFT model training pipeline
 - ✅ Inference daemon (FastAPI)
-- ✅ Streamlit dashboard (basic)
+- ✅ Dash dashboard (basic)
 - ✅ 4-metric monitoring (CPU, memory, disk I/O, latency)
 
 ### Demo
@@ -229,7 +229,7 @@
 
 ---
 
-**Maintained By:** Craig Giannelli / NordIQ AI Systems, LLC
+**Maintained By:** Craig Giannelli / ArgusAI, LLC
 **Git Tag:** v1.2.1
 **Release Date:** October 18, 2025
 **Next Review:** After first paying customer

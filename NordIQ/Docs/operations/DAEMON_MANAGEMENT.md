@@ -956,5 +956,5 @@ Production Deployment (no metrics generator):
 
 **Document Version:** 1.0.0
 **Last Updated:** October 29, 2025
-**Company:** NordIQ AI, LLC
+**Company:** ArgusAI, LLC
 **License:** Business Source License 1.1

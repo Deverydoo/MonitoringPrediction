@@ -573,7 +573,7 @@ def check_ip_whitelist():
 ### 2. HTTPS/TLS
 ```bash
 # Run Streamlit with HTTPS
-streamlit run tft_dashboard_web.py \
+python dash_app.py \
     --server.sslCertFile=/path/to/cert.pem \
     --server.sslKeyFile=/path/to/key.pem
 ```

@@ -684,4 +684,4 @@ Day 60: Retrain again → Continuous improvement
 **Daemon Version Required:** >=2.3
 **API Compatibility:** Fully backward compatible
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

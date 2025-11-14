@@ -135,7 +135,7 @@
 │                          REST API (8000)                │
 │                                  ↓                      │
 │                          [Web Dashboard]                │
-│                              Streamlit                  │
+│                              Dash                  │
 │                          http://localhost:8501          │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -236,7 +236,7 @@ Move to `archive/` folder:
 
 ### Frameworks & Libraries
 - [PyTorch Forecasting](https://pytorch-forecasting.readthedocs.io/) - TFT implementation
-- [Streamlit](https://streamlit.io/) - Dashboard framework
+- [Dash](https://streamlit.io/) - Dashboard framework
 - [FastAPI](https://fastapi.tiangolo.com/) - REST API framework
 
 ### Research Papers

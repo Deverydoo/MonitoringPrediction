@@ -440,4 +440,4 @@ Planned for future versions:
 **Daemon Version Required:** >=2.2
 **API Compatibility:** Backward compatible
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

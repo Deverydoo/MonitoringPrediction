@@ -1,6 +1,6 @@
 # MongoDB Integration Guide
 
-**NordIQ AI - Production Data Integration**
+**ArgusAI - Production Data Integration**
 
 Complete guide for connecting NordIQ to MongoDB collections. While MongoDB is less efficient than time-series databases for metrics storage, it's widely deployed in enterprise environments and this guide shows you how to integrate effectively.
 
@@ -1162,7 +1162,7 @@ sudo journalctl -u nordiq-mongo-adapter -f
 
 **Version:** 1.0.0
 **Last Updated:** 2025-01-30
-**Company:** NordIQ AI Systems, LLC
+**Company:** ArgusAI, LLC
 **License:** Business Source License 1.1
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

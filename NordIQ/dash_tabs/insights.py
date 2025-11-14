@@ -463,7 +463,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float],
         html.H4("🧠 Explainable AI Insights", className="mb-3"),
         dbc.Alert([
             html.P([
-                html.Strong("NordIQ AI Advantage: "),
+                html.Strong("ArgusAI Advantage: "),
                 "Most monitoring tools just show you numbers. ",
                 "We show you the ", html.Strong("reasoning"), " behind them."
             ], className="mb-0")

@@ -473,7 +473,7 @@ WS   /ws/predictions  # Future: streaming predictions
 ## 🎨 Dashboard Rules
 
 ### Web Dashboard Standards
-- ✅ Use `tft_dashboard_web.py` (Streamlit)
+- ✅ Use `tft_dashboard_web.py` (Dash)
 - ❌ Terminal dashboards deprecated
 - ✅ Connect to daemon via REST API
 - ✅ Include demo modes (Healthy/Degrading/Critical)
@@ -862,7 +862,7 @@ python data_validator.py training/server_metrics.parquet
 python tft_inference.py --daemon --port 8000
 
 # 6. Launch dashboard
-streamlit run tft_dashboard_web.py
+python dash_app.py
 
 # 7. Test end-to-end
 # Use dashboard demo modes

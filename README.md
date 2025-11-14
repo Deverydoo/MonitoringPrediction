@@ -1,8 +1,8 @@
-# NordIQ AI Systems
+# ArgusAI
 
 ## Predictive Infrastructure Monitoring
 
-> **Nordic precision, AI intelligence**
+> **Predictive System Monitoring**
 >
 > Predict server incidents 8 hours in advance with 88% accuracy
 > Production-ready AI for infrastructure monitoring and proactive incident prevention
@@ -12,10 +12,9 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-yellow.svg)](LICENSE)
 
-**Version 1.1.0** - NordIQ AI branding release | [Changelog](CHANGELOG.md)
+**Version 1.1.0** - ArgusAI branding release | [Changelog](CHANGELOG.md)
 
-**Copyright © 2025 NordIQ AI, LLC. All rights reserved.**
-Developed by Craig Giannelli
+**Built by Craig Giannelli and Claude Code**
 
 ![Dashboard Preview](preview.webp)
 
@@ -29,7 +28,7 @@ This system uses **Temporal Fusion Transformers (TFT)** to predict server incide
 - 🔮 **8-hour advance warning** of critical incidents
 - 📊 **88% prediction accuracy** on server failures
 - 🚀 **Real-time monitoring** via REST API + WebSocket
-- 🎨 **Interactive web dashboard** built with Streamlit
+- 🎨 **Interactive web dashboard** built with Plotly Dash
 - 🧠 **Transfer learning** - new servers get accurate predictions immediately
 - ⚡ **GPU-accelerated** inference with RTX optimization
 - 🔄 **Automatic retraining** pipeline for fleet changes
@@ -139,7 +138,7 @@ cd NordIQ
  ▼
 ┌─────────────────────────────────────────────────┐
 │ NordIQ/src/dashboard/tft_dashboard_web.py │
-│ Interactive Streamlit dashboard │
+│ Interactive Dash dashboard │
 │ → http://localhost:8501 │
 └─────────────────────────────────────────────────┘
 ```
@@ -268,7 +267,7 @@ MonitoringPrediction/
 │ ├── models/ # Trained models
 │ ├── data/ # Runtime data
 │ ├── logs/ # Application logs
-│ └── .streamlit/ # Dashboard config
+│ └── dash_config.py # Dashboard config
 │
 ├── Docs/ # Documentation
 │ ├── RAG/ # For AI assistants
@@ -381,7 +380,7 @@ MonitoringPrediction/
 ├── 📊 metrics_generator.py # Training data generator
 ├── 🧠 tft_trainer.py # Model training
 ├── ⚡ tft_inference.py # Production inference daemon
-├── 🎨 tft_dashboard_web.py # Streamlit web dashboard
+├── 🎨 tft_dashboard_web.py # Dash web dashboard
 ├── 🔐 data_validator.py # Contract validation
 ├── 🔑 server_encoder.py # Hash-based server encoding
 ├── 🎮 gpu_profiles.py # GPU optimization profiles
@@ -551,7 +550,7 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 **Built with:**
 - [PyTorch Forecasting](https://pytorch-forecasting.readthedocs.io/) - TFT implementation
-- [Streamlit](https://streamlit.io/) - Web dashboard framework
+- [Plotly Dash](https://dash.plotly.com/) - Web dashboard framework
 - [PyTorch](https://pytorch.org/) - Deep learning framework
 - [Pandas](https://pandas.pydata.org/) - Data manipulation
 - [Plotly](https://plotly.com/) - Interactive visualizations

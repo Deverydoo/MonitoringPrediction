@@ -1,4 +1,4 @@
-# Streamlit Dashboard Performance Optimization Plan
+# Dash Dashboard Performance Optimization Plan
 
 **Version:** 2.0.0
 **Last Updated:** October 29, 2025
@@ -109,7 +109,7 @@ st.plotly_chart(fig)
 # Next refresh: Recreates everything again
 ```
 
-**Issue:** DOM manipulation is expensive. Streamlit recreates entire page every run.
+**Issue:** DOM manipulation is expensive. Dash recreates entire page every run.
 
 ---
 
@@ -405,7 +405,7 @@ with st.spinner("Calculating..."):
 
 **Use Case:** Only update parts of page that changed
 
-**Streamlit Fragments:**
+**Dash Fragments:**
 ```python
 @st.fragment(run_every="10s")
 def update_kpi_metrics():
@@ -930,7 +930,7 @@ else:
 
 ## References
 
-### Streamlit Performance Docs
+### Dash Performance Docs
 - [Caching Guide](https://docs.streamlit.io/library/advanced-features/caching)
 - [Session State](https://docs.streamlit.io/library/api-reference/session-state)
 - [Fragments](https://docs.streamlit.io/library/api-reference/execution-flow/st.fragment)
@@ -946,7 +946,7 @@ else:
 
 **Document Version:** 1.0.0
 **Last Updated:** October 29, 2025
-**Company:** NordIQ AI, LLC
+**Company:** ArgusAI, LLC
 
 ---
 

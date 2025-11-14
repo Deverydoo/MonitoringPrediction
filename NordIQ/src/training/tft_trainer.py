@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-tft_trainer.py - NordIQ AI TFT Model Trainer
+tft_trainer.py - ArgusAI TFT Model Trainer
 Updated to work with the actual metrics_generator.py output format
 Prioritizes parquet files over JSON for better performance
 
-Copyright © 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 """
 
 # Setup Python path for imports

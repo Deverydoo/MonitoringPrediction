@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-main.py - Main Interface for NordIQ AI Systems
+main.py - Main Interface for ArgusAI
 Streamlined CLI for dataset creation, training, and prediction pipeline
 
 Version: 1.1.0
-Copyright © 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 """
 
 # Setup Python path for imports

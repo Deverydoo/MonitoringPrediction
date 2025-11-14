@@ -430,7 +430,7 @@ else:
 ### 3. Dashboard Restart (Session State Lost)
 
 **Scenario:**
-- Dashboard restarts (Streamlit server restart)
+- Dashboard restarts (Dash server restart)
 - Session state cleared
 - `last_update = None`
 
@@ -454,7 +454,7 @@ if st.session_state.last_update is None:
 - Each has own cache
 
 **Behavior:**
-- Cache is per-session (Streamlit default)
+- Cache is per-session (Dash default)
 - Each user's time_bucket calculated independently
 - No cache sharing between sessions
 
@@ -695,7 +695,7 @@ predictions, alerts, success = fetch_predictions_cached(
 
 ---
 
-**Maintained By:** Craig Giannelli / NordIQ AI Systems, LLC
+**Maintained By:** Craig Giannelli / ArgusAI, LLC
 **Created:** October 18, 2025
 **Status:** Implemented and tested
 **Next Review:** After production deployment with real users

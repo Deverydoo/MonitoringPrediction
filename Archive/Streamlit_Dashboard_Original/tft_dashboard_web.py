@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-NordIQ AI Systems - Predictive Infrastructure Monitoring Dashboard
-Nordic precision, AI intelligence
+ArgusAI - Predictive Infrastructure Monitoring Dashboard
+Predictive System Monitoring
 
-Copyright (c) 2025 NordIQ AI, LLC. All rights reserved.
-Developed by Craig Giannelli
+Built by Craig Giannelli and Claude Code
 
 This software is licensed under the Business Source License 1.1.
 See LICENSE file for details.
@@ -386,12 +385,12 @@ with st.sidebar:
 # START RENDER TIMER (for performance comparison with Dash PoC)
 _render_start_time = time.time()
 
-st.title("🧭 NordIQ AI Systems")
+st.title("🧭 ArgusAI")
 
 # Add refresh indicator
 col1, col2 = st.columns([4, 1])
 with col1:
-    st.caption("Nordic precision, AI intelligence - Predictive Infrastructure Monitoring")
+    st.caption("Predictive System Monitoring - Predictive Infrastructure Monitoring")
 with col2:
     if st.session_state.daemon_connected and st.session_state.last_update:
         time_since_update = (datetime.now() - st.session_state.last_update).total_seconds()
@@ -655,4 +654,4 @@ if auto_refresh and st.session_state.daemon_connected:
 # =============================================================================
 
 st.divider()
-st.caption("🧭 NordIQ AI Systems - Nordic precision, AI intelligence | © 2025 NordIQ AI, LLC | Built with Streamlit")
+st.caption("🧭 ArgusAI - Predictive System Monitoring | Built by Craig Giannelli and Claude Code | Built with Streamlit")

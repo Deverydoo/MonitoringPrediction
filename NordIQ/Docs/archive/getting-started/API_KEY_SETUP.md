@@ -78,7 +78,7 @@ pip install python-dotenv
 python tft_inference_daemon.py
 
 # Terminal 2: Start dashboard (reads from .streamlit/secrets.toml)
-streamlit run tft_dashboard_web.py
+python dash_app.py
 ```
 
 ---

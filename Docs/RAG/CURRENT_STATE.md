@@ -1,8 +1,8 @@
-# Current State - NordIQ AI Systems
+# Current State - ArgusAI
 
 **Version**: 1.1.0 (preparing for 1.2.0)
 **Last Updated**: October 18, 2025 (afternoon - post NordIQ/ reorganization)
-**Company**: NordIQ AI Systems, LLC
+**Company**: ArgusAI, LLC
 **Purpose**: Single source of truth for current system state and context
 **Status**: ✅ **Production Ready** - NordIQ/ deployable structure, branded, modular architecture
 
@@ -11,8 +11,8 @@
 ## 🎯 System Overview
 
 **What We Have**: Production-ready predictive monitoring dashboard with 14 NordIQ Metrics Framework metrics
-**Company**: NordIQ AI Systems, LLC
-**Tagline**: "Nordic precision, AI intelligence"
+**Company**: ArgusAI, LLC
+**Tagline**: "Predictive System Monitoring"
 **Current Phase**: Post-demo enhancement and optimization
 **Model**: 3-epoch Spectrum-trained model (20 hours, 2 weeks data, 75-80% accuracy)
 **Architecture**: Clean modular structure - 3,241 lines → 493 lines main file (84.8% reduction)
@@ -21,15 +21,15 @@
 
 ---
 
-## 🧭 NordIQ AI Branding (v1.1.0)
+## 🧭 ArgusAI Branding (v1.1.0)
 
 ### Company Identity
-- **Legal Name**: NordIQ AI Systems, LLC
+- **Legal Name**: ArgusAI, LLC
 - **Domain**: nordiqai.io ✅ (secured)
-- **Tagline**: "Nordic precision, AI intelligence"
+- **Tagline**: "Predictive System Monitoring"
 - **Icon**: 🧭 (compass - Nordic navigation)
 - **Developer**: Craig Giannelli
-- **Copyright**: © 2025 NordIQ AI, LLC. All rights reserved.
+- **Copyright**: Built by Craig Giannelli and Claude Code. All rights reserved.
 
 ### Brand Colors
 - **Primary**: Navy blue (#0F172A) - trust, depth, intelligence
@@ -123,7 +123,7 @@ OLD_METRICS = ['cpu_pct', 'mem_pct', 'disk_io_mb_s', 'latency_ms']  # ❌
 - Status: ✅ Baselines tuned
 
 **4. Dashboard** (`tft_dashboard_web.py`)
-- Streamlit web interface on port 8501
+- Dash web interface on port 8501
 - 10 tabs: Overview, Heatmap, Top 5, Historical, Cost Avoidance, Auto-Remediation, Alerting, Advanced, Documentation, Roadmap
 - Status: ✅ Modular architecture complete (84.8% size reduction)
 - Performance: 60% faster with strategic caching
@@ -515,7 +515,7 @@ See `FUTURE_ROADMAP.md` for complete enhancement plan.
 - Dashboard enhancements: ~20 hours
 - Bug fixes & polish: ~20 hours
 - Documentation: ~22 hours
-- NordIQ AI branding & business planning: ~4 hours (v1.1.0)
+- ArgusAI branding & business planning: ~4 hours (v1.1.0)
 - NordIQ/ application reorganization: ~4 hours (Oct 18 - preparing v1.2.0)
 
 **Total Development**: ~158 hours with AI assistance
@@ -568,5 +568,5 @@ This document provides complete context for AI sessions and human developers to 
 
 **Document Version**: 2.2.0 (Updated for NordIQ/ reorganization)
 **System Version**: 1.1.0 (preparing for 1.2.0 after NordIQ/ testing)
-**Company**: NordIQ AI Systems, LLC
+**Company**: ArgusAI, LLC
 **Last Updated**: October 18, 2025 (afternoon)

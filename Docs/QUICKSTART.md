@@ -148,7 +148,7 @@ python tft_inference_daemon.py
 
 ### Start the Dashboard
 ```bash
-streamlit run tft_dashboard_web.py
+python dash_app.py
 ```
 
 **What it does**: Launches the web dashboard at http://localhost:8501

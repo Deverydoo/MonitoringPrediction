@@ -117,7 +117,7 @@ curl -H "X-API-Key: $API_KEY" http://localhost:8000/status | jq
 #### 5. View Dashboard
 
 ```bash
-streamlit run tft_dashboard_web.py
+python dash_app.py
 ```
 
 Open browser to: http://localhost:8501

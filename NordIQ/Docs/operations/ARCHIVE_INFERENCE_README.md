@@ -49,7 +49,7 @@ The inference system uses a **clean separation of concerns** with three independ
 |------|-------|---------|
 | `tft_inference_daemon.py` | 900 | **Standalone inference service** - includes embedded TFTInference class |
 | `metrics_generator_daemon.py` | 400 | **Data generator service** - streams realistic metrics with scenario control |
-| `tft_dashboard_web.py` | 1900 | **Streamlit dashboard** - visualization and monitoring |
+| `tft_dashboard_web.py` | 1900 | **Dash dashboard** - visualization and monitoring |
 
 ### Supporting Files
 
@@ -95,7 +95,7 @@ python metrics_generator_daemon.py --stream --servers 20
 
 **Dashboard:**
 ```bash
-streamlit run tft_dashboard_web.py
+python dash_app.py
 ```
 
 ---

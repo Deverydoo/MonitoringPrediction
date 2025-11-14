@@ -135,9 +135,9 @@ daemon.bat restart dashboard
 - Primary: NordIQ Blue (`#0EA5E9`)
 - Secondary: Darker Blue (`#3B82F6`)
 
-**Header:** 🧭 NordIQ AI
+**Header:** 🧭 ArgusAI
 
-**Tagline:** "Nordic precision, AI intelligence"
+**Tagline:** "Predictive System Monitoring"
 
 **Activate:**
 ```python
@@ -652,4 +652,4 @@ css = f"""
 
 **Document Version:** 1.0.0
 **Last Updated:** October 29, 2025
-**Company:** NordIQ AI, LLC
+**Company:** ArgusAI, LLC

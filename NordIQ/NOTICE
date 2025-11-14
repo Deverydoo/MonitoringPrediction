@@ -1,6 +1,5 @@
-NordIQ Predictive Infrastructure Monitoring System
-Copyright (c) 2025 NordIQ AI, LLC. All rights reserved.
-Developed by Craig Giannelli
+ArgusAI Predictive Infrastructure Monitoring System
+Built by Craig Giannelli and Claude Code
 
 This software is licensed under the Business Source License 1.1.
 See LICENSE file for details.
@@ -76,7 +75,7 @@ and requirements_inference.txt.
 
 CONTACT
 
-NordIQ AI, LLC
+ArgusAI
 Developer: Craig Giannelli
 Email: licensing@nordiq.ai
 Web: https://nordiq.ai
@@ -88,7 +87,7 @@ https://github.com/Deverydoo/MonitoringPrediction/issues
 
 TRADEMARKS
 
-"NordIQ" is a trademark of NordIQ AI, LLC.
-"Nordic precision, AI intelligence" is a trademark of NordIQ AI, LLC.
+"NordIQ" is a trademark of ArgusAI.
+"Nordic precision, AI intelligence" is a trademark of ArgusAI.
 
 All other trademarks are property of their respective owners.

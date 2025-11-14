@@ -46,7 +46,7 @@ python tft_trainer.py --epochs 20
 python tft_inference.py --daemon --port 8000 --fleet-size 20
 
 # Terminal 2: Launch dashboard
-streamlit run tft_dashboard_web.py
+python dash_app.py
 ```
 
 ## 📝 How to Contribute
@@ -128,7 +128,7 @@ python tft_trainer.py --epochs 1  # Quick smoke test
 python tft_inference.py --daemon --port 8000
 
 # 3. Test dashboard
-streamlit run tft_dashboard_web.py
+python dash_app.py
 
 # 4. Run any new tests you added
 pytest tests/ -v

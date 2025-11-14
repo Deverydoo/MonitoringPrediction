@@ -30,7 +30,7 @@ This document analyzes the actual development timeline of the TFT Monitoring Pre
 - 32 Markdown documentation files (~14,300 lines)
 - TFT model with profile-based transfer learning
 - REST API inference daemon
-- Streamlit web dashboard
+- Dash web dashboard
 - Data generation pipeline
 - Contract validation system
 - Server encoding utilities

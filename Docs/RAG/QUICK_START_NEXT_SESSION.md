@@ -10,9 +10,9 @@
 
 ## 📋 What You Need to Know
 
-### System Version: 1.1.0 (NordIQ AI Branding Release)
+### System Version: 1.1.0 (ArgusAI Branding Release)
 
-**Company**: NordIQ AI Systems, LLC | **Domain**: nordiqai.io ✅
+**Company**: ArgusAI, LLC | **Domain**: nordiqai.io ✅
 
 **Major Changes in Last Sessions**:
 
@@ -24,7 +24,7 @@
 5. ✅ Main.py CLI updated (new config structure, better UX)
 
 **v1.1.0 (Oct 17 Evening + Oct 18)**:
-6. ✅ Complete NordIQ AI branding (company, tagline, copyright)
+6. ✅ Complete ArgusAI branding (company, tagline, copyright)
 7. ✅ Business planning and legal documents
 8. ✅ License change: MIT → Business Source License 1.1
 9. ✅ Domain secured: nordiqai.io
@@ -61,7 +61,7 @@ start_all.bat  # Windows (or ./start_all.sh on Linux)
 This starts:
 - **Inference Daemon**: http://localhost:8000 (GPU-accelerated)
 - **Metrics Generator**: Streaming 20 servers every 5 seconds
-- **Dashboard**: http://localhost:8501 (Streamlit)
+- **Dashboard**: http://localhost:8501 (Dash)
 
 **Testing Checklist**:
 1. [ ] Open dashboard (http://localhost:8501)
@@ -204,7 +204,7 @@ python generate_api_key.py --force
 - ✅ API key authentication
 - ✅ Semantic versioning
 - ✅ Clean documentation
-- ✅ NordIQ AI branding
+- ✅ ArgusAI branding
 - ✅ Business Source License 1.1
 
 **Performance**:
@@ -249,7 +249,7 @@ python generate_api_key.py --force
 
 **Status**: 🟢 System fully operational! Ready for testing and deployment.
 
-**Company**: NordIQ AI Systems, LLC
+**Company**: ArgusAI, LLC
 **Website**: nordiqai.io (6/6 pages complete, ready for images + deployment)
 **System**: All bugs fixed, metrics streaming, ready to test dashboard
 **Last Updated**: October 18, 2025 (late evening)

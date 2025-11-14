@@ -1,10 +1,10 @@
 @echo off
-REM NordIQ AI Systems - Windows Startup Script
-REM Copyright (c) 2025 NordIQ AI, LLC.
-REM Nordic precision, AI intelligence
+REM ArgusAI - Windows Startup Script
+REM Built by Craig Giannelli and Claude Code
+REM Predictive System Monitoring
 
 echo ============================================
-echo NordIQ AI Systems - Starting...
+echo ArgusAI - Starting...
 echo ============================================
 
 cd /d "%~dp0"

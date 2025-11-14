@@ -594,7 +594,7 @@ This package is designed to be self-service for Wells AI engineers. Claude shoul
 
 ## License and Usage
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 
 This package is provided for Wells Fargo to evaluate NordIQ integration.
 

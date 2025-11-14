@@ -3,7 +3,7 @@
 Enhanced Server Metrics Generator - Production Level
 Generates realistic time-based multi-server telemetry for TFT training
 
-Copyright © 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 
 Features:
 - Fleet-wide 5-second polling simulation

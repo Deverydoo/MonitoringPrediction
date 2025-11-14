@@ -16,8 +16,8 @@
 # Plain header with gray text
 dbc.Row([
     dbc.Col([
-        html.H1("🧭 NordIQ AI Systems", className="brand-header"),
-        html.P("Nordic precision, AI intelligence...", className="text-muted")
+        html.H1("🧭 ArgusAI", className="brand-header"),
+        html.P("Predictive System Monitoring...", className="text-muted")
     ], width=10),
 ], className="mb-3")
 ```
@@ -27,8 +27,8 @@ dbc.Row([
 # Wells Fargo Red banner with white text
 dbc.Row([
     dbc.Col([
-        html.H1("🧭 NordIQ AI", style={'color': 'white', 'fontWeight': 'bold'}),
-        html.P("Nordic precision, AI intelligence...", style={'color': 'white', 'opacity': '0.9'})
+        html.H1("🧭 ArgusAI", style={'color': 'white', 'fontWeight': 'bold'}),
+        html.P("Predictive System Monitoring...", style={'color': 'white', 'opacity': '0.9'})
     ], width=10),
 ], style={
     'backgroundColor': BRAND_COLOR_PRIMARY,  # #D71E28 Wells Fargo Red
@@ -41,8 +41,8 @@ dbc.Row([
 **Visual Result:**
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ 🧭 NordIQ AI                                   v2.0.0-dash  │
-│ Nordic precision, AI intelligence...                         │
+│ 🧭 ArgusAI                                   v2.0.0-dash  │
+│ Predictive System Monitoring...                         │
 │                                                               │
 │ ◄─────────── Wells Fargo Red (#D71E28) ──────────────────►  │
 └──────────────────────────────────────────────────────────────┘
@@ -55,37 +55,37 @@ dbc.Row([
 **dash_config.py (line 57):**
 ```python
 # Before
-APP_TITLE = "NordIQ AI Systems - Predictive Infrastructure Monitoring"
+APP_TITLE = "ArgusAI - Predictive Infrastructure Monitoring"
 
 # After
-APP_TITLE = "NordIQ AI - Predictive Infrastructure Monitoring"
+APP_TITLE = "ArgusAI - Predictive Infrastructure Monitoring"
 ```
 
 **dash_app.py (line 3):**
 ```python
 # Before
-"""NordIQ AI Systems - Dash Production Dashboard"""
+"""ArgusAI - Dash Production Dashboard"""
 
 # After
-"""NordIQ AI - Dash Production Dashboard"""
+"""ArgusAI - Dash Production Dashboard"""
 ```
 
 **dash_app.py (line 88):**
 ```python
 # Before
-html.H1("🧭 NordIQ AI Systems", ...)
+html.H1("🧭 ArgusAI", ...)
 
 # After
-html.H1("🧭 NordIQ AI", ...)
+html.H1("🧭 ArgusAI", ...)
 ```
 
 **dash_app.py (line 181):**
 ```python
 # Before
-f"🧭 NordIQ AI Systems - Nordic precision, AI intelligence | "
+f"🧭 ArgusAI - Predictive System Monitoring | "
 
 # After
-f"🧭 NordIQ AI - Nordic precision, AI intelligence | "
+f"🧭 ArgusAI - Predictive System Monitoring | "
 ```
 
 ### 3. Wells Fargo Color Theme
@@ -131,8 +131,8 @@ BRAND_COLOR_TEXT = "#333333"
 ┌────────────────────────────────────────────────────────────────┐
 │                  WELLS FARGO RED BACKGROUND                    │
 │                                                                 │
-│  🧭 NordIQ AI                              v2.0.0-dash        │
-│  Nordic precision, AI intelligence - Predictive Infrastructure │
+│  🧭 ArgusAI                              v2.0.0-dash        │
+│  Predictive System Monitoring - Predictive Infrastructure │
 │  Monitoring                                   Dash Dashboard   │
 │                                                                 │
 └────────────────────────────────────────────────────────────────┘
@@ -214,7 +214,7 @@ BRAND_COLOR_TEXT = "#333333"
 
 **Line 57:** Removed "Systems" from APP_TITLE
 ```python
-APP_TITLE = "NordIQ AI - Predictive Infrastructure Monitoring"
+APP_TITLE = "ArgusAI - Predictive Infrastructure Monitoring"
 ```
 
 ### 2. dash_app.py
@@ -222,7 +222,7 @@ APP_TITLE = "NordIQ AI - Predictive Infrastructure Monitoring"
 **Lines 3-4:** Updated module docstring
 ```python
 """
-NordIQ AI - Dash Production Dashboard
+ArgusAI - Dash Production Dashboard
 ======================================
 ```
 
@@ -230,8 +230,8 @@ NordIQ AI - Dash Production Dashboard
 ```python
 dbc.Row([
     dbc.Col([
-        html.H1("🧭 NordIQ AI", style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '0'}),
-        html.P("Nordic precision, AI intelligence - Predictive Infrastructure Monitoring",
+        html.H1("🧭 ArgusAI", style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '0'}),
+        html.P("Predictive System Monitoring - Predictive Infrastructure Monitoring",
                style={'color': 'white', 'opacity': '0.9', 'marginBottom': '0'})
     ], width=10),
     dbc.Col([
@@ -250,7 +250,7 @@ dbc.Row([
 
 **Line 181:** Updated footer to remove "Systems"
 ```python
-f"🧭 NordIQ AI - Nordic precision, AI intelligence | "
+f"🧭 ArgusAI - Predictive System Monitoring | "
 ```
 
 ---
@@ -266,7 +266,7 @@ f"🧭 NordIQ AI - Nordic precision, AI intelligence | "
 
 **Expected Result:**
 - ✅ Header has **Wells Fargo Red background** (#D71E28)
-- ✅ Title reads "**🧭 NordIQ AI**" (no "Systems")
+- ✅ Title reads "**🧭 ArgusAI**" (no "Systems")
 - ✅ All text is **white** on red background
 - ✅ Rounded corners (8px border-radius)
 - ✅ Subtle drop shadow
@@ -293,8 +293,8 @@ f"🧭 NordIQ AI - Nordic precision, AI intelligence | "
 3. Check version info in header
 
 **Expected Result:**
-- ✅ Footer says "**🧭 NordIQ AI**" (no "Systems")
-- ✅ Browser tab title: "NordIQ AI - Predictive Infrastructure Monitoring"
+- ✅ Footer says "**🧭 ArgusAI**" (no "Systems")
+- ✅ Browser tab title: "ArgusAI - Predictive Infrastructure Monitoring"
 - ✅ Version info visible in top-right (white text on red)
 - ✅ "Dash Dashboard" subtitle visible
 
@@ -307,8 +307,8 @@ f"🧭 NordIQ AI - Nordic precision, AI intelligence | "
 **Before:**
 ```
 ┌────────────────────────────────────────────────────────────┐
-│ 🧭 NordIQ AI Systems                                       │
-│ Nordic precision, AI intelligence - Predictive...          │
+│ 🧭 ArgusAI                                       │
+│ Predictive System Monitoring - Predictive...          │
 │                                                             │
 │ ◄────────── Gray text on white background ─────────────►  │
 └────────────────────────────────────────────────────────────┘
@@ -317,8 +317,8 @@ f"🧭 NordIQ AI - Nordic precision, AI intelligence | "
 **After:**
 ```
 ┌────────────────────────────────────────────────────────────┐
-│ 🧭 NordIQ AI                              v2.0.0-dash     │
-│ Nordic precision, AI intelligence - Predictive...          │
+│ 🧭 ArgusAI                              v2.0.0-dash     │
+│ Predictive System Monitoring - Predictive...          │
 │                                                             │
 │ ◄───────── Wells Fargo Red (#D71E28) background ────────► │
 │ ◄───────── White text, professional banner ──────────────► │
@@ -328,13 +328,13 @@ f"🧭 NordIQ AI - Nordic precision, AI intelligence | "
 ### Branding Comparison
 
 **Before:**
-- Title: "NordIQ AI **Systems**"
+- Title: "ArgusAI **Systems**"
 - Header: Plain white background
 - Tabs: Generic blue/gray colors
 - Branding: Generic tech company
 
 **After:**
-- Title: "NordIQ AI" (clean, concise)
+- Title: "ArgusAI" (clean, concise)
 - Header: Wells Fargo Red banner with white text
 - Tabs: Wells Fargo Red (active) / Gold (hover)
 - Branding: Professional Wells Fargo corporate identity

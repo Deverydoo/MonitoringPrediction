@@ -1,6 +1,6 @@
 @echo off
-REM NordIQ AI - Daemon Management Script (Windows)
-REM Copyright (c) 2025 NordIQ AI, LLC.
+REM ArgusAI - Daemon Management Script (Windows)
+REM Built by Craig Giannelli and Claude Code
 REM
 REM Usage:
 REM   daemon.bat start [inference|metrics|dashboard|all]
@@ -77,7 +77,7 @@ goto :eof
 
 :start_dashboard
 echo [INFO] Starting Dashboard...
-start "NordIQ Dashboard" cmd /k "cd /d "%~dp0" && conda activate py310 && streamlit run src\dashboard\tft_dashboard_web.py --server.fileWatcherType none"
+start "ArgusAI Dashboard (Dash)" cmd /k "cd /d "%~dp0" && conda activate py310 && python dash_app.py"
 echo [OK] Dashboard started (port 8501)
 goto :eof
 
@@ -115,7 +115,7 @@ goto :eof
 
 :stop_dashboard
 echo [INFO] Stopping Dashboard...
-taskkill /FI "WINDOWTITLE eq NordIQ Dashboard*" /T /F 2>nul
+taskkill /FI "WINDOWTITLE eq ArgusAI Dashboard (Dash)*" /T /F 2>nul
 if errorlevel 1 (
     echo [WARN] Dashboard not running
 ) else (

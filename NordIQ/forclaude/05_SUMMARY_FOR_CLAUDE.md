@@ -484,4 +484,4 @@ You have everything you need to succeed:
 
 ---
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

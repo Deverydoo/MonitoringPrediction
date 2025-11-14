@@ -538,4 +538,4 @@ curl -H "X-API-Key: $API_KEY" http://localhost:8000/admin/training-status
 
 ---
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

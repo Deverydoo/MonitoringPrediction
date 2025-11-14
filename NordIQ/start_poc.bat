@@ -1,11 +1,11 @@
 @echo off
-REM NordIQ AI Systems - PoC Comparison Startup Script
+REM ArgusAI - PoC Comparison Startup Script
 REM Starts both Streamlit and Dash dashboards for side-by-side comparison
-REM Copyright (c) 2025 NordIQ AI, LLC.
-REM Nordic precision, AI intelligence
+REM Built by Craig Giannelli and Claude Code
+REM Predictive System Monitoring
 
 echo ============================================
-echo NordIQ AI PoC Comparison - Starting...
+echo ArgusAI PoC Comparison - Starting...
 echo ============================================
 
 cd /d "%~dp0"
@@ -75,7 +75,7 @@ echo ============================================
 echo.
 
 echo [INFO] Starting Streamlit Dashboard (Port 8501)...
-start "Streamlit Dashboard - OLD" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && streamlit run src\dashboard\tft_dashboard_web.py --server.fileWatcherType none"
+start "Streamlit Dashboard - LEGACY" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python src\dashboard\tft_dashboard_web.py"
 
 timeout /t 2 /nobreak >nul
 

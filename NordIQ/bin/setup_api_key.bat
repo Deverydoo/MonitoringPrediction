@@ -24,12 +24,12 @@ echo API Key Setup Complete!
 echo ================================================
 echo.
 echo The API key has been configured:
-echo   - Dashboard: .streamlit/secrets.toml
+echo   - Dashboard: .env file
 echo   - Daemon:    .env (TFT_API_KEY)
 echo.
 echo Next steps:
 echo   1. Start the daemon: python tft_inference_daemon.py
-echo   2. Start the dashboard: streamlit run tft_dashboard_web.py
+echo   2. Start the dashboard: python dash_app.py
 echo.
 echo The dashboard and daemon will now authenticate with the API key.
 echo.

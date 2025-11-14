@@ -2,7 +2,7 @@
 Path setup for NordIQ application.
 This ensures all modules can find each other regardless of where they're run from.
 
-Copyright © 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 """
 
 import sys

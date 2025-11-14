@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-NordIQ AI - Dash Production Dashboard
+ArgusAI - Dash Production Dashboard
 ======================================
 
 High-performance dashboard built with Plotly Dash.
@@ -9,8 +9,8 @@ Performance: ~78ms render time (15× faster than Streamlit)
 Architecture: Callback-based (only active tab renders)
 Scalability: Supports unlimited concurrent users
 
-Copyright (c) 2025 NordIQ AI, LLC
-Nordic precision, AI intelligence
+Built by Craig Giannelli and Claude Code
+Predictive System Monitoring
 """
 
 import dash
@@ -85,8 +85,8 @@ app.layout = dbc.Container([
     # Header - Wells Fargo Red Banner
     dbc.Row([
         dbc.Col([
-            html.H1("🧭 NordIQ AI", style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '0'}),
-            html.P("Nordic precision, AI intelligence - Predictive Infrastructure Monitoring",
+            html.H1("🧭 ArgusAI", style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '0'}),
+            html.P("Predictive System Monitoring - Predictive Infrastructure Monitoring",
                    style={'color': 'white', 'opacity': '0.9', 'marginBottom': '0'})
         ], width=10),
         dbc.Col([
@@ -225,7 +225,7 @@ app.layout = dbc.Container([
     # Footer
     html.Hr(),
     html.P([
-        f"🧭 NordIQ AI - Nordic precision, AI intelligence | ",
+        f"🧭 ArgusAI - Predictive System Monitoring | ",
         f"{APP_COPYRIGHT} | Built with Dash"
     ], className="text-center text-muted small")
 

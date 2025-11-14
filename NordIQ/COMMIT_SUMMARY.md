@@ -509,4 +509,4 @@ git push origin v2.3.0
 
 ---
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

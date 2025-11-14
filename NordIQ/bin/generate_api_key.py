@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-API Key Generator and Manager for NordIQ AI Systems
+API Key Generator and Manager for ArgusAI
 
-Copyright © 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 
 This script generates a secure API key and stores it in a dedicated file
 (.nordiq_key) separate from other environment variables (.env).
@@ -59,13 +59,13 @@ def write_nordiq_key(api_key: str):
 
 
 def write_secrets_toml(api_key: str):
-    """Write API key to .streamlit/secrets.toml for dashboard."""
-    secrets_dir = NORDIQ_ROOT / '.streamlit'
+    """Write API key to .env file for dashboard."""
+    # Legacy Streamlit config no longer used
     secrets_dir.mkdir(exist_ok=True)
 
     secrets_file = secrets_dir / 'secrets.toml'
 
-    content = f'''# Streamlit Secrets Configuration
+    content = f'''# API Key Configuration
 # This file contains sensitive configuration values
 # DO NOT commit this file to version control!
 
@@ -83,7 +83,7 @@ api_key = "{api_key}"
     with open(secrets_file, 'w') as f:
         f.write(content)
 
-    print(f"[OK] Dashboard configuration: .streamlit/secrets.toml")
+    print(f"[OK] Dashboard configuration: .env file")
 
 
 def ensure_gitignore():
@@ -91,7 +91,7 @@ def ensure_gitignore():
     gitignore_file = NORDIQ_ROOT / '.gitignore'
 
     entries_needed = [
-        '.streamlit/secrets.toml',
+        '.env file',
         '.nordiq_key',
         '.env'  # Still protect .env in case it contains other secrets
     ]
@@ -150,7 +150,7 @@ def main():
         print()
         print("The API key is stored in:")
         print("  - .nordiq_key (primary)")
-        print("  - .streamlit/secrets.toml (dashboard)")
+        print("  - .env file (dashboard)")
         print()
         print("To regenerate, run with --force flag")
         return
@@ -177,7 +177,7 @@ def main():
     print()
     print("The API key has been configured in:")
     print("  [OK] .nordiq_key (primary key file)")
-    print("  [OK] .streamlit/secrets.toml (dashboard)")
+    print("  [OK] .env file (dashboard)")
     print()
     print("Production usage:")
     print("  # Set as environment variable:")

@@ -381,7 +381,7 @@ def render(predictions: Optional[Dict], daemon_url: str = DAEMON_URL):
     st.markdown("""
     This tab provides deep insights into **WHY** the AI made its predictions and **WHAT TO DO** about them.
 
-    **NordIQ AI Advantage**: Most monitoring tools just show you numbers. We show you the **reasoning** behind them.
+    **ArgusAI Advantage**: Most monitoring tools just show you numbers. We show you the **reasoning** behind them.
     """)
 
     if not predictions or 'predictions' not in predictions:

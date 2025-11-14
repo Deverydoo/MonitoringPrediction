@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to NordIQ AI Systems will be documented in this file.
+All notable changes to ArgusAI will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -20,22 +20,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2025-10-17
 
-### 🎨 NordIQ AI Branding Release
+### 🎨 ArgusAI Branding Release
 
 **Status**: Commercial branding and copyright protection
 
 ### Changed
 
 #### Branding
-- **Company name**: Rebranded to "NordIQ AI, LLC"
-- **Tagline**: "Nordic precision, AI intelligence"
+- **Company name**: Rebranded to "ArgusAI, LLC"
+- **Tagline**: "Predictive System Monitoring"
 - **Dashboard**: Updated all UI elements with NordIQ branding
 - **Icon**: Changed from 🔮 to 🧭 (compass - Nordic navigation theme)
 - **README**: Complete rebrand with new header and copyright notice
 
 #### Copyright & Licensing
 - Added copyright headers to all core files
-- Copyright: "© 2025 NordIQ AI, LLC. All rights reserved."
+- Copyright: "Built by Craig Giannelli and Claude Code. All rights reserved."
 - Developer credit: Craig Giannelli
 - License updated: MIT → Business Source License 1.1
 - Dashboard footer: Added copyright notice and tagline
@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tft_inference_daemon.py`: Copyright header added
 - `metrics_generator_daemon.py`: Copyright header added
 - `README.md`: Complete rebrand with NordIQ identity
-- `CHANGELOG.md`: Updated to reference NordIQ AI Systems
+- `CHANGELOG.md`: Updated to reference ArgusAI
 
 ### Technical Details
 - **Domain secured**: nordiqai.io
@@ -71,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Graduated severity levels (7 levels from Healthy to Imminent Failure)
 
 #### Dashboard
-- Modular Streamlit dashboard (84.8% code reduction)
+- Modular Dash dashboard (84.8% code reduction)
 - 10 tabs: Overview, Heatmap, Top 5, Historical, Cost Avoidance, Auto-Remediation, Alerting, Advanced, Documentation, Roadmap
 - Real-time WebSocket updates
 - Scenario switching (Healthy/Degrading/Critical)

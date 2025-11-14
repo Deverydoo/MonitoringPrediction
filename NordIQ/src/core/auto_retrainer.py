@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-NordIQ AI Systems - Automated Retraining System
-Nordic precision, AI intelligence
+ArgusAI - Automated Retraining System
+Predictive System Monitoring
 
-Copyright (c) 2025 NordIQ AI, LLC. All rights reserved.
-Developed by Craig Giannelli
+Built by Craig Giannelli and Claude Code
 
 This software is licensed under the Business Source License 1.1.
 See LICENSE file for details.

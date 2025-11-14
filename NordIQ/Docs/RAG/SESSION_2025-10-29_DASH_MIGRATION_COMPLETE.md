@@ -169,7 +169,7 @@ The id of this object is `project-cost`
 ---
 
 ### 7. Archived Streamlit Version ✅
-**Problem:** Need to preserve original Streamlit dashboard for reference while consolidating on Dash.
+**Problem:** Need to preserve original Dash dashboard for reference while consolidating on Dash.
 
 **User request:**
 > "ok archive the entire streamlit version outside of the NordIQ distribution directory. Make sure the new Dash version is properly in the NordIQ directory. and let's push this all to git."
@@ -296,8 +296,8 @@ a5088ba docs: add session summary for repository mapping and cleanup prep
 
 **Branding elements:**
 - Wells Fargo Red header banner with white text
-- "NordIQ AI" title (removed "Systems")
-- "Nordic precision, AI intelligence" tagline
+- "ArgusAI" title (removed "Systems")
+- "Predictive System Monitoring" tagline
 - Professional footer with corporate colors
 
 **Locations updated:**
@@ -581,7 +581,7 @@ start_all.bat
 **Key settings:**
 ```python
 # Application metadata
-APP_TITLE = "NordIQ AI - Predictive Infrastructure Monitoring"
+APP_TITLE = "ArgusAI - Predictive Infrastructure Monitoring"
 
 # Refresh interval (ms)
 REFRESH_INTERVAL_DEFAULT = 30000  # 30 seconds

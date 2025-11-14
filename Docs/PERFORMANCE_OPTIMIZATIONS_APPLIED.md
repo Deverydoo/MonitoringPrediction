@@ -547,7 +547,7 @@ Files modified:
 ### External Resources
 - [Polars Documentation](https://pola-rs.github.io/polars-book/)
 - [Plotly WebGL Guide](https://plotly.com/python/webgl-vs-svg/)
-- [Streamlit Performance Guide](https://docs.streamlit.io/library/advanced-features/performance)
+- [Dash Performance Guide](https://docs.streamlit.io/library/advanced-features/performance)
 
 ### Previous Work
 - [SESSION_2025-10-18_PERFORMANCE_OPTIMIZATION.md](RAG/SESSION_2025-10-18_PERFORMANCE_OPTIMIZATION.md) - Phase 1 optimizations
@@ -558,4 +558,4 @@ Files modified:
 **Date:** October 29, 2025
 **Phase:** Phase 2 Complete
 **Next Phase:** Phase 3 (Optional, based on user feedback)
-**Company:** NordIQ AI, LLC
+**Company:** ArgusAI, LLC

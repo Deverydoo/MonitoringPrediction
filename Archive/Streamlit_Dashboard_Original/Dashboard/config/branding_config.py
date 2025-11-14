@@ -13,12 +13,12 @@ Created: October 29, 2025
 
 BRANDING_PROFILES = {
     'nordiq': {
-        'name': 'NordIQ AI',
+        'name': 'ArgusAI',
         'primary_color': '#0EA5E9',  # NordIQ Blue
         'secondary_color': '#3B82F6',
-        'header_text': '🧭 NordIQ AI',
+        'header_text': '🧭 ArgusAI',
         'logo_emoji': '🧭',
-        'tagline': 'Nordic precision, AI intelligence',
+        'tagline': 'Predictive System Monitoring',
         'accent_border': '#0EA5E9'
     },
 

@@ -29,6 +29,9 @@
 | **[PROJECT_CODEX.md](PROJECT_CODEX.md)** | Rules & conventions | Before coding |
 | **[DATA_CONTRACT.md](DATA_CONTRACT.md)** | Schema specification | Before data work |
 | **[SERVER_PROFILES.md](SERVER_PROFILES.md)** | Profile system | Understanding transfer learning |
+| **[ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md)** ⭐ **CONSOLIDATED** | System architecture & design | Deep architectural understanding |
+| **[TRAINING_GUIDE.md](TRAINING_GUIDE.md)** ⭐ **CONSOLIDATED** | Model training & retraining | Training workflows |
+| **[PERFORMANCE_COMPLETE.md](PERFORMANCE_COMPLETE.md)** ⭐ **CONSOLIDATED** | Performance optimization guide | Optimizing system performance |
 | **[INFERENCE_README.md](INFERENCE_README.md)** ⭐ **NEW** | Clean architecture & production deployment | Deploying to production |
 | **[SESSION_2025-10-11_SUMMARY.md](SESSION_2025-10-11_SUMMARY.md)** | Latest session work | Catching up |
 
@@ -72,12 +75,13 @@
 
 ### I want to understand the system
 1. [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md) - Complete reference
-2. [SERVER_PROFILES.md](SERVER_PROFILES.md) - Profile system
-3. [DATA_CONTRACT.md](DATA_CONTRACT.md) - Schema details
+2. [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) - System design & architecture
+3. [SERVER_PROFILES.md](SERVER_PROFILES.md) - Profile system
+4. [DATA_CONTRACT.md](DATA_CONTRACT.md) - Schema details
 
 ### I want to train a model
-1. [_StartHere.ipynb](../_StartHere.ipynb) - Interactive workflow
-2. [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md) - Training workflow section
+1. [TRAINING_GUIDE.md](TRAINING_GUIDE.md) - Complete training guide & retraining strategy
+2. [_StartHere.ipynb](../_StartHere.ipynb) - Interactive workflow
 3. [PROJECT_CODEX.md](PROJECT_CODEX.md) - Training rules
 
 ### I want to deploy to production
@@ -105,10 +109,16 @@ Docs/
 ├── ESSENTIAL_RAG.md              ⭐ Start here - Complete reference
 ├── PROJECT_CODEX.md              🔒 Rules & conventions
 ├── DATA_CONTRACT.md              📐 Schema specification
-├── SERVER_PROFILES.md            🎯 Profile system (NEW)
+├── SERVER_PROFILES.md            🎯 Profile system
 ├── SESSION_2025-10-11_SUMMARY.md 📝 Latest work
-├── TIME_TRACKING.md              ⏱️ Hours tracking (NEW)
+├── TIME_TRACKING.md              ⏱️ Hours tracking
 │
+├── CONSOLIDATED GUIDES (NEW)     📚 Comprehensive references
+├── ARCHITECTURE_GUIDE.md         🏗️ System design & components
+├── TRAINING_GUIDE.md             🎓 Model training & retraining
+├── PERFORMANCE_COMPLETE.md       ⚡ Performance optimization
+│
+├── INFERENCE_README.md           🚀 Production deployment
 ├── DASHBOARD_GUIDE.md            📊 Dashboard usage
 ├── QUICK_REFERENCE.md            🚀 Daily commands
 ├── MAINTENANCE_QUICK_REFERENCE.md 🔧 Quick ops
@@ -159,6 +169,38 @@ Docs/
 - Testing requirements
 - Version control rules
 
+### ARCHITECTURE_GUIDE.md (Consolidated)
+- Microservices design & process architecture
+- Data flow and communication protocols
+- Data contract & schema definition
+- Adapter system design
+- GPU configuration & optimization
+- Inference daemon, data adapters, dashboard details
+- Deployment modes (dev, production, systemd, docker, windows)
+- Comprehensive troubleshooting
+
+### TRAINING_GUIDE.md (Consolidated)
+- Training guidelines & best practices
+- Training configurations & accuracy validation
+- Adaptive retraining strategy
+- Drift detection & quiet time detection
+- Training decision engine & safeguards
+- Continuous learning system
+- Implementation details & configuration
+- Monitoring, operations & troubleshooting
+
+### PERFORMANCE_COMPLETE.md (Consolidated)
+- 270-27,000x reduction in risk calculations
+- 83-98% reduction in API calls
+- 5-7x faster page loads
+- Dashboard caching strategy
+- Polars + WebGL optimization
+- Daemon heavy lifting architecture
+- Framework migration analysis
+- Production deployment & scalability
+- Complete metrics and results
+- Future optimization roadmap
+
 ### SERVER_PROFILES.md (535 lines)
 - 7 server profiles defined
 - Profile baselines & patterns
@@ -202,14 +244,25 @@ Docs/
 ## 🔍 Search by Topic
 
 ### Model & Training
-- Architecture: [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md)
+- Architecture: [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) or [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md)
+- Training: [TRAINING_GUIDE.md](TRAINING_GUIDE.md) (Complete guide & retraining strategy)
 - Training rules: [PROJECT_CODEX.md](PROJECT_CODEX.md)
 - Profiles: [SERVER_PROFILES.md](SERVER_PROFILES.md)
 
 ### Data & Schema
 - Contract: [DATA_CONTRACT.md](DATA_CONTRACT.md)
-- Validation: [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md)
+- Validation: [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) or [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md)
 - Server encoding: [UNKNOWN_SERVER_HANDLING.md](UNKNOWN_SERVER_HANDLING.md)
+
+### Performance & Optimization
+- Performance guide: [PERFORMANCE_COMPLETE.md](PERFORMANCE_COMPLETE.md) (Complete optimization reference)
+- Dashboard caching: [PERFORMANCE_COMPLETE.md](PERFORMANCE_COMPLETE.md)
+- Scalability: [PERFORMANCE_COMPLETE.md](PERFORMANCE_COMPLETE.md)
+
+### System Design
+- Architecture: [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) (System design & components)
+- Deployment: [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) or [INFERENCE_README.md](INFERENCE_README.md)
+- GPU configuration: [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md)
 
 ### Operations
 - Production: [OPERATIONAL_MAINTENANCE_GUIDE.md](OPERATIONAL_MAINTENANCE_GUIDE.md)
@@ -225,12 +278,13 @@ Docs/
 
 ## 📊 Documentation Statistics
 
-- **Active Documents:** 23
+- **Active Documents:** 26
 - **Archived Documents:** 18
-- **Essential Docs:** 5 (ESSENTIAL_RAG, CODEX, CONTRACT, PROFILES, SESSION)
-- **Total Lines:** ~8,000 lines
-- **Compression Ratio:** 30:1 (from scattered notes to ESSENTIAL_RAG)
-- **Last Major Update:** 2025-10-11
+- **Essential Docs:** 8 (ESSENTIAL_RAG, CODEX, CONTRACT, PROFILES, ARCHITECTURE, TRAINING, PERFORMANCE, SESSION)
+- **Consolidated Guides:** 3 (ARCHITECTURE_GUIDE, TRAINING_GUIDE, PERFORMANCE_COMPLETE)
+- **Total Lines:** ~12,000+ lines
+- **Compression Ratio:** 30:1 (from scattered notes to consolidated guides)
+- **Last Major Update:** 2025-11-14
 
 ---
 
@@ -241,23 +295,32 @@ Docs/
 2. [QUICK_START.md](../QUICK_START.md) - Run commands
 3. [_StartHere.ipynb](../_StartHere.ipynb) - Execute cells
 
-### Path 2: Understanding (1 hour)
+### Path 2: Understanding (1.5 hours)
 1. [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md) - Read completely
-2. [SERVER_PROFILES.md](SERVER_PROFILES.md) - Profile system
-3. [DATA_CONTRACT.md](DATA_CONTRACT.md) - Schema details
-4. [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Deep dive
+2. [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) - System design & components
+3. [SERVER_PROFILES.md](SERVER_PROFILES.md) - Profile system
+4. [DATA_CONTRACT.md](DATA_CONTRACT.md) - Schema details
+5. [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Deep dive
 
 ### Path 3: Development (2 hours)
 1. [PROJECT_CODEX.md](PROJECT_CODEX.md) - All rules
 2. [DATA_CONTRACT.md](DATA_CONTRACT.md) - Schema spec
-3. [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md) - Reference
-4. [SESSION_2025-10-11_SUMMARY.md](SESSION_2025-10-11_SUMMARY.md) - Latest work
+3. [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) - System reference
+4. [ESSENTIAL_RAG.md](ESSENTIAL_RAG.md) - Quick reference
+5. [SESSION_2025-10-11_SUMMARY.md](SESSION_2025-10-11_SUMMARY.md) - Latest work
 
-### Path 4: Production (3 hours)
-1. [OPERATIONAL_MAINTENANCE_GUIDE.md](OPERATIONAL_MAINTENANCE_GUIDE.md)
-2. [PROJECT_CODEX.md](PROJECT_CODEX.md) - Production rules
-3. [DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md)
-4. [MAINTENANCE_QUICK_REFERENCE.md](MAINTENANCE_QUICK_REFERENCE.md)
+### Path 4: Training & Optimization (2.5 hours)
+1. [TRAINING_GUIDE.md](TRAINING_GUIDE.md) - Complete training guide & retraining
+2. [PERFORMANCE_COMPLETE.md](PERFORMANCE_COMPLETE.md) - Performance optimization
+3. [_StartHere.ipynb](../_StartHere.ipynb) - Interactive examples
+4. [PROJECT_CODEX.md](PROJECT_CODEX.md) - Best practices
+
+### Path 5: Production (3 hours)
+1. [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) - Deployment modes
+2. [OPERATIONAL_MAINTENANCE_GUIDE.md](OPERATIONAL_MAINTENANCE_GUIDE.md)
+3. [INFERENCE_README.md](INFERENCE_README.md) - Production deployment
+4. [PERFORMANCE_COMPLETE.md](PERFORMANCE_COMPLETE.md) - Scalability & optimization
+5. [MAINTENANCE_QUICK_REFERENCE.md](MAINTENANCE_QUICK_REFERENCE.md)
 
 ---
 
@@ -320,9 +383,41 @@ Docs/
 
 ---
 
+## 📚 Documentation Consolidation (2025-11-14)
+
+Three comprehensive consolidated guides were created to provide authoritative references for complex topics:
+
+### ARCHITECTURE_GUIDE.md
+- **Replaces:** Scattered architecture documentation
+- **Contains:** Microservices design, data flow, adapter system, GPU configuration, deployment modes, troubleshooting
+- **Status:** Production Reference Documentation
+
+### TRAINING_GUIDE.md
+- **Replaces:** Scattered training documentation
+- **Contains:** Training guidelines, adaptive retraining, drift detection, continuous learning, monitoring
+- **Status:** Production Reference Documentation
+
+### PERFORMANCE_COMPLETE.md
+- **Replaces:** Scattered performance documentation
+- **Contains:** Complete optimization journey, caching strategies, scalability, metrics, future roadmap
+- **Status:** Production Ready
+
+These consolidated guides reduce documentation fragmentation and provide single sources of truth for critical system topics.
+
+---
+
 ## 🎉 What's New in This Update
 
-### Major Changes (2025-10-29) ⭐ **LATEST**
+### Major Changes (2025-11-14) ⭐ **LATEST**
+- ✅ Created **ARCHITECTURE_GUIDE.md** - Comprehensive system architecture reference
+- ✅ Created **TRAINING_GUIDE.md** - Complete model training & retraining guide
+- ✅ Created **PERFORMANCE_COMPLETE.md** - Full performance optimization guide
+- ✅ Updated INDEX.md to reflect new consolidated structure
+- ✅ Added new reading paths for training & optimization
+- ✅ Enhanced search-by-topic navigation
+- ✅ Updated documentation statistics
+
+### Major Changes (2025-10-29)
 - ✅ Created **INTEGRATION_GUIDE.md** (800+ lines) - Complete integration documentation
 - ✅ Created **INTEGRATION_QUICKSTART.md** - 5-minute quick start guide
 - ✅ Full API reference with all endpoints documented
@@ -372,9 +467,13 @@ Docs/
 
 ---
 
-**Index Version:** 3.0.0
-**Last Updated:** 2025-10-11
+**Index Version:** 3.1.0
+**Last Updated:** 2025-11-14
 **Maintainer:** Project Team
 **Status:** Current
 
 ⭐ **Start with ESSENTIAL_RAG.md - Everything you need in one place**
+
+---
+
+**Built by Craig Giannelli and Claude Code**

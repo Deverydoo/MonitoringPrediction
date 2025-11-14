@@ -7,13 +7,13 @@ License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
 
 Parameters
 
-Licensor:             NordIQ AI, LLC
+Licensor:             ArgusAI
 Licensed Work:        NordIQ Predictive Infrastructure Monitoring System
-                      The Licensed Work is (c) 2025 NordIQ AI, LLC
+                      The Licensed Work is (c) 2025 ArgusAI
 
 Additional Use Grant: You may use the Licensed Work for development,
                       testing, and evaluation purposes. Production use
-                      requires a commercial license from NordIQ AI, LLC.
+                      requires a commercial license from ArgusAI.
 
 Change Date:          2029-01-01
 
@@ -100,7 +100,7 @@ under an Open Source License, as stated in this License.
 
 -----------------------------------------------------------------------------
 
-Additional Terms for NordIQ AI, LLC
+Additional Terms for ArgusAI
 
 1. PERMITTED USES
 
@@ -116,14 +116,14 @@ Additional Terms for NordIQ AI, LLC
 2. PRODUCTION USE RESTRICTIONS
 
    Production use of the Licensed Work requires a commercial license from
-   NordIQ AI, LLC. "Production use" means:
+   ArgusAI. "Production use" means:
 
    a) Use in a production environment serving live traffic or workloads
    b) Use for business-critical operations
    c) Use for revenue-generating activities
    d) Use for commercial services offered to third parties
 
-   For commercial licensing inquiries, contact: licensing@nordiq.ai
+   For commercial licensing inquiries, contact: licensing@argusai.com
 
 3. PERMITTED MODIFICATIONS
 
@@ -145,8 +145,8 @@ Additional Terms for NordIQ AI, LLC
 
 For questions about this License or commercial licensing options, contact:
 
-NordIQ AI, LLC
-Email: licensing@nordiq.ai
-Web: https://nordiq.ai
+ArgusAI
+Email: licensing@argusai.com
+Web: https://argusai.com
 
-Copyright (c) 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

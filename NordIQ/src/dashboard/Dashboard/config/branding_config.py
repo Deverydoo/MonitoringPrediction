@@ -12,13 +12,13 @@ Created: October 29, 2025
 # =============================================================================
 
 BRANDING_PROFILES = {
-    'nordiq': {
-        'name': 'NordIQ AI',
-        'primary_color': '#0EA5E9',  # NordIQ Blue
+    'argusai': {
+        'name': 'ArgusAI',
+        'primary_color': '#0EA5E9',  # ArgusAI Blue
         'secondary_color': '#3B82F6',
-        'header_text': '🧭 NordIQ AI',
+        'header_text': '🧭 ArgusAI',
         'logo_emoji': '🧭',
-        'tagline': 'Nordic precision, AI intelligence',
+        'tagline': 'Predictive System Monitoring',
         'accent_border': '#0EA5E9'
     },
 
@@ -47,8 +47,8 @@ BRANDING_PROFILES = {
 # ACTIVE BRANDING (Change this to switch customer themes)
 # =============================================================================
 
-# Options: 'nordiq', 'wells_fargo', 'generic'
-ACTIVE_BRANDING = 'wells_fargo'
+# Options: 'argusai', 'wells_fargo', 'generic'
+ACTIVE_BRANDING = 'argusai'
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -61,7 +61,7 @@ def get_active_branding():
     Returns:
         dict: Branding configuration for active customer
     """
-    return BRANDING_PROFILES.get(ACTIVE_BRANDING, BRANDING_PROFILES['nordiq'])
+    return BRANDING_PROFILES.get(ACTIVE_BRANDING, BRANDING_PROFILES['argusai'])
 
 
 def get_custom_css():

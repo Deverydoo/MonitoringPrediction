@@ -246,7 +246,7 @@ This package is designed to work with Wells Fargo's corporate Claude API, which 
 
 ## License
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 
 These files are provided for the specific purpose of building data adapters for the NordIQ inference engine.
 

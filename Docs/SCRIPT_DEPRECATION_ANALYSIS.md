@@ -15,7 +15,7 @@
 | **tft_trainer.py** | Model training with incremental support | main.py, CLI | ✅ Core |
 | **tft_inference_daemon.py** | Production inference REST API daemon | start_all.bat/.sh | ✅ Core |
 | **metrics_generator_daemon.py** | Realistic metrics streaming daemon | start_all.bat/.sh | ✅ Core |
-| **tft_dashboard_web.py** | Modern Streamlit dashboard (v1.0.0) | start_all.bat/.sh | ✅ Core |
+| **tft_dashboard_web.py** | Modern Dash dashboard (v1.0.0) | start_all.bat/.sh | ✅ Core |
 
 ---
 
@@ -75,11 +75,11 @@ curl -X POST http://localhost:8001/scenario/set -d '{"scenario": "degrading"}'
 
 | Script | Purpose | Replaced By | Recommendation |
 |--------|---------|-------------|----------------|
-| **tft_dashboard.py** | Old CLI/matplotlib dashboard | tft_dashboard_web.py (Streamlit) | ❌ **DEPRECATE** |
+| **tft_dashboard.py** | Old CLI/matplotlib dashboard | tft_dashboard_web.py (Dash) | ❌ **DEPRECATE** |
 
 **Why Deprecated:**
 - Old: CLI-based with matplotlib plots
-- New: Web-based Streamlit with 10 tabs, real-time updates
+- New: Web-based Dash with 10 tabs, real-time updates
 - New dashboard has: Risk scoring, profiles, alerting, documentation
 - Startup scripts reference `tft_dashboard_web.py` only
 
@@ -89,7 +89,7 @@ curl -X POST http://localhost:8001/scenario/set -d '{"scenario": "degrading"}'
 python tft_dashboard.py
 
 # NEW WAY (production)
-streamlit run tft_dashboard_web.py
+python dash_app.py
 ```
 
 ---
@@ -276,7 +276,7 @@ python tft_dashboard.py --data training/server_metrics.parquet
 
 **After (v1.0.0+):**
 ```bash
-streamlit run tft_dashboard_web.py
+python dash_app.py
 # Dashboard connects to daemon automatically
 # 10 tabs: Overview, Heatmap, Top 5, Historical, Cost, Auto-Remediation,
 #          Alerting, Advanced, Documentation, Roadmap
@@ -289,7 +289,7 @@ streamlit run tft_dashboard_web.py
 | Category | Files | Lines of Code | Risk Level |
 |----------|-------|---------------|------------|
 | **Deprecated Demos** | 4 | ~800 | Low (replaced by daemons) |
-| **Old Dashboard** | 1 | ~600 | Low (replaced by Streamlit) |
+| **Old Dashboard** | 1 | ~600 | Low (replaced by Dash) |
 | **Validation Scripts** | 7 | ~1200 | Very Low (one-off use) |
 | **Security Patches** | 1 | ~200 | Very Low (already applied) |
 | **TOTAL** | 13 | ~2800 | **Low Overall** |
@@ -382,7 +382,7 @@ After archiving deprecated scripts:
 
 The deprecated scripts fall into clear categories:
 - Old demo system → replaced by daemons
-- Old dashboard → replaced by Streamlit
+- Old dashboard → replaced by Dash
 - Validation scripts → one-off use, already validated
 - Security patches → already applied
 

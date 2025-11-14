@@ -16,7 +16,7 @@ conda activate py310
 python tft_inference.py --daemon --port 8000
 
 # Launch web dashboard (new terminal)
-streamlit run tft_dashboard_web.py
+python dash_app.py
 
 # Open browser: http://localhost:8501
 ```
@@ -74,7 +74,7 @@ python tft_inference.py --daemon --port 8000
 
 ```bash
 # In a new terminal
-streamlit run tft_dashboard_web.py
+python dash_app.py
 ```
 
 **What it shows:**
@@ -286,7 +286,7 @@ All components now validate against `DATA_CONTRACT.md`:
                   ▼
 ┌─────────────────────────────────────────────┐
 │  4. Launch Dashboard                        │
-│  streamlit run tft_dashboard_web.py         │
+│  python dash_app.py         │
 │  → Web UI: http://localhost:8501            │
 └─────────────────────────────────────────────┘
 ```

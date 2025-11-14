@@ -209,10 +209,10 @@ This can happen if:
 ### 6. Mobile/Responsive Design
 
 **Polish Items:**
-- [ ] Test on iPad/tablet (Streamlit should handle this)
+- [ ] Test on iPad/tablet (Dash should handle this)
 - [ ] Ensure charts are readable on smaller screens
 - [ ] Stack columns on mobile (scenario cards)
-- [ ] Test with dark mode (if Streamlit supports it)
+- [ ] Test with dark mode (if Dash supports it)
 
 ---
 

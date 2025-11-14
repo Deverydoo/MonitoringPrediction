@@ -1,4 +1,4 @@
-# Human TODO Checklist - NordIQ AI Systems
+# Human TODO Checklist - ArgusAI
 
 **Last Updated:** October 18, 2025
 **Status:** System complete, ready for deployment & sales
@@ -134,7 +134,7 @@
 Quick wins already done (Oct 18):
 - ✅ XAI caching (30s TTL)
 - ✅ Professional polish
-- ✅ Streamlit optimizations
+- ✅ Dash optimizations
 
 Additional optimizations (if needed):
 - [ ] Add `@st.fragment` to expensive components
@@ -165,7 +165,7 @@ Options:
 **When:** After 5-10 paying customers OR $5K MRR
 
 **Trigger Points:**
-- Customer complaints about Streamlit performance
+- Customer complaints about Dash performance
 - Enterprise customer requirement
 - Dashboard used >30 min/day
 
@@ -316,6 +316,6 @@ Options:
 
 ---
 
-**Maintained By:** Craig Giannelli / NordIQ AI Systems, LLC
+**Maintained By:** Craig Giannelli / ArgusAI, LLC
 **Last Review:** October 18, 2025
 **Next Review:** After first paying customer

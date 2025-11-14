@@ -1,8 +1,8 @@
-# NordIQ AI - Documentation
+# ArgusAI - Documentation
 
-**Nordic precision, AI intelligence**
+**Predictive System Monitoring**
 
-Welcome to the NordIQ AI documentation! This folder contains everything you need to deploy, integrate, and use the NordIQ Predictive Infrastructure Monitoring platform.
+Welcome to the ArgusAI documentation! This folder contains everything you need to deploy, integrate, and use the NordIQ Predictive Infrastructure Monitoring platform.
 
 ---
 
@@ -10,9 +10,7 @@ Welcome to the NordIQ AI documentation! This folder contains everything you need
 
 **New to NordIQ?** Start here:
 
-1. **[Quick Start Guide](getting-started/QUICK_START.md)** - Get up and running in 10 minutes
-2. **[API Key Setup](getting-started/API_KEY_SETUP.md)** - Configure authentication
-3. **[Python Environment](getting-started/PYTHON_ENV.md)** - Set up your environment
+1. **[Getting Started Guide](GETTING_STARTED.md)** - Complete setup covering authentication, environment, and quick start (10-15 minutes)
 
 ---
 
@@ -60,31 +58,16 @@ Welcome to the NordIQ AI documentation! This folder contains everything you need
 
 **Deploying and operating in production:**
 
-- **[Real Data Integration Guide](for-production/REAL_DATA_INTEGRATION.md)** ⭐ **CRITICAL**
-  - Stop using demo data
-  - Connect production systems (Elasticsearch, Prometheus, MongoDB)
+- **[Production Integration Guide](PRODUCTION_INTEGRATION.md)** ⭐ **CRITICAL**
+  - Comprehensive production deployment covering all integration scenarios
+  - Stop using demo data & connect production systems
+  - Real Data Integration (Elasticsearch, Prometheus, MongoDB)
+  - Data Ingestion API specification (POST `/feed/data`)
+  - Elasticsearch adapter setup & optimization
+  - MongoDB adapter setup & performance guidance
   - Data transformation requirements
-  - Elasticsearch/Prometheus adapter templates
-  - Warmup & verification
-
-- **[Data Ingestion Guide](for-production/DATA_INGESTION_GUIDE.md)** ⭐ **CRITICAL**
-  - Complete POST `/feed/data` specification
-  - Data contract v3.0 (14 LINBORG metrics)
-  - Required vs optional fields
-  - Validation rules & error handling
+  - Warmup & verification procedures
   - Code examples (Python, Node.js, curl)
-
-- **[Elasticsearch Integration](for-production/ELASTICSEARCH_INTEGRATION.md)** - Elasticsearch adapter
-  - Wells Fargo common patterns
-  - Metricbeat/Filebeat integration
-  - Production-ready adapter code
-  - Query optimization & indexing
-
-- **[MongoDB Integration](for-production/MONGODB_INTEGRATION.md)** - MongoDB adapter
-  - Collection design recommendations
-  - Field mapping & transformation
-  - Performance optimization (10-100x slower than time-series DBs)
-  - Migration guide to better databases
 
 **Time to production:** 1-2 hours
 
@@ -92,11 +75,9 @@ Welcome to the NordIQ AI documentation! This folder contains everything you need
 
 ### 🎯 Getting Started (Everyone)
 
-Essential setup guides:
+Essential setup guide:
 
-- **[Quick Start Guide](getting-started/QUICK_START.md)** - 10-minute setup
-- **[API Key Setup](getting-started/API_KEY_SETUP.md)** - Authentication configuration
-- **[Python Environment](getting-started/PYTHON_ENV.md)** - Environment setup (conda/pip)
+- **[Getting Started Guide](GETTING_STARTED.md)** - Complete setup including quick start (10 min), API key setup, and Python environment configuration
 
 **Time to deploy:** 10-15 minutes
 
@@ -221,14 +202,11 @@ Understand the value proposition and economics:
 
 ### I need to connect my production data (stop using demo)
 
-**General Integration:**
-1. **[Real Data Integration Guide](for-production/REAL_DATA_INTEGRATION.md)** - Complete walkthrough
-2. **[Data Ingestion Guide](for-production/DATA_INGESTION_GUIDE.md)** - API specification
-3. **[Data Format Specification](for-developers/DATA_FORMAT_SPEC.md)** - Schema reference
-
-**Data Source-Specific:**
-- **[Elasticsearch Integration](for-production/ELASTICSEARCH_INTEGRATION.md)** - For Elasticsearch/Metricbeat/Filebeat
-- **[MongoDB Integration](for-production/MONGODB_INTEGRATION.md)** - For MongoDB collections
+1. **[Production Integration Guide](PRODUCTION_INTEGRATION.md)** - Complete walkthrough for all scenarios
+   - Real Data Integration (Elasticsearch, Prometheus, MongoDB)
+   - Data Ingestion API specification
+   - Elasticsearch/MongoDB setup guides
+2. **[Data Format Specification](for-developers/DATA_FORMAT_SPEC.md)** - Schema reference
 
 **Total time:** 1-2 hours
 
@@ -238,7 +216,7 @@ Understand the value proposition and economics:
 
 1. **[API Reference](for-developers/API_REFERENCE.md)** - All available endpoints
 2. **[Data Format Specification](for-developers/DATA_FORMAT_SPEC.md)** - JSON schemas
-3. **[Quick Start Guide](getting-started/QUICK_START.md)** - Get system running
+3. **[Getting Started Guide](GETTING_STARTED.md)** - Get system running
 
 **Total time:** 2-4 hours
 
@@ -255,8 +233,8 @@ Understand the value proposition and economics:
 
 ### I need to deploy for a customer
 
-1. **[Quick Start Guide](getting-started/QUICK_START.md)** - Basic setup
-2. **[Real Data Integration](for-production/REAL_DATA_INTEGRATION.md)** - Connect their systems
+1. **[Getting Started Guide](GETTING_STARTED.md)** - Basic setup
+2. **[Production Integration Guide](PRODUCTION_INTEGRATION.md)** - Connect their systems
 3. **[Authentication Guide](authentication/AUTHENTICATION_IMPLEMENTATION_GUIDE.md)** - Secure deployment
 4. **[Daemon Management](operations/DAEMON_MANAGEMENT.md)** - Production operations
 5. **[Customer Branding Guide](marketing/CUSTOMER_BRANDING_GUIDE.md)** - Customize appearance
@@ -281,10 +259,10 @@ Understand the value proposition and economics:
 ```
 NordIQ/
 ├── Docs/                          # This folder - All documentation
-│   ├── getting-started/          # Quick start guides
+│   ├── GETTING_STARTED.md        # Complete setup guide (consolidated)
+│   ├── PRODUCTION_INTEGRATION.md # Production deployment guide (consolidated)
 │   ├── for-developers/           # API reference, schemas, dev guides
 │   ├── for-business-intelligence/ # BI tools (Grafana, Power BI)
-│   ├── for-production/           # Real data integration, ingestion
 │   ├── operations/               # Daemon management, troubleshooting
 │   ├── authentication/           # Security & SSO
 │   ├── understanding/            # How it works, concepts
@@ -369,22 +347,19 @@ curl http://localhost:8000/health
 ## 🎓 Recommended Reading Order
 
 ### For Developers
-1. getting-started/QUICK_START.md
+1. GETTING_STARTED.md
 2. for-developers/API_REFERENCE.md
 3. for-developers/DATA_FORMAT_SPEC.md
 4. understanding/HOW_PREDICTIONS_WORK.md
 
 ### For DevOps/SRE
-1. getting-started/QUICK_START.md
-2. for-production/REAL_DATA_INTEGRATION.md
-3. for-production/DATA_INGESTION_GUIDE.md
-4. for-production/ELASTICSEARCH_INTEGRATION.md (if using Elasticsearch)
-5. for-production/MONGODB_INTEGRATION.md (if using MongoDB)
-6. operations/DAEMON_MANAGEMENT.md
-7. authentication/AUTHENTICATION_IMPLEMENTATION_GUIDE.md
+1. GETTING_STARTED.md
+2. PRODUCTION_INTEGRATION.md
+3. operations/DAEMON_MANAGEMENT.md
+4. authentication/AUTHENTICATION_IMPLEMENTATION_GUIDE.md
 
 ### For BI Analysts
-1. getting-started/QUICK_START.md
+1. GETTING_STARTED.md
 2. for-business-intelligence/GRAFANA_INTEGRATION.md
 3. for-developers/API_REFERENCE.md (API endpoints)
 
@@ -398,40 +373,42 @@ curl http://localhost:8000/health
 1. understanding/WHY_TFT.md
 2. understanding/CONTEXTUAL_RISK_INTELLIGENCE.md
 3. understanding/SERVER_PROFILES.md
-4. for-production/REAL_DATA_INTEGRATION.md
+4. PRODUCTION_INTEGRATION.md
 
 ---
 
 ## 📊 Documentation Statistics
 
 ```
-Total Documents: 27+ files
-Total Lines: ~21,000+ lines
+Total Documents: 25+ files
+Total Lines: ~22,000+ lines
 Categories: 7
 
-✅ Getting Started (3 guides)
-✅ For Developers (2 guides) - API, Schemas
+✅ Core Getting Started (1 consolidated guide)
+✅ Core Production Integration (1 consolidated guide)
+✅ For Developers (4 guides) - API, Schemas, Adapters, References
 ✅ For Business Intelligence (1 guide) - Grafana
-✅ For Production (4 guides) - Real data, Ingestion, Elasticsearch, MongoDB
 ✅ Operations (1 guide) - Daemon management
 ✅ Authentication (2 guides) - Security
 ✅ Understanding (5 guides) - Concepts
 ✅ Marketing (4 guides) - Business value
 ```
 
-**New Structure Benefits:**
+**Consolidated Structure Benefits:**
+- ✅ Streamlined client documentation (2 primary guides)
 - ✅ Clear separation by audience (dev/BI/ops)
+- ✅ All getting started content in one accessible file
+- ✅ All production integration scenarios consolidated
 - ✅ Zero redundancy between documents
 - ✅ Each doc has ONE clear purpose
 - ✅ Find what you need in < 30 seconds
-- ✅ No more 1,500 line mega-docs
 
 ---
 
 ## 🚀 Next Steps
 
-1. **New to NordIQ?** → [Quick Start Guide](getting-started/QUICK_START.md)
-2. **Connecting real data?** → [Real Data Integration](for-production/REAL_DATA_INTEGRATION.md)
+1. **New to NordIQ?** → [Getting Started Guide](GETTING_STARTED.md)
+2. **Connecting real data?** → [Production Integration Guide](PRODUCTION_INTEGRATION.md)
 3. **Building custom dashboard?** → [API Reference](for-developers/API_REFERENCE.md)
 4. **Setting up Grafana?** → [Grafana Integration](for-business-intelligence/GRAFANA_INTEGRATION.md)
 5. **Deploying to production?** → [Daemon Management](operations/DAEMON_MANAGEMENT.md)
@@ -440,8 +417,8 @@ Categories: 7
 ---
 
 **Version:** 2.0.0 (Documentation Restructure)
-**Company:** NordIQ AI Systems, LLC
-**Tagline:** Nordic precision, AI intelligence
+**Company:** ArgusAI, LLC
+**Tagline:** Predictive System Monitoring
 **License:** Business Source License 1.1
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

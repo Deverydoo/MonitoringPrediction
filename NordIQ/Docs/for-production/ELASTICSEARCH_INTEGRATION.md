@@ -1,6 +1,6 @@
 # Elasticsearch Integration Guide
 
-**NordIQ AI - Production Data Integration**
+**ArgusAI - Production Data Integration**
 
 Complete guide for connecting NordIQ to Elasticsearch clusters. Wells Fargo and enterprise environments commonly use Elasticsearch with Metricbeat/Filebeat for infrastructure monitoring.
 
@@ -947,7 +947,7 @@ sudo journalctl -u nordiq-es-adapter -f
 
 **Version:** 1.0.0
 **Last Updated:** 2025-01-30
-**Company:** NordIQ AI Systems, LLC
+**Company:** ArgusAI, LLC
 **License:** Business Source License 1.1
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

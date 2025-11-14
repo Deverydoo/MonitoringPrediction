@@ -298,4 +298,4 @@ crontab -e  # Add weekly_retrain.sh
 
 ---
 
-© 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code

@@ -1,4 +1,4 @@
-# Alert Levels - NordIQ AI
+# Alert Levels - ArgusAI
 
 **Version:** 1.2.1
 **Single Source of Truth:** `NordIQ/src/core/alert_levels.py`
@@ -6,7 +6,7 @@
 
 ## Overview
 
-NordIQ AI uses a **4-level graduated severity system** for server health alerts. This provides clear, actionable intelligence without alert fatigue.
+ArgusAI uses a **4-level graduated severity system** for server health alerts. This provides clear, actionable intelligence without alert fatigue.
 
 Risk scores (0-100) are calculated from:
 - **70% Current State** - "What's on fire NOW?"
@@ -302,5 +302,5 @@ A: Database servers use high memory for page cache (normal behavior). The risk s
 ---
 
 **Last Updated:** 2025-10-18
-**Maintainer:** Craig Giannelli (NordIQ AI)
+**Maintainer:** Craig Giannelli (ArgusAI)
 **Status:** Production - Single Source of Truth

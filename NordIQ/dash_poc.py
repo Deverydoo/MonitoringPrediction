@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Plotly Dash Proof of Concept - NordIQ AI Monitoring Dashboard
+Plotly Dash Proof of Concept - ArgusAI Monitoring Dashboard
 ==============================================================
 
 Performance Target: <500ms page loads (vs 12s in Streamlit)
@@ -200,7 +200,7 @@ app.index_string = '''
 <html>
     <head>
         {%metas%}
-        <title>NordIQ AI Systems</title>
+        <title>ArgusAI</title>
         {%favicon%}
         {%css%}
         <style>
@@ -237,8 +237,8 @@ app.layout = dbc.Container([
         dbc.Container([
             dbc.Row([
                 dbc.Col([
-                    html.H2("🏛️ NordIQ AI Systems", className="text-white mb-0"),
-                    html.Small("Nordic precision, AI intelligence - Predictive Infrastructure Monitoring",
+                    html.H2("🏛️ ArgusAI", className="text-white mb-0"),
+                    html.Small("Predictive System Monitoring - Predictive Infrastructure Monitoring",
                               className="text-white-50")
                 ])
             ], align="center")
@@ -634,7 +634,7 @@ def render_top_risks(predictions, risk_scores, server_preds):
 
 if __name__ == '__main__':
     print("\n" + "="*70)
-    print("🚀 Plotly Dash Proof of Concept - NordIQ AI Dashboard")
+    print("🚀 Plotly Dash Proof of Concept - ArgusAI Dashboard")
     print("="*70)
     print(f"\nStarting Dash app on http://localhost:8050")
     print(f"Daemon URL: {DAEMON_URL}")

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Alert Levels - NordIQ AI Centralized Alert Level System
+Alert Levels - ArgusAI Centralized Alert Level System
 Single source of truth for risk scores, colors, labels, and emojis
 
 Version: 1.2.1
-Copyright © 2025 NordIQ AI, LLC. All rights reserved.
+Built by Craig Giannelli and Claude Code
 """
 
 from enum import Enum

@@ -1,7 +1,7 @@
 #!/bin/bash
-# NordIQ AI Systems - Production Startup Script
-# Copyright (c) 2025 NordIQ AI, LLC.
-# Nordic precision, AI intelligence
+# ArgusAI - Production Startup Script
+# Built by Craig Giannelli and Claude Code
+# Predictive System Monitoring
 #
 # PRODUCTION MODE: Runs all services as background daemons
 # - No conda activation (assumes correct environment is active)
@@ -109,7 +109,7 @@ check_python() {
 # ============================================
 
 echo "============================================"
-echo "NordIQ AI Systems - Production Startup"
+echo "ArgusAI - Production Startup"
 echo "============================================"
 echo
 
@@ -217,7 +217,7 @@ echo
 # ============================================
 
 echo "============================================"
-echo "✅ NordIQ AI Systems - All Services Running"
+echo "✅ ArgusAI - All Services Running"
 echo "============================================"
 echo
 echo "Services:"

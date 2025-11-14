@@ -447,7 +447,7 @@ def get_http_session():
 **Rationale:**
 - ✅ Session is a singleton (shared across all users)
 - ✅ Must not be serialized (contains thread locks, sockets)
-- ✅ Lives for entire Streamlit session lifecycle
+- ✅ Lives for entire Dash session lifecycle
 - ✅ Automatic cleanup on app restart
 
 **Alternative (wrong):**
@@ -521,7 +521,7 @@ def get_http_session():
 ### External Resources
 - [Requests Session Documentation](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects)
 - [urllib3 Connection Pooling](https://urllib3.readthedocs.io/en/stable/advanced-usage.html#connection-pooling)
-- [Streamlit Caching Guide](https://docs.streamlit.io/library/advanced-features/caching)
+- [Dash Caching Guide](https://docs.streamlit.io/library/advanced-features/caching)
 
 ### Previous Work
 - [SESSION_2025-10-18_PERFORMANCE_OPTIMIZATION.md](RAG/SESSION_2025-10-18_PERFORMANCE_OPTIMIZATION.md) - Phase 1
@@ -549,4 +549,4 @@ def get_http_session():
 **Date:** October 29, 2025
 **Phase:** Phase 3 Complete
 **Next Phase:** Phase 4 (Optional, advanced optimizations)
-**Company:** NordIQ AI, LLC
+**Company:** ArgusAI, LLC

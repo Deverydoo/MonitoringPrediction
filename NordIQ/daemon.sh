@@ -1,6 +1,6 @@
 #!/bin/bash
-# NordIQ AI - Daemon Management Script (Linux/Mac)
-# Copyright (c) 2025 NordIQ AI, LLC.
+# ArgusAI - Daemon Management Script (Linux/Mac)
+# Built by Craig Giannelli and Claude Code
 #
 # Usage:
 #   ./daemon.sh start [inference|metrics|dashboard|all]
@@ -133,7 +133,7 @@ start_dashboard() {
     fi
 
     # Start dashboard
-    nohup streamlit run src/dashboard/tft_dashboard_web.py --server.fileWatcherType none > logs/dashboard.log 2>&1 &
+    nohup python dash_app.py > logs/dashboard.log 2>&1 &
     echo $! > "$DASHBOARD_PID"
 
     # Wait and check if started
