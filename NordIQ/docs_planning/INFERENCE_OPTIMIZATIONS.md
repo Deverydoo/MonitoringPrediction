@@ -36,11 +36,15 @@ self.model = torch.jit.optimize_for_inference(
 
 ---
 
-### 2. **Mixed Precision Inference (FP16)** ✅
-**File**: `tft_inference_daemon.py:530-535`
+### 2. **Mixed Precision Inference (FP16)** ⚠️ (Temporarily Disabled)
+**File**: `tft_inference_daemon.py:531-535`
 
 ```python
-with torch.cuda.amp.autocast():
+# CRITICAL: Disable FP16 for now due to overflow issues with untrained models
+# FP16 works great with properly trained models, but causes overflow with random weights
+use_amp = False  # Temporary: disable FP16 until model is trained
+
+with torch.no_grad():
     raw_predictions = self.model.predict(
         prediction_dataloader,
         mode="raw",
@@ -48,7 +52,7 @@ with torch.cuda.amp.autocast():
     )
 ```
 
-**Benefits:**
+**Benefits (when re-enabled after training):**
 - 1.5-2x faster on RTX 4090 Tensor Cores
 - 50% memory usage reduction
 - Negligible accuracy loss (<0.01%)
@@ -58,6 +62,11 @@ with torch.cuda.amp.autocast():
 - Uses FP16 (half-precision) for matrix operations
 - RTX 4090 Tensor Cores optimized for FP16
 - PyTorch automatically handles precision conversions
+
+**Important Note:**
+- FP16 causes overflow errors with untrained/random model weights
+- Error: "value cannot be converted to type at::Half without overflow"
+- **Re-enable after first proper training completes** by changing `use_amp = False` to `use_amp = torch.cuda.is_available()`
 
 ---
 
@@ -271,6 +280,33 @@ max_p50 = np.max(p50[:6])  # Optimized C code
 max_p90 = np.max(p90[:6])
 ```
 
+### 4. **NumPy to Python Type Conversion** (Critical for JSON serialization)
+**Problem**: `np.where()` returns `numpy.int64` which FastAPI cannot serialize to JSON.
+
+**Error**:
+```
+TypeError: 'numpy.int64' object is not iterable
+ValueError: vars() argument must have __dict__ attribute
+```
+
+**Solution**:
+```python
+for i in critical_indices:
+    # CRITICAL: Convert numpy.int64 to Python int for JSON serialization
+    i_py = int(i.item()) if hasattr(i, 'item') else int(i)
+    minutes_ahead = (i_py + 1) * 5
+    alerts.append({
+        'steps_ahead': i_py + 1,  # Pure Python int, not numpy.int64
+        'minutes_ahead': minutes_ahead,
+        ...
+    })
+```
+
+**Why This Matters**:
+- NumPy scalar types (int64, float64) are not JSON-serializable
+- Must use `.item()` to convert to native Python types
+- Affects all API responses that use NumPy operations
+
 ### Performance Impact
 
 | Operation | Before | After | Speedup |
@@ -284,9 +320,11 @@ max_p90 = np.max(p90[:6])
 
 | Stage | Time | % of Total |
 |-------|------|------------|
-| TFT Inference (FP16) | 20ms | 94% |
-| Post-processing (optimized) | 1.3ms | 6% |
-| **Total latency** | **~21ms** | **100%** |
+| TFT Inference (FP32) | 35ms | 96% |
+| Post-processing (optimized) | 1.3ms | 4% |
+| **Total latency** | **~36ms** | **100%** |
+
+**Note**: FP16 temporarily disabled (would be ~20ms inference, ~21ms total)
 
 **Result**: Post-processing is no longer a bottleneck (was 10ms, now 1.3ms).
 

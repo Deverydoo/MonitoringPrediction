@@ -528,9 +528,11 @@ class TFTInference:
             print(f"[DEBUG] Running TFT model prediction...")
             print(f"[DEBUG] Batch size: {batch_size}, Dataloader batches: {len(prediction_dataloader)}")
 
-            # OPTIMIZATION: Use mixed precision (FP16) inference on GPU
-            # This provides 1.5-2x speedup on RTX 4090 Tensor Cores with no accuracy loss
-            use_amp = torch.cuda.is_available()
+            # CRITICAL: Disable FP16 for now due to overflow issues with untrained models
+            # FP16 works great with properly trained models, but causes overflow with random weights
+            # TODO: Re-enable after first proper training completes
+            # use_amp = torch.cuda.is_available()
+            use_amp = False  # Temporary: disable FP16 until model is trained
 
             with torch.no_grad():
                 if use_amp:
@@ -943,14 +945,16 @@ class TFTInference:
                 critical_indices = np.where(critical_mask)[0]
 
                 for i in critical_indices:
-                    minutes_ahead = (i + 1) * 5
+                    # CRITICAL: Convert numpy.int64 to Python int for JSON serialization
+                    i_py = int(i.item()) if hasattr(i, 'item') else int(i)
+                    minutes_ahead = (i_py + 1) * 5
                     alerts.append({
                         'server': server,
                         'metric': metric,
                         'severity': 'critical',
                         'predicted_value': float(p50_array[i]),
                         'threshold': critical_thresh,
-                        'steps_ahead': int(i + 1),
+                        'steps_ahead': i_py + 1,
                         'minutes_ahead': minutes_ahead,
                         'message': f"{server}: {metric} predicted to reach {p50_array[i]:.1f}"
                     })
@@ -960,14 +964,16 @@ class TFTInference:
                 warning_indices = np.where(warning_mask)[0]
 
                 for i in warning_indices:
-                    minutes_ahead = (i + 1) * 5
+                    # CRITICAL: Convert numpy.int64 to Python int for JSON serialization
+                    i_py = int(i.item()) if hasattr(i, 'item') else int(i)
+                    minutes_ahead = (i_py + 1) * 5
                     alerts.append({
                         'server': server,
                         'metric': metric,
                         'severity': 'warning',
                         'predicted_value': float(p50_array[i]),
                         'threshold': warning_thresh,
-                        'steps_ahead': int(i + 1),
+                        'steps_ahead': i_py + 1,
                         'minutes_ahead': minutes_ahead,
                         'message': f"{server}: {metric} predicted to reach {p50_array[i]:.1f}"
                     })
