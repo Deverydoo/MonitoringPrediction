@@ -32,7 +32,7 @@ VALID_STATES = [
 REQUIRED_COLUMNS = [
     'timestamp',
     'server_name',
-    'state',
+    'status',  # Changed from 'state' to match metrics_generator.py
     # CPU metrics (5)
     'cpu_user_pct',
     'cpu_sys_pct',
@@ -118,8 +118,8 @@ class DataValidator:
         # Check required columns
         self._validate_columns(df)
 
-        # Check state values
-        if 'state' in df.columns:
+        # Check status values
+        if 'status' in df.columns:
             self._validate_states(df)
 
         # Check numeric ranges
@@ -154,24 +154,24 @@ class DataValidator:
             self.warnings.append(f"Extra columns present: {sorted(extra)}")
 
     def _validate_states(self, df: pd.DataFrame) -> None:
-        """Check state values validity."""
-        invalid_states = set(df['state'].unique()) - set(VALID_STATES)
+        """Check status values validity."""
+        invalid_states = set(df['status'].unique()) - set(VALID_STATES)
         if invalid_states:
             self.errors.append(
-                f"Invalid state values found: {sorted(invalid_states)}\n"
+                f"Invalid status values found: {sorted(invalid_states)}\n"
                 f"   Valid states: {VALID_STATES}"
             )
 
-        # Check state distribution
-        state_counts = df['state'].value_counts()
+        # Check status distribution
+        state_counts = df['status'].value_counts()
         total = len(df)
 
         for state in VALID_STATES:
             if state not in state_counts:
-                self.warnings.append(f"State '{state}' not present in data")
+                self.warnings.append(f"Status '{state}' not present in data")
             elif state_counts[state] / total < 0.001:  # Less than 0.1%
                 self.warnings.append(
-                    f"State '{state}' underrepresented: "
+                    f"Status '{state}' underrepresented: "
                     f"{state_counts[state]} samples ({state_counts[state]/total*100:.2f}%)"
                 )
 
@@ -302,20 +302,20 @@ class DataValidator:
         with open(training_info_file) as f:
             training_info = json.load(f)
 
-        # Validate state count
+        # Validate status count
         trained_states = training_info.get('unique_states', [])
-        current_states = sorted(data_df['state'].unique().tolist())
+        current_states = sorted(data_df['status'].unique().tolist())
 
         if set(trained_states) != set(VALID_STATES):
             errors.append(
-                f"Model trained with {len(trained_states)} states: {trained_states}\n"
-                f"   Contract requires {len(VALID_STATES)} states: {VALID_STATES}"
+                f"Model trained with {len(trained_states)} status values: {trained_states}\n"
+                f"   Contract requires {len(VALID_STATES)} status values: {VALID_STATES}"
             )
 
         if set(current_states) - set(trained_states):
             extra_states = set(current_states) - set(trained_states)
             errors.append(
-                f"Data contains states not seen during training: {extra_states}"
+                f"Data contains status values not seen during training: {extra_states}"
             )
 
         # Validate server mapping exists

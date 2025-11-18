@@ -47,7 +47,7 @@ class Config:
     """Configuration for fleet generation."""
     # Time settings
     start_time: Optional[str] = None  # Auto-calculated if None
-    hours: int = 24
+    hours: int = 24  # MINIMUM: 24 hours enforced in __post_init__
     tick_seconds: int = 5
     timezone: str = "UTC"
 
@@ -73,6 +73,22 @@ class Config:
 
     def __post_init__(self):
         """Validate configuration and auto-distribute servers if needed."""
+        # CRITICAL: Enforce 24-hour alignment for consistent diurnal patterns
+        # TFT learns temporal patterns best with complete day cycles
+        MINIMUM_HOURS = 24
+        original_hours = self.hours
+
+        # Enforce minimum
+        if self.hours < MINIMUM_HOURS:
+            self.hours = MINIMUM_HOURS
+            print(f"⚠️  WARNING: Requested {original_hours} hours, but minimum is {MINIMUM_HOURS} hours")
+            print(f"           Auto-correcting to {self.hours} hours for proper TFT training")
+        # Round up to nearest 24-hour increment
+        elif self.hours % 24 != 0:
+            self.hours = ((self.hours // 24) + 1) * 24
+            print(f"⚠️  WARNING: Requested {original_hours} hours, rounding up to {self.hours} hours")
+            print(f"           Dataset generation aligned to 24-hour cycles ({self.hours // 24} days)")
+
         if not 0.08 <= self.problem_child_pct <= 0.12:
             raise ValueError("problem_child_pct must be between 8% and 12%")
         if self.offline_mode not in ["dense", "sparse"]:

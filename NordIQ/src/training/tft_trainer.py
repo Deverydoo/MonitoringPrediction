@@ -446,10 +446,12 @@ class TFTTrainer:
         print(f"[INFO] Model configured to accept unknown servers and statuses")
         
         # Create validation dataset
+        # Use predict=False to get overlapping samples for proper validation
+        # (predict=True would only give 1 sample per server)
         validation = TimeSeriesDataSet.from_dataset(
             training,
             df[df['time_idx'] > training_cutoff],
-            predict=True,
+            predict=False,
             stop_randomization=True
         )
         
@@ -587,6 +589,88 @@ class TFTTrainer:
             print(f"[INFO] No last checkpoint found in {checkpoint_dir}")
             return None
 
+    def _log_system_info(self) -> None:
+        """Log comprehensive system information for training reproducibility."""
+        print("\n" + "=" * 70)
+        print("SYSTEM INFORMATION - Training Environment")
+        print("=" * 70)
+
+        # Platform information
+        import platform
+        import sys
+        print(f"Platform:        {platform.system()} {platform.release()}")
+        print(f"Python:          {platform.python_version()}")
+
+        # Detect Linux distribution
+        if platform.system() == 'Linux':
+            try:
+                import distro
+                print(f"Distribution:    {distro.name()} {distro.version()}")
+            except ImportError:
+                pass
+
+        # PyTorch and CUDA information
+        import torch
+        print(f"PyTorch:         {torch.__version__}")
+        print(f"CUDA Available:  {torch.cuda.is_available()}")
+
+        if torch.cuda.is_available():
+            print(f"CUDA Version:    {torch.version.cuda}")
+            print(f"GPU:             {torch.cuda.get_device_name(0)}")
+            gpu_mem_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            print(f"GPU Memory:      {gpu_mem_gb:.1f} GB")
+
+            # GPU utilization (if nvidia-smi available)
+            try:
+                import subprocess
+                result = subprocess.run(['nvidia-smi', '--query-gpu=utilization.gpu,memory.used,memory.total',
+                                       '--format=csv,noheader,nounits'],
+                                      capture_output=True, text=True, timeout=2)
+                if result.returncode == 0:
+                    gpu_util, mem_used, mem_total = result.stdout.strip().split(',')
+                    print(f"GPU Utilization: {gpu_util.strip()}%")
+                    print(f"GPU Mem Used:    {mem_used.strip()} MB / {mem_total.strip()} MB")
+            except:
+                pass
+
+        # Key dependencies
+        print(f"\nKey Dependencies:")
+        try:
+            import lightning
+            print(f"  Lightning:     {lightning.__version__}")
+        except:
+            pass
+
+        try:
+            import pytorch_forecasting
+            print(f"  PytorchFrcst:  {pytorch_forecasting.__version__}")
+        except:
+            pass
+
+        try:
+            import pandas as pd
+            print(f"  Pandas:        {pd.__version__}")
+        except:
+            pass
+
+        try:
+            import numpy as np
+            print(f"  NumPy:         {np.__version__}")
+        except:
+            pass
+
+        # Training configuration
+        print(f"\nTraining Configuration:")
+        print(f"  Batch Size:    {self.config['batch_size']}")
+        print(f"  Learning Rate: {self.config['learning_rate']}")
+        print(f"  Epochs:        {self.config['epochs']}")
+        print(f"  Hidden Size:   {self.config['hidden_size']}")
+        print(f"  Attention:     {self.config['attention_heads']} heads")
+        print(f"  Context:       {self.config['context_length']} timesteps")
+        print(f"  Horizon:       {self.config['prediction_horizon']} timesteps")
+
+        print("=" * 70 + "\n")
+
     def train(self, dataset_path: str = "./training/", find_lr: bool = False, incremental: bool = True) -> Optional[str]:
         """Train the TFT model with incremental training support.
 
@@ -603,6 +687,9 @@ class TFTTrainer:
         - Enhanced progress reporting
         """
         print("[TRAIN] Starting TFT training (incremental mode enabled)...")
+
+        # Log system information for training reproducibility
+        self._log_system_info()
 
         # Set random seed for reproducibility
         seed = self.config.get('random_seed', 42)
@@ -631,22 +718,65 @@ class TFTTrainer:
                 optimal_workers = 2
                 use_pin_memory = False
 
-            print(f" Data loading: {optimal_workers} workers, pin_memory={use_pin_memory}")
+            # CRITICAL: Handle platform-specific multiprocessing limitations
+            # Platform-specific behavior with PyTorch 2.0.1:
+            # - Small datasets (<100k samples): Use single worker to avoid overhead (all platforms)
+            # - Windows: Multiprocessing OK, but NO persistent_workers (causes hangs)
+            # - Linux/RedHat/Mac: Full optimization with persistent_workers
+            val_samples = len(validation_dataset)
+            import platform
+            system = platform.system()
+            is_windows = system == 'Windows'
+            is_linux = system == 'Linux'  # Includes RedHat, Ubuntu, CentOS, etc.
 
-            # Create data loaders with multi-threading
+            # Detect Linux distribution if available
+            if is_linux:
+                try:
+                    import distro
+                    distro_name = distro.name()
+                    platform_display = f"Linux ({distro_name})"
+                except ImportError:
+                    platform_display = "Linux"
+            else:
+                platform_display = system
+
+            # Use single worker for small datasets regardless of platform
+            if val_samples < 100000:
+                print(f"[INFO] Small validation set ({val_samples:,} samples) - using single-worker mode")
+                optimal_workers = 0
+                use_pin_memory = False
+                use_persistent = False
+            # Large dataset on Windows: enable multiprocessing but disable persistent workers
+            elif is_windows:
+                print(f"[INFO] Platform: {platform_display}")
+                print(f"[INFO] Large validation set ({val_samples:,} samples)")
+                print(f"[INFO] Using {optimal_workers} workers WITHOUT persistent_workers (Windows compatibility)")
+                use_pin_memory = True
+                use_persistent = False  # Critical: persistent_workers causes hangs on Windows
+            # Large dataset on Linux/Mac: full optimization with persistent workers
+            else:
+                print(f"[INFO] Platform: {platform_display}")
+                print(f"[INFO] Large validation set ({val_samples:,} samples)")
+                print(f"[INFO] Using {optimal_workers} workers WITH persistent_workers (optimal performance)")
+                use_pin_memory = True
+                use_persistent = True
+
+            print(f"[INFO] Data loading: {optimal_workers} workers, pin_memory={use_pin_memory}, persistent={use_persistent}")
+
+            # Create data loaders with appropriate worker configuration
             train_dataloader = training_dataset.to_dataloader(
                 train=True,
                 batch_size=self.config['batch_size'],
                 num_workers=optimal_workers,
                 pin_memory=use_pin_memory,
-                persistent_workers=True if optimal_workers > 0 else False
+                persistent_workers=use_persistent if optimal_workers > 0 else False
             )
             val_dataloader = validation_dataset.to_dataloader(
                 train=False,
                 batch_size=self.config['batch_size'] * 2,
                 num_workers=optimal_workers,
                 pin_memory=use_pin_memory,
-                persistent_workers=True if optimal_workers > 0 else False
+                persistent_workers=use_persistent if optimal_workers > 0 else False
             )
 
             # Create TFT model with Phase 2 learning rate
@@ -728,7 +858,9 @@ class TFTTrainer:
                 callbacks=callbacks,
                 # Phase 3: Advanced optimizations
                 precision=precision,
-                accumulate_grad_batches=accumulate_batches
+                accumulate_grad_batches=accumulate_batches,
+                # Critical: Skip sanity validation when val set is tiny (prevents hang)
+                num_sanity_val_steps=0
             )
 
             # Check for existing checkpoint for incremental training
