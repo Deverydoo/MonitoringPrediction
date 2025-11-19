@@ -585,11 +585,10 @@ class TFTInference:
             logger.debug("Running TFT model prediction (batch_size=%d, batches=%d)",
                         batch_size, len(prediction_dataloader))
 
-            # CRITICAL: Disable FP16 for now due to overflow issues with untrained models
-            # FP16 works great with properly trained models, but causes overflow with random weights
-            # TODO: Re-enable after first proper training completes
-            # use_amp = torch.cuda.is_available()
-            use_amp = False  # Temporary: disable FP16 until model is trained
+            # Enable FP16 mixed precision on GPU for 1.5-2x speedup
+            # FP16 uses Tensor Cores on RTX 4090 for faster inference
+            # Automatically disabled on CPU
+            use_amp = torch.cuda.is_available()
 
             with torch.no_grad():
                 if use_amp:

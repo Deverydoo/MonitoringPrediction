@@ -36,23 +36,26 @@ self.model = torch.jit.optimize_for_inference(
 
 ---
 
-### 2. **Mixed Precision Inference (FP16)** ⚠️ (Temporarily Disabled)
-**File**: `tft_inference_daemon.py:531-535`
+### 2. **Mixed Precision Inference (FP16)** ✅
+**File**: `tft_inference_daemon.py:588-591`
 
 ```python
-# CRITICAL: Disable FP16 for now due to overflow issues with untrained models
-# FP16 works great with properly trained models, but causes overflow with random weights
-use_amp = False  # Temporary: disable FP16 until model is trained
+# Enable FP16 mixed precision on GPU for 1.5-2x speedup
+# FP16 uses Tensor Cores on RTX 4090 for faster inference
+# Automatically disabled on CPU
+use_amp = torch.cuda.is_available()
 
 with torch.no_grad():
-    raw_predictions = self.model.predict(
-        prediction_dataloader,
-        mode="raw",
-        return_x=True
-    )
+    if use_amp:
+        with torch.cuda.amp.autocast():
+            raw_predictions = self.model.predict(
+                prediction_dataloader,
+                mode="raw",
+                return_x=True
+            )
 ```
 
-**Benefits (when re-enabled after training):**
+**Benefits:**
 - 1.5-2x faster on RTX 4090 Tensor Cores
 - 50% memory usage reduction
 - Negligible accuracy loss (<0.01%)
@@ -62,11 +65,7 @@ with torch.no_grad():
 - Uses FP16 (half-precision) for matrix operations
 - RTX 4090 Tensor Cores optimized for FP16
 - PyTorch automatically handles precision conversions
-
-**Important Note:**
-- FP16 causes overflow errors with untrained/random model weights
-- Error: "value cannot be converted to type at::Half without overflow"
-- **Re-enable after first proper training completes** by changing `use_amp = False` to `use_amp = torch.cuda.is_available()`
+- Automatically enabled on GPU, disabled on CPU for compatibility
 
 ---
 
@@ -318,15 +317,16 @@ for i in critical_indices:
 
 ### Combined Performance
 
-| Stage | Time | % of Total |
-|-------|------|------------|
-| TFT Inference (FP32) | 35ms | 96% |
-| Post-processing (optimized) | 1.3ms | 4% |
-| **Total latency** | **~36ms** | **100%** |
+| Stage | Time (FP32) | Time (FP16) | % of Total |
+|-------|-------------|-------------|------------|
+| TFT Inference | 35ms | ~20ms | 94-96% |
+| Post-processing (optimized) | 1.3ms | 1.3ms | 4-6% |
+| **Total latency** | **~36ms** | **~21ms** | **100%** |
 
-**Note**: FP16 temporarily disabled (would be ~20ms inference, ~21ms total)
-
-**Result**: Post-processing is no longer a bottleneck (was 10ms, now 1.3ms).
+**Result**:
+- Post-processing is no longer a bottleneck (was 10ms, now 1.3ms)
+- FP16 enabled for 1.5-2x inference speedup with trained models
+- Expected total latency with new trained model: ~21ms (vs 36ms FP32)
 
 ---
 
