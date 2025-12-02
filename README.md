@@ -1,4 +1,4 @@
-# ArgusAI
+# Tachyon Argus
 
 ## Predictive Infrastructure Monitoring
 
@@ -13,7 +13,7 @@
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-yellow.svg)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow.svg?logo=buy-me-a-coffee)](https://buymeacoffee.com/deverydoo)
 
-**Version 1.1.0** - ArgusAI branding release | [Changelog](CHANGELOG.md)
+**Version 1.1.0** - Tachyon Argus branding release | [Changelog](CHANGELOG.md)
 
 **Built by Craig Giannelli and Claude Code**
 

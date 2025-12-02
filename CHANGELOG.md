@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to ArgusAI will be documented in this file.
+All notable changes to Tachyon Argus will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -20,14 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2025-10-17
 
-### 🎨 ArgusAI Branding Release
+### 🎨 Tachyon Argus Branding Release
 
 **Status**: Commercial branding and copyright protection
 
 ### Changed
 
 #### Branding
-- **Company name**: Rebranded to "ArgusAI, LLC"
+- **Company name**: Rebranded to "Tachyon Argus"
 - **Tagline**: "Predictive System Monitoring"
 - **Dashboard**: Updated all UI elements with NordIQ branding
 - **Icon**: Changed from 🔮 to 🧭 (compass - Nordic navigation theme)
@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tft_inference_daemon.py`: Copyright header added
 - `metrics_generator_daemon.py`: Copyright header added
 - `README.md`: Complete rebrand with NordIQ identity
-- `CHANGELOG.md`: Updated to reference ArgusAI
+- `CHANGELOG.md`: Updated to reference Tachyon Argus
 
 ### Technical Details
 - **Domain secured**: nordiqai.io
