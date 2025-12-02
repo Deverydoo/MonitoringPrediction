@@ -629,18 +629,14 @@ def render_tab(active_tab, predictions, start_time, history):
 )
 def update_insights_content(selected_server, refresh_clicks):
     """
-    Fetch and display XAI explanation for selected server.
+    Fetch and display executive-friendly insights for selected server.
 
-    This callback handles interactive server selection and manual refresh.
-    XAI analysis is computationally intensive (3-5 seconds).
-
-    Triggers:
-    - Initial load: Dropdown gets default value (highest risk server)
-    - User selects different server from dropdown
-    - User clicks "Refresh Analysis" button
-
-    Note: Auto-refresh does NOT trigger this because render_tab raises
-    PreventUpdate for Insights tab on predictions-store updates.
+    Shows:
+    - Big risk indicator (traffic light style)
+    - Plain English summary
+    - Key factors driving the risk
+    - Actionable recommendations
+    - Technical details (collapsed by default)
     """
     if not selected_server:
         return dbc.Alert("Select a server to analyze", color="info")
@@ -653,80 +649,56 @@ def update_insights_content(selected_server, refresh_clicks):
 
     if not explanation or 'error' in explanation:
         return dbc.Alert([
-            html.H5("❌ XAI Analysis Unavailable"),
-            html.P("Could not fetch explanation. Check that daemon has XAI enabled."),
-            html.P("Ensure the /explain endpoint is available on the daemon.", className="mb-0"),
-            html.Hr(),
-            html.Small([
-                "Debug: ",
-                html.Code(f"GET /explain/{selected_server}"),
-                " returned error"
-            ], className="text-muted")
-        ], color="danger")
+            html.H5("⚠️ Analysis Unavailable"),
+            html.P([
+                "Could not analyze this server. The AI analysis service may be starting up or the server data is incomplete."
+            ]),
+            html.P([
+                html.Strong("What to do: "),
+                "Wait 30 seconds and click Refresh, or check another server."
+            ], className="mb-0")
+        ], color="warning")
 
-    # Extract server context
+    # Get risk score for this server
     server_pred = explanation.get('prediction', {})
+    risk_score = server_pred.get('risk_score', 50)
 
-    # Server context metrics
-    cpu_used = server_pred.get('cpu_idle_pct', {}).get('current', 0)
-    cpu_used = 100 - cpu_used if cpu_used else 0
-    mem_used = server_pred.get('mem_used_pct', {}).get('current', 0)
-    profile = server_pred.get('profile', 'Unknown')
+    # Get the explanation data
+    shap_data = explanation.get('shap', {})
+    attention_data = explanation.get('attention', {})
+    counterfactual_data = explanation.get('counterfactuals', {})
 
-    context_cards = dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H6("Current CPU", className="card-subtitle mb-2 text-muted"),
-                    html.H4(f"{cpu_used:.1f}%")
-                ])
-            ])
-        ], width=4),
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H6("Current Memory", className="card-subtitle mb-2 text-muted"),
-                    html.H4(f"{mem_used:.1f}%")
-                ])
-            ])
-        ], width=4),
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H6("Profile", className="card-subtitle mb-2 text-muted"),
-                    html.H4(profile)
-                ])
-            ])
-        ], width=4),
-    ], className="mb-4")
+    # Build executive-friendly content
+    content = []
 
-    # Render XAI components in tabs
-    xai_tabs = dbc.Tabs([
-        dbc.Tab(
-            insights.render_shap_explanation(explanation.get('shap', {}))
-            if 'shap' in explanation else
-            dbc.Alert("SHAP analysis not available", color="info"),
-            label="📊 Feature Importance"
-        ),
-        dbc.Tab(
-            insights.render_attention_analysis(explanation.get('attention', {}))
-            if 'attention' in explanation else
-            dbc.Alert("Attention analysis not available", color="info"),
-            label="⏱️ Temporal Focus"
-        ),
-        dbc.Tab(
-            insights.render_counterfactuals(explanation.get('counterfactuals', {}))
-            if 'counterfactuals' in explanation else
-            dbc.Alert("Counterfactual scenarios not available", color="info"),
-            label="🎯 What-If Scenarios"
-        ),
-    ])
+    # 1. Executive Summary with big risk indicator
+    content.append(insights.generate_executive_summary(shap_data, risk_score, selected_server))
 
-    return html.Div([
-        context_cards,
-        html.Hr(),
-        xai_tabs
-    ])
+    # 2. Key factors driving the risk (simple visual)
+    key_factors = insights.generate_key_factors(shap_data)
+    if key_factors.children:
+        content.append(dbc.Card([
+            dbc.CardBody(key_factors)
+        ], className="mb-4"))
+
+    # 3. Timeline summary (when did it start)
+    timeline = insights.generate_timeline_summary(attention_data)
+    if timeline:
+        content.append(timeline)
+
+    # 4. Actionable recommendations
+    content.append(dbc.Card([
+        dbc.CardBody(insights.generate_action_cards(counterfactual_data, risk_score))
+    ], className="mb-4"))
+
+    # 5. Technical details (collapsed)
+    content.append(html.Div([
+        html.H6("🔧 Technical Details", className="text-muted mt-4 mb-2"),
+        html.P("For engineers who want to dig deeper:", className="text-muted small"),
+        insights.render_technical_details(shap_data, attention_data, counterfactual_data)
+    ]))
+
+    return html.Div(content)
 
 
 # =============================================================================

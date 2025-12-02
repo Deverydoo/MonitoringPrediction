@@ -1,15 +1,14 @@
 """
-Insights (XAI) Tab - Explainable AI Analysis
-============================================
+Insights Tab - Executive-Friendly AI Analysis
+==============================================
 
-Provides deep insights into WHY predictions happen and WHAT TO DO:
-- SHAP feature importance (which metrics drove the prediction)
-- Attention analysis (which time periods the model focused on)
-- Counterfactual scenarios (what-if analysis with actionable recommendations)
+Provides clear, actionable insights that executives and managers can understand:
+- Executive summary with plain English recommendations
+- Visual risk indicators (traffic light style)
+- Prioritized action items with business impact
+- Technical details hidden in collapsible sections for those who want them
 
-This is a key differentiator - shows the AI's reasoning in plain English!
-
-Performance: Target <500ms (complex tab, may use loading states)
+This tab answers: "What's wrong, why, and what should I do about it?"
 """
 
 from dash import html, dcc, callback, Input, Output, State
@@ -26,45 +25,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from dash_config import DAEMON_URL, get_auth_headers
 from dash_utils.data_processing import extract_cpu_used, calculate_server_risk_score
 
-# Professional metric display names
-METRIC_DISPLAY_NAMES = {
-    'cpu_user_pct': 'CPU User %',
-    'cpu_sys_pct': 'CPU System %',
-    'cpu_iowait_pct': 'CPU I/O Wait %',
-    'cpu_idle_pct': 'CPU Idle %',
-    'java_cpu_pct': 'Java CPU %',
-    'mem_used_pct': 'Memory Used %',
-    'swap_used_pct': 'Swap Used %',
-    'disk_usage_pct': 'Disk Usage %',
-    'net_in_mb_s': 'Network In (MB/s)',
-    'net_out_mb_s': 'Network Out (MB/s)',
-    'back_close_wait': 'Backend Close-Wait Connections',
-    'front_close_wait': 'Frontend Close-Wait Connections',
-    'load_average': 'System Load Average',
-    'uptime_days': 'Server Uptime (days)',
-}
-
-
-def get_metric_display_name(metric_name: str) -> str:
-    """Convert internal metric name to user-friendly display name."""
-    return METRIC_DISPLAY_NAMES.get(
-        metric_name,
-        # Fallback: capitalize and replace underscores
-        metric_name.replace('_', ' ').replace('pct', '%').title()
-    )
-
 
 def fetch_explanation(server_name: str, daemon_url: str = DAEMON_URL) -> Optional[Dict]:
-    """
-    Fetch XAI explanation for a specific server from the daemon.
-
-    Args:
-        server_name: Server to explain
-        daemon_url: URL of the inference daemon
-
-    Returns:
-        Dict with SHAP, attention, and counterfactual explanations, or None if error
-    """
+    """Fetch XAI explanation for a specific server from the daemon."""
     try:
         response = requests.get(
             f"{daemon_url}/explain/{server_name}",
@@ -73,368 +36,368 @@ def fetch_explanation(server_name: str, daemon_url: str = DAEMON_URL) -> Optiona
         )
         if response.ok:
             return response.json()
-        else:
-            print(f"[ERROR] Failed to fetch explanation: {response.status_code}")
-            if response.status_code == 403:
-                print("[ERROR] Authentication failed - check API key")
-            return None
-    except requests.exceptions.Timeout:
-        print("[ERROR] Request timed out - XAI analysis can take a few seconds")
         return None
     except Exception as e:
         print(f"[ERROR] Error fetching explanation: {str(e)}")
         return None
 
 
-def render_shap_explanation(shap_data: Dict) -> html.Div:
-    """
-    Render SHAP feature importance analysis.
+def get_risk_level(score: float) -> tuple:
+    """Get risk level category, color, and icon."""
+    if score >= 80:
+        return "Critical", "#DC2626", "🔴", "Immediate action required"
+    elif score >= 60:
+        return "High", "#F59E0B", "🟠", "Action needed soon"
+    elif score >= 40:
+        return "Moderate", "#EAB308", "🟡", "Monitor closely"
+    else:
+        return "Low", "#10B981", "🟢", "No action needed"
 
-    Shows which metrics (CPU, memory, disk, network) drove the prediction.
-    """
+
+def get_metric_plain_name(metric: str) -> str:
+    """Convert technical metric names to plain English."""
+    names = {
+        'cpu_user_pct': 'CPU usage',
+        'cpu_sys_pct': 'system processes',
+        'cpu_iowait_pct': 'disk wait time',
+        'cpu_idle_pct': 'idle capacity',
+        'java_cpu_pct': 'application load',
+        'mem_used_pct': 'memory usage',
+        'swap_used_pct': 'emergency memory',
+        'disk_usage_pct': 'disk space',
+        'net_in_mb_s': 'incoming traffic',
+        'net_out_mb_s': 'outgoing traffic',
+        'back_close_wait': 'backend connections',
+        'front_close_wait': 'user connections',
+        'load_average': 'overall load',
+        'uptime_days': 'time since restart',
+    }
+    return names.get(metric, metric.replace('_', ' '))
+
+
+def generate_executive_summary(shap_data: Dict, risk_score: float, server_name: str) -> html.Div:
+    """Generate a plain English executive summary."""
+    level, color, icon, urgency = get_risk_level(risk_score)
+
+    # Get top contributing factors
     feature_importance = shap_data.get('feature_importance', [])
+    top_factors = []
+    for feature, info in feature_importance[:3]:
+        plain_name = get_metric_plain_name(feature)
+        direction = info.get('direction', '')
+        if direction == 'increasing':
+            top_factors.append(f"{plain_name} is trending up")
+        elif direction == 'decreasing':
+            top_factors.append(f"{plain_name} is improving")
+        else:
+            top_factors.append(f"{plain_name} is elevated")
 
-    if not feature_importance:
-        return dbc.Alert("No feature importance data available", color="info")
+    # Build the summary sentence
+    if risk_score >= 80:
+        summary = f"This server needs immediate attention. "
+    elif risk_score >= 60:
+        summary = f"This server may have issues within the next few hours. "
+    elif risk_score >= 40:
+        summary = f"This server is showing early warning signs. "
+    else:
+        summary = f"This server is operating normally. "
 
-    # Display summary
-    summary = shap_data.get('summary', 'No summary available')
-
-    # Create bar chart of feature importance
-    features = []
-    impacts = []
-    directions = []
-    stars = []
-
-    for feature, info in feature_importance:
-        # Use professional display names
-        feature_display = get_metric_display_name(feature)
-        features.append(feature_display)
-        impacts.append(info['impact'] * 100)  # Convert to percentage
-        directions.append(info['direction'])
-        stars.append(info.get('stars', ''))
-
-    # Create DataFrame for display
-    df = pd.DataFrame({
-        'Metric': features,
-        'Impact': impacts,
-        'Direction': directions,
-        'Importance': stars
-    })
-
-    # Plotly bar chart
-    fig = go.Figure()
-
-    # Color by direction
-    # Increasing risk (bad) = red, decreasing risk (good) = green, neutral = gray
-    colors = [
-        '#10B981' if d == 'increasing'  # Green (good - risk going down)
-        else '#EF4444' if d == 'decreasing'  # Red (bad - risk going up)
-        else '#6B7280'  # Gray (neutral)
-        for d in directions
-    ]
-
-    fig.add_trace(go.Bar(
-        x=impacts,
-        y=features,
-        orientation='h',
-        marker=dict(color=colors),
-        text=[f"{imp:.1f}%" for imp in impacts],
-        textposition='auto'
-    ))
-
-    fig.update_layout(
-        title="Feature Impact on Prediction",
-        xaxis_title="Impact (%)",
-        yaxis_title="Metric",
-        height=400,
-        showlegend=False
-    )
+    if top_factors:
+        summary += f"The main concerns are: {', '.join(top_factors)}."
 
     return html.Div([
+        # Big status indicator
+        dbc.Card([
+            dbc.CardBody([
+                dbc.Row([
+                    dbc.Col([
+                        html.Div([
+                            html.Span(icon, style={'fontSize': '4rem'}),
+                        ], className="text-center")
+                    ], width=2),
+                    dbc.Col([
+                        html.H2(f"{level} Risk", style={'color': color, 'marginBottom': '0.5rem'}),
+                        html.H4(f"Risk Score: {risk_score:.0f}/100", className="text-muted mb-2"),
+                        html.P(urgency, style={'fontSize': '1.1rem', 'fontWeight': '500'})
+                    ], width=10)
+                ], align="center")
+            ])
+        ], style={'borderLeft': f'6px solid {color}'}, className="mb-4"),
+
+        # Plain English summary
         dbc.Alert([
-            html.Strong("What This Shows: "),
-            "Which metrics are driving the prediction. ",
-            "⭐⭐⭐ = Very high impact | ⭐⭐ = Medium impact | ⭐ = Low impact"
-        ], color="light", className="mb-3"),
-        html.P([html.Strong("Summary: "), summary], className="mb-3"),
-        dcc.Graph(figure=fig),
-        dbc.Accordion([
-            dbc.AccordionItem([
-                dbc.Table.from_dataframe(df, striped=True, bordered=True, hover=True)
-            ], title="📋 Detailed Breakdown")
-        ], start_collapsed=True)
+            html.H5("📋 Summary", className="alert-heading"),
+            html.P(summary, style={'fontSize': '1.1rem', 'marginBottom': '0'})
+        ], color="light", className="mb-4")
     ])
 
 
-def render_attention_analysis(attention_data: Dict) -> html.Div:
-    """
-    Render attention visualization showing which time periods the model focused on.
-    """
-    summary = attention_data.get('summary', 'No summary available')
-    important_periods = attention_data.get('important_periods', [])
+def generate_action_cards(counterfactual_data, risk_score: float) -> html.Div:
+    """Generate action recommendation cards in plain English."""
 
-    period_cards = []
-    if important_periods:
-        for period in important_periods:
-            attention_pct = period['attention'] * 100
-            importance = period['importance']
-
-            # Color based on importance
-            if importance == 'VERY HIGH':
-                color = '#EF4444'  # Red
-            elif importance == 'HIGH':
-                color = '#F59E0B'  # Orange
-            elif importance == 'MEDIUM':
-                color = '#EAB308'  # Yellow
-            else:
-                color = '#6B7280'  # Gray
-
-            period_cards.append(
-                dbc.Col([
-                    dbc.Card([
-                        dbc.CardBody([
-                            html.H6(period['period'], className="card-subtitle mb-2"),
-                            html.H3(f"{attention_pct:.0f}%", style={'color': color}),
-                            html.P(f"{importance} importance", className="small text-muted mb-0")
-                        ])
-                    ], style={'borderLeft': f'4px solid {color}'})
-                ], width=12 if len(important_periods) < 3 else 4)
-            )
-
-    period_row = dbc.Row(period_cards, className="mb-3") if period_cards else html.Div()
-
-    # Attention weights timeline (if available)
-    attention_weights = attention_data.get('attention_weights', [])
-    timeline_chart = html.Div()
-
-    if attention_weights and len(attention_weights) > 10:
-        # Create line chart
-        fig = go.Figure()
-
-        timesteps = list(range(len(attention_weights)))
-
-        # Use Scattergl for GPU-accelerated rendering
-        fig.add_trace(go.Scattergl(
-            x=timesteps,
-            y=attention_weights,
-            mode='lines',
-            fill='tozeroy',
-            line=dict(color='#0EA5E9', width=2),
-            name='Attention Weight'
-        ))
-
-        fig.update_layout(
-            title="Attention Weights Over Time",
-            xaxis_title="Timestep (most recent = right)",
-            yaxis_title="Attention Weight",
-            height=300,
-            showlegend=False
-        )
-
-        timeline_chart = dbc.Accordion([
-            dbc.AccordionItem([
-                dcc.Graph(figure=fig)
-            ], title="📈 Attention Timeline")
-        ], start_collapsed=True, className="mt-3")
-
-    return html.Div([
-        dbc.Alert([
-            html.Strong("What This Shows: "),
-            "Which time periods the model \"paid attention to\" when making the prediction. ",
-            "Higher attention = more influence on the prediction."
-        ], color="light", className="mb-3"),
-        html.P([html.Strong("Summary: "), summary], className="mb-3"),
-        period_row,
-        timeline_chart
-    ])
-
-
-def render_counterfactuals(counterfactual_data) -> html.Div:
-    """
-    Render counterfactual scenarios (what-if analysis).
-
-    Args:
-        counterfactual_data: Can be a dict with 'scenarios' key, or a list of scenarios directly
-    """
-    # Handle case where counterfactual_data is a list (legacy format)
+    # Handle different data formats
     if isinstance(counterfactual_data, list):
         scenarios = counterfactual_data
-        summary = 'What-if scenarios showing predicted outcomes for different actions'
     else:
-        # Handle dict format
-        summary = counterfactual_data.get('summary', 'No summary available')
         scenarios = counterfactual_data.get('scenarios', [])
 
     if not scenarios:
-        return dbc.Alert("No scenario recommendations available", color="info")
-
-    # Scenario icons
-    SCENARIO_ICONS = {
-        'restart': '🔄',
-        'scale': '📈',
-        'stabilize': '⚖️',
-        'optimize': '⚡',
-        'reduce': '🧹',
-        'nothing': '⏸️'
-    }
-
-    scenario_rows = []
-
-    # Handle both dict and list formats
-    if isinstance(scenarios, dict):
-        scenario_items = scenarios.items()
-    else:
-        # If it's a list, create (name, data) pairs
-        scenario_items = [(s.get('name', f'Scenario {i+1}'), s) for i, s in enumerate(scenarios)]
-
-    for scenario_name, scenario in scenario_items:
-        # Extract scenario data (handle both string keys and dict with 'scenario' key)
-        if isinstance(scenario, dict) and 'scenario' in scenario:
-            display_name = scenario['scenario']
+        if risk_score < 40:
+            return dbc.Alert([
+                html.H5("✅ No Action Required", className="alert-heading"),
+                html.P("This server is healthy. Continue monitoring as usual.")
+            ], color="success")
         else:
-            display_name = scenario_name
+            return dbc.Alert([
+                html.H5("⚠️ Analysis Unavailable", className="alert-heading"),
+                html.P("Could not generate specific recommendations. Review server metrics manually.")
+            ], color="warning")
 
-        icon = SCENARIO_ICONS.get(display_name.lower().split()[0], '💡')
-        predicted_cpu = scenario.get('predicted_cpu', 0)
-        current_cpu = scenario.get('baseline_cpu', predicted_cpu)
-        change = scenario.get('change', predicted_cpu - current_cpu)
-        is_safe = scenario.get('safe', True)
-        effort = scenario.get('effort', 'UNKNOWN')
-        risk = scenario.get('risk', 'MEDIUM')
-        action = scenario.get('action', 'No action details available')
-        confidence = scenario.get('confidence', 0.5)
+    action_cards = []
 
-        safety_icon = "✅" if is_safe else "⚠️"
+    # Process scenarios into simple action cards
+    if isinstance(scenarios, dict):
+        scenario_items = list(scenarios.items())
+    else:
+        scenario_items = [(s.get('scenario', f'Option {i+1}'), s) for i, s in enumerate(scenarios)]
 
-        # Color based on change (green=improvement, red=worse)
-        change_color = '#10B981' if change < 0 else '#EF4444' if change > 0 else '#6B7280'
+    for i, (name, scenario) in enumerate(scenario_items[:4]):  # Limit to top 4 recommendations
+        if isinstance(scenario, dict):
+            action = scenario.get('action', 'Review this server')
+            change = scenario.get('change', 0)
+            effort = scenario.get('effort', 'MEDIUM')
+            confidence = scenario.get('confidence', 0.5)
+            is_safe = scenario.get('safe', True)
+        else:
+            action = str(scenario)
+            change = 0
+            effort = 'MEDIUM'
+            confidence = 0.5
+            is_safe = True
 
-        # Effort color (green=low, yellow=medium, red=high)
-        effort_color = {
-            'LOW': '#10B981',
-            'MEDIUM': '#EAB308',
-            'HIGH': '#EF4444',
-            'None': '#6B7280'
-        }.get(effort, '#6B7280')
+        # Determine card styling
+        if change < -10:
+            impact_text = "High Impact"
+            impact_color = "#10B981"
+            badge_color = "success"
+        elif change < 0:
+            impact_text = "Moderate Impact"
+            impact_color = "#3B82F6"
+            badge_color = "primary"
+        else:
+            impact_text = "Low Impact"
+            impact_color = "#6B7280"
+            badge_color = "secondary"
 
-        # Risk color
-        risk_color = {
-            'LOW': '#10B981',
-            'MEDIUM': '#EAB308',
-            'HIGH': '#EF4444'
-        }.get(risk, '#6B7280')
+        effort_badges = {
+            'LOW': ('Easy', 'success'),
+            'MEDIUM': ('Moderate Effort', 'warning'),
+            'HIGH': ('Complex', 'danger'),
+        }
+        effort_text, effort_badge = effort_badges.get(effort, ('Unknown', 'secondary'))
 
-        scenario_rows.append(
-            dbc.Card([
-                dbc.CardBody([
-                    # Header row with name and key metrics
-                    dbc.Row([
-                        dbc.Col([
-                            html.H5(f"{safety_icon} {icon} {display_name}", className="mb-2")
-                        ], width=6),
-                        dbc.Col([
-                            html.Div([
-                                html.H4(
-                                    f"{predicted_cpu:.1f}%",
-                                    className="mb-0",
-                                    style={'color': '#EF4444' if predicted_cpu > 85 else '#EAB308' if predicted_cpu > 75 else '#10B981'}
-                                ),
-                                html.Small("Predicted CPU", className="text-muted")
-                            ], className="text-center")
-                        ], width=2),
-                        dbc.Col([
-                            html.Div([
-                                html.H4(
-                                    f"{change:+.1f}%",
-                                    className="mb-0",
-                                    style={'color': change_color, 'fontWeight': 'bold'}
-                                ),
-                                html.Small("Change", className="text-muted")
-                            ], className="text-center")
-                        ], width=2),
-                        dbc.Col([
-                            html.Div([
-                                html.Span(effort, style={'color': effort_color, 'fontWeight': 'bold'}),
-                                html.Br(),
-                                html.Small("Effort", className="text-muted")
-                            ], className="text-center")
-                        ], width=1),
-                        dbc.Col([
-                            html.Div([
-                                html.Span(risk, style={'color': risk_color, 'fontWeight': 'bold'}),
-                                html.Br(),
-                                html.Small("Risk", className="text-muted")
-                            ], className="text-center")
-                        ], width=1),
-                    ], className="mb-2"),
+        # Simplify action text for executives
+        simple_action = action
+        if 'restart' in action.lower():
+            simple_action = "Restart the server or application"
+        elif 'scale' in action.lower():
+            simple_action = "Add more resources or servers"
+        elif 'memory' in action.lower() or 'cache' in action.lower():
+            simple_action = "Free up memory"
+        elif 'disk' in action.lower():
+            simple_action = "Clear disk space"
+        elif 'connection' in action.lower():
+            simple_action = "Check network connections"
 
-                    # Action row (most important!)
-                    dbc.Row([
-                        dbc.Col([
-                            html.Div([
-                                html.Strong("📋 How to implement: ", style={'color': '#0EA5E9'}),
-                                html.Span(action, style={'fontFamily': 'monospace', 'fontSize': '0.95em'})
-                            ], className="p-2", style={'backgroundColor': '#F0F9FF', 'borderRadius': '4px'})
-                        ], width=12)
-                    ], className="mt-2"),
-
-                    # Confidence indicator
-                    dbc.Row([
-                        dbc.Col([
-                            dbc.Progress(
-                                value=confidence * 100,
-                                label=f"Confidence: {confidence:.0%}",
-                                color="success" if confidence > 0.8 else "warning" if confidence > 0.6 else "danger",
-                                className="mt-2",
-                                style={'height': '20px'}
-                            )
-                        ], width=12)
-                    ])
+        card = dbc.Card([
+            dbc.CardHeader([
+                dbc.Row([
+                    dbc.Col([
+                        html.H5(f"Option {i+1}: {name.replace('_', ' ').title()}", className="mb-0")
+                    ], width=8),
+                    dbc.Col([
+                        dbc.Badge(impact_text, color=badge_color, className="me-2"),
+                        dbc.Badge(effort_text, color=effort_badge)
+                    ], width=4, className="text-end")
                 ])
-            ], className="mb-3", style={'borderLeft': f'4px solid {change_color}'})
+            ]),
+            dbc.CardBody([
+                html.P([
+                    html.Strong("What to do: "),
+                    simple_action
+                ], className="mb-2"),
+                html.P([
+                    html.Strong("Expected result: "),
+                    f"{'Improvement' if change < 0 else 'Minimal change'} in server health",
+                    f" ({abs(change):.0f}% {'better' if change < 0 else 'impact'})" if change != 0 else ""
+                ], className="mb-2 text-muted"),
+                dbc.Progress(
+                    value=confidence * 100,
+                    label=f"{confidence:.0%} confidence",
+                    color="success" if confidence > 0.7 else "warning" if confidence > 0.4 else "danger",
+                    style={'height': '24px'}
+                )
+            ])
+        ], className="mb-3")
+
+        action_cards.append(card)
+
+    return html.Div([
+        html.H5("🎯 Recommended Actions", className="mb-3"),
+        html.P("Listed in order of potential impact:", className="text-muted mb-3"),
+        html.Div(action_cards)
+    ])
+
+
+def generate_key_factors(shap_data: Dict) -> html.Div:
+    """Generate a simple visual of key factors."""
+    feature_importance = shap_data.get('feature_importance', [])
+
+    if not feature_importance:
+        return html.Div()
+
+    factors = []
+    for feature, info in feature_importance[:5]:
+        plain_name = get_metric_plain_name(feature)
+        impact = info.get('impact', 0) * 100
+        direction = info.get('direction', 'neutral')
+
+        if direction == 'increasing':
+            icon = "📈"
+            status = "Rising"
+            color = "#EF4444"  # Red - concerning
+        elif direction == 'decreasing':
+            icon = "📉"
+            status = "Falling"
+            color = "#10B981"  # Green - improving
+        else:
+            icon = "➡️"
+            status = "Stable"
+            color = "#6B7280"  # Gray
+
+        factors.append(
+            dbc.Row([
+                dbc.Col([
+                    html.Span(icon, style={'fontSize': '1.5rem'})
+                ], width=1),
+                dbc.Col([
+                    html.Strong(plain_name.title()),
+                    html.Span(f" - {status}", style={'color': color})
+                ], width=5),
+                dbc.Col([
+                    dbc.Progress(
+                        value=min(impact, 100),
+                        color="danger" if impact > 50 else "warning" if impact > 25 else "info",
+                        style={'height': '20px'}
+                    )
+                ], width=5),
+                dbc.Col([
+                    html.Span(f"{impact:.0f}%", className="text-muted")
+                ], width=1)
+            ], className="mb-2 align-items-center")
         )
 
     return html.Div([
-        dbc.Alert([
-            html.H5("🎯 What-If Scenarios: Actionable Recommendations", className="mb-2"),
-            html.P([
-                "Each scenario below shows the ", html.Strong("predicted CPU impact"),
-                " of taking a specific action, along with ", html.Strong("implementation details"),
-                " so you know exactly what to do."
-            ], className="mb-2"),
-            html.P([
-                html.Strong("Key:"),
-                " ✅ = Safe (below threshold) | ⚠️ = Risky (above threshold) | ",
-                html.Span("Green", style={'color': '#10B981', 'fontWeight': 'bold'}),
-                " = Improvement | ",
-                html.Span("Red", style={'color': '#EF4444', 'fontWeight': 'bold'}),
-                " = Worse"
-            ], className="mb-0")
-        ], color="info", className="mb-3"),
-        html.Div(scenario_rows)
+        html.H5("📊 What's Driving This", className="mb-3"),
+        html.P("These factors are most influencing the server's health:", className="text-muted mb-3"),
+        html.Div(factors)
     ])
+
+
+def generate_timeline_summary(attention_data: Dict) -> html.Div:
+    """Generate a simple timeline summary."""
+    summary = attention_data.get('summary', '')
+    important_periods = attention_data.get('important_periods', [])
+
+    if not important_periods:
+        return html.Div()
+
+    # Find the most important period
+    most_important = max(important_periods, key=lambda x: x.get('attention', 0))
+    period_name = most_important.get('period', 'Recent activity')
+
+    return dbc.Alert([
+        html.H6("⏰ When It Started", className="mb-2"),
+        html.P([
+            f"The AI is paying most attention to: ",
+            html.Strong(period_name.lower()),
+            ". This suggests the issue began or worsened during this timeframe."
+        ], className="mb-0")
+    ], color="light")
+
+
+def render_technical_details(shap_data: Dict, attention_data: Dict, counterfactual_data) -> html.Div:
+    """Render collapsible technical details for advanced users."""
+
+    # SHAP details
+    feature_importance = shap_data.get('feature_importance', [])
+    shap_table_data = []
+    for feature, info in feature_importance:
+        shap_table_data.append({
+            'Metric': feature,
+            'Impact': f"{info.get('impact', 0) * 100:.1f}%",
+            'Direction': info.get('direction', 'neutral'),
+            'Importance': info.get('stars', '')
+        })
+
+    shap_df = pd.DataFrame(shap_table_data) if shap_table_data else pd.DataFrame()
+
+    # Attention weights chart
+    attention_weights = attention_data.get('attention_weights', [])
+    attention_chart = html.Div()
+    if attention_weights and len(attention_weights) > 10:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=list(range(len(attention_weights))),
+            y=attention_weights,
+            mode='lines',
+            fill='tozeroy',
+            line=dict(color='#0EA5E9', width=2)
+        ))
+        fig.update_layout(
+            title="Attention Weights Over Time",
+            xaxis_title="Timestep",
+            yaxis_title="Attention Weight",
+            height=250,
+            margin=dict(l=40, r=40, t=40, b=40)
+        )
+        attention_chart = dcc.Graph(figure=fig)
+
+    return dbc.Accordion([
+        dbc.AccordionItem([
+            html.P("This table shows the raw SHAP (SHapley Additive exPlanations) values for each metric.",
+                   className="text-muted mb-3"),
+            dbc.Table.from_dataframe(shap_df, striped=True, bordered=True, hover=True, size='sm')
+            if not shap_df.empty else html.P("No SHAP data available")
+        ], title="📊 SHAP Feature Importance (Technical)"),
+
+        dbc.AccordionItem([
+            html.P("This chart shows which time periods the model weighted most heavily.",
+                   className="text-muted mb-3"),
+            attention_chart if attention_weights else html.P("No attention data available")
+        ], title="⏱️ Attention Weights (Technical)"),
+
+        dbc.AccordionItem([
+            html.P("Raw counterfactual scenario data from the model.", className="text-muted mb-3"),
+            html.Pre(
+                str(counterfactual_data)[:2000] + "..." if len(str(counterfactual_data)) > 2000 else str(counterfactual_data),
+                style={'fontSize': '0.8rem', 'whiteSpace': 'pre-wrap', 'backgroundColor': '#f8f9fa', 'padding': '1rem', 'borderRadius': '4px'}
+            )
+        ], title="🎯 Raw Counterfactual Data (Technical)")
+    ], start_collapsed=True, className="mt-4")
 
 
 def render(predictions: Dict, risk_scores: Dict[str, float],
            selected_server: str = None) -> html.Div:
     """
-    Render Insights (XAI) tab.
-
-    Args:
-        predictions: Full predictions dict from daemon
-        risk_scores: PRE-CALCULATED risk scores
-        selected_server: Selected server for analysis (optional)
-
-    Returns:
-        html.Div: Tab content
+    Render Insights tab - Executive-friendly version.
     """
     server_preds = predictions.get('predictions', {})
 
     if not server_preds:
         return dbc.Alert([
-            html.H4("🧠 Explainable AI Insights"),
-            html.P("No predictions available. Start the inference daemon and metrics generator."),
+            html.H4("🧠 Server Insights"),
+            html.P("No servers are being monitored. Start the system to see insights."),
         ], color="warning")
 
     # Get sorted servers by risk (highest first)
@@ -449,114 +412,78 @@ def render(predictions: Dict, risk_scores: Dict[str, float],
     if not selected_server and sorted_servers:
         selected_server = sorted_servers[0]
 
-    # Create server selector dropdown options
-    server_options = [
-        {
-            'label': f"{server} (Risk: {risk:.0f})",
+    # Create dropdown with simple risk indicators
+    server_options = []
+    for server, risk in servers_with_risk:
+        level, color, icon, _ = get_risk_level(risk)
+        server_options.append({
+            'label': f"{icon} {server} - {level} ({risk:.0f})",
             'value': server
-        }
-        for server, risk in servers_with_risk
-    ]
+        })
 
-    # Header and description
+    # Header
     header = html.Div([
-        html.H4("🧠 Explainable AI Insights", className="mb-3"),
-        dbc.Alert([
-            html.P([
-                html.Strong("ArgusAI Advantage: "),
-                "Most monitoring tools just show you numbers. ",
-                "We show you the ", html.Strong("reasoning"), " behind them."
-            ], className="mb-0")
-        ], color="info")
+        html.H4("🧠 Server Health Insights", className="mb-2"),
+        html.P("Select a server to understand its health and get recommendations.",
+               className="text-muted mb-4")
     ])
 
-    # Server selector with refresh button
+    # Server selector
     selector = dbc.Row([
         dbc.Col([
-            html.Label("Select server to analyze:", className="fw-bold"),
+            html.Label("Choose a server:", className="fw-bold mb-2"),
             dcc.Dropdown(
                 id='insights-server-selector',
                 options=server_options,
                 value=selected_server,
                 clearable=False,
-                className="mb-3"
+                style={'fontSize': '1.1rem'}
             )
-        ], width=6),
+        ], width=8),
         dbc.Col([
-            html.Label(html.Span(style={'visibility': 'hidden'}), className="fw-bold"),  # Spacer for alignment
+            html.Label(" ", className="fw-bold mb-2"),  # Spacer
             dbc.Button(
-                "🔄 Refresh Analysis",
+                "🔄 Refresh",
                 id='insights-refresh-button',
                 color="primary",
                 outline=True,
-                className="mb-3",
-                size="sm"
+                className="w-100"
             )
-        ], width=3)
-    ])
+        ], width=2)
+    ], className="mb-4")
 
-    # Loading spinner for XAI analysis
+    # Loading content
     loading_content = dcc.Loading(
         id="insights-loading",
-        type="default",
+        type="circle",
         children=html.Div(id='insights-content')
     )
 
-    # Note about interactivity and manual refresh
-    note = dbc.Alert([
-        html.Strong("💡 How Insights Works: "),
-        html.Br(),
-        "• XAI analysis runs when you select a server (3-5 seconds). ",
-        html.Br(),
-        "• Results are cached - no auto-refresh to prevent aggressive reloading. ",
-        html.Br(),
-        "• Use the 🔄 Refresh button to manually update analysis with latest data. ",
-        html.Br(),
-        "• Requires daemon with XAI enabled (/explain endpoint)."
+    # Help text
+    help_text = dbc.Alert([
+        html.Strong("💡 Tip: "),
+        "Analysis takes 3-5 seconds. Results show why the AI flagged this server and what you can do about it."
     ], color="light", className="mt-3")
 
     return html.Div([
         header,
         selector,
         loading_content,
-        note
+        help_text
     ])
 
 
-# This would normally be in dash_app.py as a callback, but showing here for completeness
-# @callback(
-#     Output('insights-content', 'children'),
-#     Input('insights-server-selector', 'value')
-# )
-# def update_insights_content(selected_server):
-#     """Callback to fetch and display XAI explanation for selected server."""
-#     if not selected_server:
-#         return dbc.Alert("Select a server to analyze", color="info")
+# Export the render functions for the callback in dash_app.py
+def render_shap_explanation(shap_data: Dict) -> html.Div:
+    """Wrapper for backward compatibility with dash_app.py callback."""
+    return generate_key_factors(shap_data)
 
-#     # Fetch explanation
-#     explanation = fetch_explanation(selected_server)
 
-#     if not explanation or 'error' in explanation:
-#         return dbc.Alert([
-#             html.H5("❌ XAI Analysis Unavailable"),
-#             html.P("Could not fetch explanation. Check that daemon has XAI enabled."),
-#             html.P("Ensure the /explain endpoint is available on the daemon.", className="mb-0")
-#         ], color="danger")
+def render_attention_analysis(attention_data: Dict) -> html.Div:
+    """Wrapper for backward compatibility with dash_app.py callback."""
+    return generate_timeline_summary(attention_data)
 
-#     # Render XAI components in tabs
-#     tabs = dbc.Tabs([
-#         dbc.Tab(
-#             render_shap_explanation(explanation.get('shap', {})),
-#             label="📊 Feature Importance"
-#         ),
-#         dbc.Tab(
-#             render_attention_analysis(explanation.get('attention', {})),
-#             label="⏱️ Temporal Focus"
-#         ),
-#         dbc.Tab(
-#             render_counterfactuals(explanation.get('counterfactuals', {})),
-#             label="🎯 What-If Scenarios"
-#         ),
-#     ])
 
-#     return tabs
+def render_counterfactuals(counterfactual_data) -> html.Div:
+    """Wrapper for backward compatibility with dash_app.py callback."""
+    return generate_action_cards(counterfactual_data, 50)  # Default risk score
