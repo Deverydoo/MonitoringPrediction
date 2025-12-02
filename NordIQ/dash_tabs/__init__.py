@@ -13,7 +13,6 @@ __all__ = [
     'cost_avoidance',
     'auto_remediation',
     'alerting',
-    'advanced',
     'documentation',
     'roadmap',
 ]

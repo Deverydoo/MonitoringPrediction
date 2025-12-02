@@ -91,15 +91,9 @@ echo Performance Expectations:
 echo ============================================
 echo.
 echo   Target:    ^<500ms page loads
-echo   Expected:  ~78ms render time (15× faster than Streamlit)
+echo   Expected:  ~78ms render time
 echo.
-echo   Tabs Available: 3/11 (27%%)
-echo   - Overview (KPIs, risk distribution)
-echo   - Heatmap (risk visualization)
-echo   - Top 5 Risks (gauge charts)
-echo.
-echo   Coming Soon: 8 more tabs (Week 2-4)
-echo   - Historical, Insights, Cost, Auto-Remediation, etc.
+echo   All 10 tabs available
 echo.
 echo Press any key to exit (dashboard will keep running)...
 pause

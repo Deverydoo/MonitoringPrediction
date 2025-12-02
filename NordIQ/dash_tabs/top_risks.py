@@ -36,12 +36,12 @@ def render(predictions: Dict, risk_scores: Dict[str, float], server_preds: Dict)
     if not top_servers or top_servers[0][1] == 0:
         return dbc.Alert("✅ No high-risk servers detected!", color="success")
 
-    # Create gauge charts for top 5 (same as Streamlit!)
+    # Create gauge charts for top 5
     gauges = []
     for i, (server_name, risk_score) in enumerate(top_servers, 1):
         server_pred = server_preds[server_name]
 
-        # Risk gauge (copy from Streamlit)
+        # Risk gauge
         fig_gauge = go.Figure(go.Indicator(
             mode="gauge+number",
             value=risk_score,

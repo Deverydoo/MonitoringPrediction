@@ -5,7 +5,7 @@ ArgusAI - Dash Production Dashboard
 
 High-performance dashboard built with Plotly Dash.
 
-Performance: ~78ms render time (15× faster than Streamlit)
+Performance: ~78ms render time
 Architecture: Callback-based (only active tab renders)
 Scalability: Supports unlimited concurrent users
 
@@ -213,7 +213,6 @@ app.layout = dbc.Container([
             dbc.Tab(label='💰 Cost Avoidance', tab_id='cost'),
             dbc.Tab(label='🤖 Auto-Remediation', tab_id='remediation'),
             dbc.Tab(label='📱 Alerting', tab_id='alerting'),
-            dbc.Tab(label='⚙️ Advanced', tab_id='advanced'),
             dbc.Tab(label='📚 Documentation', tab_id='docs'),
             dbc.Tab(label='🗺️ Roadmap', tab_id='roadmap'),
         ]
@@ -497,10 +496,10 @@ def update_history_and_status(predictions, history):
 )
 def render_tab(active_tab, predictions, start_time, history):
     """
-    Render selected tab - ONLY THIS TAB RUNS (not all 11 tabs like Streamlit!)
+    Render selected tab - ONLY THIS TAB RUNS (not all tabs!)
 
     This is the key performance win: Dash only executes callbacks for
-    what changed. Streamlit reruns the entire script.
+    what changed.
 
     SPECIAL HANDLING: Insights tab should NOT re-render on predictions update
     to prevent aggressive XAI re-fetching. Only render on tab change.
@@ -575,9 +574,6 @@ def render_tab(active_tab, predictions, start_time, history):
     elif active_tab == "alerting":
         from dash_tabs import alerting
         content = alerting.render(predictions, risk_scores)
-    elif active_tab == "advanced":
-        from dash_tabs import advanced
-        content = advanced.render(predictions, risk_scores)
     elif active_tab == "docs":
         from dash_tabs import documentation
         content = documentation.render(predictions, risk_scores)
@@ -827,7 +823,7 @@ if __name__ == '__main__':
     print("Daemon API:         http://localhost:8000")
     print()
     print("Performance Target: <500ms page loads")
-    print("Expected:           ~78ms (15× faster than Streamlit)")
+    print("Expected:           ~78ms")
     print()
     print("=" * 60)
 

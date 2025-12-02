@@ -73,7 +73,6 @@ echo Inference Daemon:   http://localhost:8000
 echo Metrics Generator:  Streaming
 echo Dashboard (Dash):   http://localhost:8050
 echo.
-echo NOTE: Dash dashboard is 16x faster than Streamlit!
-echo      All 11 tabs now available at http://localhost:8050
+echo All 10 tabs available at http://localhost:8050
 echo.
 pause

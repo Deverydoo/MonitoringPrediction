@@ -1336,7 +1336,7 @@ class CleanInferenceDaemon:
 
     def _calculate_server_risk_score(self, server_pred: Dict) -> float:
         """
-        Calculate risk score for a single server (daemon version - no Streamlit deps).
+        Calculate risk score for a single server.
 
         This is the SINGLE SOURCE OF TRUTH for risk calculations.
         Dashboard will use pre-calculated scores from daemon response.

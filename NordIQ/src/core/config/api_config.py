@@ -24,9 +24,9 @@ API_CONFIG = {
     'metrics_generator_port': 8001,
     'metrics_generator_host': 'localhost',
 
-    # Dashboard (Streamlit web interface)
-    'dashboard_url': 'http://localhost:8501',
-    'dashboard_port': 8501,
+    # Dashboard (Dash web interface)
+    'dashboard_url': 'http://localhost:8050',
+    'dashboard_port': 8050,
     'dashboard_host': 'localhost',
 
     # =============================================================================

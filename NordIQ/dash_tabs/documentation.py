@@ -59,7 +59,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
             html.Ul([
                 html.Li("Model: PyTorch Forecasting Temporal Fusion Transformer (TFT)"),
                 html.Li("Architecture: Microservices with REST APIs"),
-                html.Li("Dashboard: Plotly Dash with real-time updates (15× faster than Streamlit!)"),
+                html.Li("Dashboard: Plotly Dash with real-time updates"),
                 html.Li("Training: Transfer learning with profile-specific fine-tuning")
             ])
         ], title="🎯 Overview & Features"),

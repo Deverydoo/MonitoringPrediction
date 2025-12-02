@@ -67,7 +67,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
         ], width=3),
     ], className="mb-4")
 
-    # Risk distribution chart (SAME Plotly code as Streamlit!)
+    # Risk distribution chart
     server_risks = []
     for server_name, risk_score in risk_scores.items():
         status = 'Critical' if risk_score >= 80 else \
@@ -81,7 +81,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
 
     risk_df = pd.DataFrame(server_risks)
 
-    # Bar chart (copy-paste from Streamlit!)
+    # Bar chart
     fig_bar = px.bar(
         risk_df.sort_values('Risk Score', ascending=False).head(15),
         x='Server',
@@ -94,7 +94,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
     )
     fig_bar.update_layout(xaxis_tickangle=-45)
 
-    # Pie chart (copy-paste from Streamlit!)
+    # Pie chart
     status_counts = risk_df['Status'].value_counts()
     fig_pie = px.pie(
         values=status_counts.values,
