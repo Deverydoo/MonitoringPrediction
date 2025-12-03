@@ -157,3 +157,8 @@ NordIQ-Website/
 # Keep in Docs/RAG/: Living documents used by AI assistants
 # Exclude from git: Historical session notes, deprecated docs
 Docs/archive/
+
+# Training data (too large for git)
+NordIQ/training/server_metrics_parquet/
+NordIQ/training/*.parquet
+NordIQ/data_buffer/

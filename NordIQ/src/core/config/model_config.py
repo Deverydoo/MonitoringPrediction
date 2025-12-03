@@ -41,7 +41,7 @@ MODEL_CONFIG = {
 
     # Training epochs and batch size
     'epochs': 20,                        # PRODUCTION: 20 epochs, FAST TEST: 3 epochs
-    'batch_size': 128,                   # H100/A100: 128-256, RTX 4090: 64, LOW MEMORY: 32
+    'batch_size': 128,                   # RTX 4090: 128, H100/A100: 256-512, LOW MEMORY: 32
     'learning_rate': 0.01,               # Initial learning rate
     'gradient_clip_val': 0.1,            # Gradient clipping to prevent exploding gradients
 
