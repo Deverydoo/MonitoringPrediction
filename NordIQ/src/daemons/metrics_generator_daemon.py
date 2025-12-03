@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ArgusAI - Metrics Generator Daemon
-Predictive System Monitoring
+Tachyon Argus - Metrics Generator Daemon
+Predictive Infrastructure Monitoring
 
 Built by Craig Giannelli and Claude Code
 
@@ -15,6 +15,9 @@ Runs as a service that:
 2. Streams data to inference daemon every 5 seconds
 3. Accepts scenario changes via REST API (healthy/degrading/critical)
 4. Dashboard can change scenarios on-the-fly without restart
+
+IMPORTANT: Uses the SAME algorithm as batch metrics_generator.py for consistency.
+This ensures training data and live inference data have identical distributions.
 
 Usage:
     python metrics_generator_daemon.py --stream --servers 20 --port 8001
@@ -309,7 +312,14 @@ class MetricsGeneratorDaemon:
     def generate_tick(self) -> List[Dict]:
         """
         Generate one tick of data for entire fleet.
-        Uses gradual trending multipliers for realistic degradation patterns.
+
+        IMPORTANT: Uses the EXACT SAME algorithm as batch metrics_generator.py:
+        1. State transitions via get_state_transition_probs() (shared function)
+        2. Metrics from PROFILE_BASELINES (shared config)
+        3. State multipliers from STATE_MULTIPLIERS (shared config)
+        4. Diurnal patterns via diurnal_multiplier() (shared function)
+
+        The only addition is scenario-based trending for demo purposes.
         """
         self.tick_count += 1
         current_time = datetime.now()
@@ -318,13 +328,11 @@ class MetricsGeneratorDaemon:
         scenario_conf = self.scenario_config[self.scenario]
         batch = []
 
-        # Calculate trending progress (0.0 to 1.0) based on ticks since scenario started
+        # Calculate trending progress (0.0 to 1.0) for demo scenarios
         trending_progress = 0.0
         active_trending = None
         if scenario_conf.get('use_trending'):
-            # Determine which trending config to use (critical has two paths)
             if self.scenario == 'critical':
-                # Check if we have degrading servers (escalation path)
                 if hasattr(self, '_came_from_degrading') and self._came_from_degrading:
                     active_trending = scenario_conf['trending_escalation']
                 else:
@@ -335,7 +343,7 @@ class MetricsGeneratorDaemon:
             if active_trending:
                 ticks_elapsed = self.tick_count - self.scenario_start_tick
                 duration_ticks = active_trending['duration_ticks']
-                trending_progress = min(1.0, ticks_elapsed / duration_ticks)  # Clamp to 1.0
+                trending_progress = min(1.0, ticks_elapsed / duration_ticks)
 
         for _, server in self.fleet.iterrows():
             server_name = server['server_name']
@@ -343,106 +351,86 @@ class MetricsGeneratorDaemon:
             is_problem_child = server['problem_child']
             is_affected = server_name in self.affected_servers
 
-            # Natural state transitions (no more forced states)
+            # =========================================================
+            # STATE TRANSITIONS - IDENTICAL TO BATCH GENERATOR
+            # Uses get_state_transition_probs() from metrics_generator.py
+            # =========================================================
             current_state = self.server_states[server_name]
             probs = get_state_transition_probs(current_state, hour, is_problem_child)
             states = list(probs.keys())
             probabilities = list(probs.values())
             next_state = np.random.choice(states, p=probabilities)
-
             self.server_states[server_name] = next_state
 
-            # Skip offline servers (sparse mode for streaming)
-            # Offline = no metrics sent (standard monitoring handles this)
+            # Skip offline servers (sparse mode - matches batch generator)
             if next_state == ServerState.OFFLINE:
                 continue
 
-            # Generate ALL 14 NordIQ Metrics Framework metrics using profile baselines + state multipliers + diurnal
+            # =========================================================
+            # METRICS GENERATION - IDENTICAL TO BATCH GENERATOR
+            # Uses PROFILE_BASELINES, STATE_MULTIPLIERS, diurnal_multiplier()
+            # All imported from metrics_generator.py (single source of truth)
+            # =========================================================
             profile_enum = ServerProfile(profile)
             baselines = PROFILE_BASELINES[profile_enum]
 
-            # NordIQ Metrics Framework metrics - use exact names AS THEY APPEAR in PROFILE_BASELINES (no _pct suffix yet)
-            nordiq_metrics = [
-                'cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
-                'mem_used', 'swap_used', 'disk_usage',
-                'net_in_mb_s', 'net_out_mb_s',
-                'back_close_wait', 'front_close_wait',
-                'load_average', 'uptime_days'
-            ]
+            # Get diurnal multiplier (same function as batch generator)
+            diurnal_mult = diurnal_multiplier(hour, profile_enum, next_state)
 
             metrics = {}
-            for metric in nordiq_metrics:
-                if metric in baselines:
-                    mean, std = baselines[metric]
-                    value = np.random.normal(mean, std)
+            for metric, (mean, std) in baselines.items():
+                # Generate base value (same as batch)
+                value = np.random.normal(mean, std)
 
-                    # Apply state multiplier (NATURAL)
-                    multiplier = STATE_MULTIPLIERS[next_state].get(metric, 1.0)
-                    value *= multiplier
+                # Apply state multiplier (same as batch)
+                state_mult = STATE_MULTIPLIERS[next_state].get(metric, 1.0)
 
-                    # Apply diurnal pattern
-                    diurnal_mult = diurnal_multiplier(hour, profile_enum, next_state)
-                    value *= diurnal_mult
+                # Apply multipliers (same order as batch generator)
+                if metric != 'uptime_days':
+                    value = value * state_mult * diurnal_mult
+                else:
+                    value = value * state_mult
 
-                    # Apply GRADUAL TRENDING for affected servers (realistic degradation)
-                    if is_affected and active_trending:
-                        # Calculate trending multiplier for this metric
-                        if metric == 'cpu_user':
-                            # Gradually climb CPU toward target
-                            target = active_trending['cpu_target']
-                            current_baseline = mean * multiplier * diurnal_mult
-                            # Interpolate from current to target over trending_progress
-                            target_value = target
-                            trending_value = current_baseline + (target_value - current_baseline) * trending_progress
-                            value = trending_value
+                # =========================================================
+                # SCENARIO TRENDING (demo-only addition, not in batch)
+                # Gradually trends affected servers toward target values
+                # =========================================================
+                if is_affected and active_trending and trending_progress > 0:
+                    if metric == 'cpu_user':
+                        target = active_trending['cpu_target']
+                        value = value + (target - value) * trending_progress
+                    elif metric == 'mem_used':
+                        target = active_trending['mem_target']
+                        value = value + (target - value) * trending_progress
+                    elif metric == 'cpu_iowait' and profile == 'database':
+                        target = active_trending['iowait_target']
+                        value = value + (target - value) * trending_progress
 
-                        elif metric == 'mem_used':
-                            # Gradually climb memory toward target
-                            target = active_trending['mem_target']
-                            current_baseline = mean * multiplier * diurnal_mult
-                            target_value = target
-                            trending_value = current_baseline + (target_value - current_baseline) * trending_progress
-                            value = trending_value
+                # =========================================================
+                # BOUNDS AND OUTPUT FORMAT - IDENTICAL TO BATCH GENERATOR
+                # =========================================================
+                if metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
+                             'mem_used', 'swap_used', 'disk_usage']:
+                    # Percentage metrics: multiply by 100, clip 0-100
+                    metrics[f'{metric}_pct'] = round(np.clip(value * 100, 0, 100), 2)
+                elif metric in ['back_close_wait', 'front_close_wait']:
+                    # Integer connection counts
+                    metrics[metric] = max(0, int(value))
+                elif metric == 'uptime_days':
+                    # Integer days, 0-30
+                    metrics[metric] = int(np.clip(value, 0, 30))
+                else:
+                    # Other metrics (load_average, net_*_mb_s)
+                    metrics[metric] = round(max(0, value), 2)
 
-                        elif metric == 'cpu_iowait' and profile == 'database':
-                            # DB servers: I/O wait climbs (causes cascading issues)
-                            target = active_trending['iowait_target']
-                            current_baseline = mean * multiplier * diurnal_mult
-                            target_value = target
-                            trending_value = current_baseline + (target_value - current_baseline) * trending_progress
-                            value = trending_value
-
-                    # Apply bounds based on metric type
-                    # NOTE: PROFILE_BASELINES uses fractional values (0-1) for cpu/mem
-                    # We need to multiply by 100 and add _pct suffix for output
-                    if metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
-                                 'mem_used', 'swap_used', 'disk_usage']:
-                        # Fractional → Percentage: multiply by 100, add _pct suffix
-                        value = np.clip(value * 100, 0, 100)
-                        metrics[f'{metric}_pct'] = round(value, 2)
-                    elif metric in ['back_close_wait', 'front_close_wait']:
-                        # Connection counts: integers, non-negative
-                        metrics[metric] = max(0, int(value))
-                    elif metric == 'uptime_days':
-                        # Uptime: 0-30 days, integer
-                        metrics[metric] = int(np.clip(value, 0, 30))
-                    elif metric in ['net_in_mb_s', 'net_out_mb_s']:
-                        # Network: MB/s, non-negative floats (baselines already in MB/s)
-                        metrics[metric] = round(max(0, value), 2)
-                    elif metric == 'load_average':
-                        # Load average: non-negative float (baselines already correct scale)
-                        metrics[metric] = round(max(0, value), 2)
-
-            # Build record
+            # Build record (same structure as batch generator)
             record = {
                 'timestamp': current_time.isoformat(),
                 'server_name': server_name,
                 'profile': profile,
-                'state': next_state.value,
+                'status': next_state.value,  # 'status' matches batch generator
                 'problem_child': bool(is_problem_child),
                 **metrics,
-                # OOM based on NordIQ Metrics Framework mem_used_pct
-                'container_oom': int(np.random.random() < 0.01 if metrics.get('mem_used_pct', 0) > 85 else 0),
                 'notes': ''
             }
 

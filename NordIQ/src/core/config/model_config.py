@@ -20,12 +20,12 @@ MODEL_CONFIG = {
     'model_type': 'TemporalFusionTransformer',
     'save_format': 'safetensors',  # Safer than pickle
 
-    # Architecture dimensions
-    'hidden_size': 32,                  # Hidden layer size (32 = production, 16 = faster training)
-    'attention_heads': 8,                # Multi-head attention (8 = production, 4 = faster)
-    'dropout': 0.15,                     # Dropout rate for regularization
-    'continuous_size': 16,               # Continuous feature embedding size
-    'hidden_continuous_size': 16,        # Hidden continuous layer size
+    # Architecture dimensions (~1M parameters for 400+ server fleet)
+    'hidden_size': 128,                  # Hidden layer size (128 = 1M params, 32 = 130K params)
+    'attention_heads': 8,                # Multi-head attention (must divide hidden_size evenly)
+    'dropout': 0.2,                      # Slightly higher dropout for larger model
+    'continuous_size': 64,               # Continuous feature embedding size
+    'hidden_continuous_size': 64,        # Hidden continuous layer size
     'output_size': 7,                    # Output quantiles (p10, p20, p30, p40, p50, p60, p70, p80, p90)
     'loss': 'quantile',                  # Loss function (quantile for probabilistic forecasting)
 
@@ -41,7 +41,7 @@ MODEL_CONFIG = {
 
     # Training epochs and batch size
     'epochs': 20,                        # PRODUCTION: 20 epochs, FAST TEST: 3 epochs
-    'batch_size': 32,                    # PRODUCTION: 32, LOW MEMORY: 16, HIGH MEMORY: 64
+    'batch_size': 128,                   # H100/A100: 128-256, RTX 4090: 64, LOW MEMORY: 32
     'learning_rate': 0.01,               # Initial learning rate
     'gradient_clip_val': 0.1,            # Gradient clipping to prevent exploding gradients
 
@@ -61,7 +61,9 @@ MODEL_CONFIG = {
     # =============================================================================
 
     # Precision and optimization
-    'precision': '32-true',              # Options: '32-true' (default), '16-mixed' (faster), 'bf16-mixed' (A100 GPUs)
+    # NOTE: '16-mixed' causes overflow in TFT attention masks with pytorch_forecasting
+    # Use '32-true' for stability, or 'bf16-mixed' on A100/H100 GPUs (larger dynamic range)
+    'precision': '32-true',              # Options: '32-true' (stable), 'bf16-mixed' (A100+ GPUs only)
     'accumulate_grad_batches': 1,        # Gradient accumulation (1 = disabled, 4 = effective batch_size × 4)
     'multi_target': False,               # Set to True for multi-target prediction
 
@@ -91,7 +93,7 @@ MODEL_CONFIG = {
     'use_cyclical_encoding': True,       # Sin/cos encoding for time features
 
     # Fleet configuration
-    'servers_count': 20,                 # Number of servers in fleet
+    'servers_count': 400,                # Number of servers in fleet (scale as needed)
     'anomaly_ratio': 0.12,               # Expected % of anomalous data points
 
     # =============================================================================

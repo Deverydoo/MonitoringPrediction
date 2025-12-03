@@ -42,18 +42,29 @@ from core.gpu_profiles import setup_gpu
 from core.nordiq_metrics import NORDIQ_METRICS, validate_nordiq_metrics
 
 
-def set_random_seed(seed: int = 42):
-    """Set random seeds for reproducibility."""
+def set_random_seed(seed: int = 42, deterministic: bool = False):
+    """Set random seeds for reproducibility.
+
+    Args:
+        seed: Random seed value
+        deterministic: If True, use deterministic algorithms (slower but reproducible)
+                      If False (default), use cudnn.benchmark for faster training
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-    # Make CuDNN deterministic
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-    print(f" Random seed set to {seed} for reproducibility")
+    if deterministic:
+        # Fully deterministic (slower)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        print(f"[SEED] Random seed {seed} (deterministic mode - slower)")
+    else:
+        # Faster training with cudnn auto-tuner
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True
+        print(f"[SEED] Random seed {seed} (benchmark mode - faster)")
 
 
 class TrainingProgressCallback(Callback):
@@ -160,9 +171,20 @@ class TFTTrainer:
         if parquet_dir.exists() and parquet_dir.is_dir():
             print(f"[LOAD] Loading partitioned parquet dataset: {parquet_dir}")
             try:
-                # Read all partitions at once (pandas handles this automatically)
+                # Use PyArrow for parallel reading of partitions (faster than pandas)
+                import pyarrow.parquet as pq
+                table = pq.read_table(
+                    parquet_dir,
+                    use_threads=True,  # Parallel partition reads
+                    memory_map=True    # Memory-mapped I/O for large files
+                )
+                df = table.to_pandas()
+                print(f"[OK] Loaded {len(df):,} records from partitioned parquet (PyArrow)")
+                return self._prepare_dataframe(df)
+            except ImportError:
+                # Fallback to pandas if pyarrow direct import fails
                 df = pd.read_parquet(parquet_dir)
-                print(f"[OK] Loaded {len(df):,} records from partitioned parquet")
+                print(f"[OK] Loaded {len(df):,} records from partitioned parquet (pandas)")
                 return self._prepare_dataframe(df)
             except Exception as e:
                 print(f"[WARNING]  Failed to load partitioned parquet: {e}")
@@ -764,19 +786,24 @@ class TFTTrainer:
             print(f"[INFO] Data loading: {optimal_workers} workers, pin_memory={use_pin_memory}, persistent={use_persistent}")
 
             # Create data loaders with appropriate worker configuration
+            # prefetch_factor improves GPU utilization by keeping batches ready
+            prefetch = self.config.get('prefetch_factor', 3) if optimal_workers > 0 else None
+
             train_dataloader = training_dataset.to_dataloader(
                 train=True,
                 batch_size=self.config['batch_size'],
                 num_workers=optimal_workers,
                 pin_memory=use_pin_memory,
-                persistent_workers=use_persistent if optimal_workers > 0 else False
+                persistent_workers=use_persistent if optimal_workers > 0 else False,
+                prefetch_factor=prefetch
             )
             val_dataloader = validation_dataset.to_dataloader(
                 train=False,
                 batch_size=self.config['batch_size'] * 2,
                 num_workers=optimal_workers,
                 pin_memory=use_pin_memory,
-                persistent_workers=use_persistent if optimal_workers > 0 else False
+                persistent_workers=use_persistent if optimal_workers > 0 else False,
+                prefetch_factor=prefetch
             )
 
             # Create TFT model with Phase 2 learning rate

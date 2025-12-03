@@ -1,274 +1,151 @@
-# Documentation - TFT Monitoring Prediction System
+# Tachyon Argus Documentation
 
-**Last Updated**: October 17, 2025
-**Status**: Production Ready with Modular Architecture
+**Predictive Infrastructure Monitoring**
 
 ---
 
-## 📚 Quick Navigation
+## Quick Navigation
 
 ### Getting Started
-- **[QUICKSTART.md](QUICKSTART.md)** - Fast setup guide (30 seconds to running system)
-- **[QUICK_START.md](QUICK_START.md)** - Alternative full setup walkthrough
-- **[PYTHON_ENV.md](PYTHON_ENV.md)** - Environment setup
+- **[QUICKSTART.md](QUICKSTART.md)** - Get running in 30 seconds
 
-### Core System Documentation
-- **[DATA_CONTRACT.md](DATA_CONTRACT.md)** ⭐ - Schema specification (14 NordIQ Metrics Framework metrics)
-- **[SERVER_PROFILES.md](SERVER_PROFILES.md)** - 7 server profiles for transfer learning
-- **[HOW_PREDICTIONS_WORK.md](HOW_PREDICTIONS_WORK.md)** - Technical explanation of TFT predictions
-- **[CONTEXTUAL_RISK_INTELLIGENCE.md](CONTEXTUAL_RISK_INTELLIGENCE.md)** - Design philosophy
+### Core Guides (Consolidated)
+| Document | Purpose | When to Read |
+|----------|---------|--------------|
+| **[ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md)** | System design, data flow, deployment | Understanding the system architecture |
+| **[TRAINING_GUIDE.md](TRAINING_GUIDE.md)** | Model training, retraining, drift detection | Training or retraining models |
+| **[PERFORMANCE_COMPLETE.md](PERFORMANCE_COMPLETE.md)** | Optimization guide, caching, scalability | Performance tuning |
 
-### Operations & Training
-- **[MODEL_TRAINING_GUIDELINES.md](MODEL_TRAINING_GUIDELINES.md)** - How to train/retrain models
-- **[RETRAINING_PIPELINE.md](RETRAINING_PIPELINE.md)** - Operational retraining procedures
-- **[PRODUCTION_INTEGRATION_GUIDE.md](PRODUCTION_INTEGRATION_GUIDE.md)** - Integrating real production data
-- **[INFERENCE_README.md](INFERENCE_README.md)** - Inference daemon details
+### Technical References
+| Document | Purpose |
+|----------|---------|
+| **[UNKNOWN_SERVER_HANDLING.md](UNKNOWN_SERVER_HANDLING.md)** | How inference handles new/unknown servers via hash encoding |
+| **[SPARSE_DATA_HANDLING.md](SPARSE_DATA_HANDLING.md)** | How the system handles offline servers and data gaps |
 
-### Security & Authentication
-- **[AUTHENTICATION_IMPLEMENTATION_GUIDE.md](AUTHENTICATION_IMPLEMENTATION_GUIDE.md)** - Auth options (2-8 hours)
-- **[OKTA_SSO_INTEGRATION.md](OKTA_SSO_INTEGRATION.md)** - Corporate SSO integration
-
-### Planning & Future
-- **[FUTURE_ROADMAP.md](FUTURE_ROADMAP.md)** - Planned enhancements and Phase 2+
-- **[HANDOFF_SUMMARY.md](HANDOFF_SUMMARY.md)** - Team handoff document
-
-### Reference & Technical Details
-- **[QUICK_REFERENCE_API.md](QUICK_REFERENCE_API.md)** - API endpoints reference
-- **[UNKNOWN_SERVER_HANDLING.md](UNKNOWN_SERVER_HANDLING.md)** - Hash-based server encoding
-- **[SPARSE_DATA_HANDLING.md](SPARSE_DATA_HANDLING.md)** - Handling offline servers
-- **[GPU_AUTO_CONFIGURATION.md](GPU_AUTO_CONFIGURATION.md)** - GPU setup and optimization
-- **[WHY_TFT.md](WHY_TFT.md)** - Why Temporal Fusion Transformer?
-
-### Project Meta
-- **[INDEX.md](INDEX.md)** - Detailed navigation
-- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Complete system overview
-- **[HUMAN_VS_AI_TIMELINE.md](HUMAN_VS_AI_TIMELINE.md)** - Development velocity analysis
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+### For Teams
+| Document | Purpose |
+|----------|---------|
+| **[HANDOFF_SUMMARY.md](HANDOFF_SUMMARY.md)** | Complete team handoff document with integration guides |
+| **[CONTRIBUTING.md](CONTRIBUTING.md)** | Contribution guidelines and code standards |
 
 ### For AI Assistants
-- **[RAG/](RAG/)** - Context documents for AI sessions
-  - **[CURRENT_STATE.md](RAG/CURRENT_STATE.md)** ⭐ - Single source of truth
-  - **[PROJECT_CODEX.md](RAG/PROJECT_CODEX.md)** - Development rules
-  - **[CLAUDE_SESSION_GUIDELINES.md](RAG/CLAUDE_SESSION_GUIDELINES.md)** - Session management
+| Document | Purpose |
+|----------|---------|
+| **[RAG/CURRENT_STATE.md](RAG/CURRENT_STATE.md)** | Current system state and context |
+| **[RAG/PROJECT_CODEX.md](RAG/PROJECT_CODEX.md)** | Development rules and conventions |
 
 ---
 
-## 🎯 Common Tasks - Quick Links
+## Integration Quick Reference
+
+### Sending Data to Inference Engine
+
+**POST to `/feed` endpoint:**
+```bash
+curl -X POST http://localhost:8000/feed \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -d '[{
+    "timestamp": "2025-12-02T16:00:00Z",
+    "server_name": "ppdb001",
+    "cpu_user_pct": 45.2,
+    "mem_used_pct": 67.8,
+    "state": "healthy"
+  }]'
+```
+
+See [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) Section 2-3 for complete API reference.
+
+### Connecting to Grafana
+
+The inference daemon exposes a REST API that Grafana can query:
+
+1. Install **Grafana JSON API** plugin
+2. Add data source pointing to `http://localhost:8000`
+3. Query `/predictions/current` for real-time predictions
+
+See [HANDOFF_SUMMARY.md](HANDOFF_SUMMARY.md) for detailed integration patterns.
+
+---
+
+## Document Structure
+
+```
+Docs/
+├── README.md                    # This file - main navigation
+├── QUICKSTART.md               # Fast setup guide
+│
+├── ARCHITECTURE_GUIDE.md       # System architecture (consolidated)
+├── TRAINING_GUIDE.md           # Model training (consolidated)
+├── PERFORMANCE_COMPLETE.md     # Performance optimization (consolidated)
+│
+├── UNKNOWN_SERVER_HANDLING.md  # Hash-based server encoding
+├── SPARSE_DATA_HANDLING.md     # Offline server handling
+│
+├── HANDOFF_SUMMARY.md          # Team handoff document
+├── CONTRIBUTING.md             # Contribution guidelines
+│
+├── RAG/                        # AI assistant context
+│   ├── CURRENT_STATE.md
+│   ├── PROJECT_CODEX.md
+│   └── ...
+│
+└── archive/                    # Historical documents
+    └── ...
+```
+
+---
+
+## Common Tasks
 
 ### I want to...
 
 **...get the system running quickly**
-→ [QUICKSTART.md](QUICKSTART.md)
+> [QUICKSTART.md](QUICKSTART.md)
 
-**...understand the NordIQ Metrics Framework metrics**
-→ [DATA_CONTRACT.md](DATA_CONTRACT.md)
+**...understand the architecture**
+> [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md)
 
-**...train a new model**
-→ [MODEL_TRAINING_GUIDELINES.md](MODEL_TRAINING_GUIDELINES.md)
+**...train or retrain a model**
+> [TRAINING_GUIDE.md](TRAINING_GUIDE.md)
 
-**...integrate with production**
-→ [PRODUCTION_INTEGRATION_GUIDE.md](PRODUCTION_INTEGRATION_GUIDE.md)
+**...integrate with production data sources**
+> [HANDOFF_SUMMARY.md](HANDOFF_SUMMARY.md) - See "Production Integration" section
 
-**...add authentication**
-→ [AUTHENTICATION_IMPLEMENTATION_GUIDE.md](AUTHENTICATION_IMPLEMENTATION_GUIDE.md)
+**...connect to Grafana or external dashboards**
+> [ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md) - See API endpoints section
 
-**...understand how predictions work**
-→ [HOW_PREDICTIONS_WORK.md](HOW_PREDICTIONS_WORK.md)
-
-**...see future plans**
-→ [FUTURE_ROADMAP.md](FUTURE_ROADMAP.md)
-
-**...hand off to another team**
-→ [HANDOFF_SUMMARY.md](HANDOFF_SUMMARY.md)
-
-**...contribute code**
-→ [CONTRIBUTING.md](CONTRIBUTING.md)
+**...understand how new servers are handled**
+> [UNKNOWN_SERVER_HANDLING.md](UNKNOWN_SERVER_HANDLING.md)
 
 ---
 
-## 📦 Document Categories
+## Key Concepts
 
-### Essential (Read First)
-1. **QUICKSTART.md** - Get running in 30 seconds
-2. **DATA_CONTRACT.md** - Understand the 14 NordIQ Metrics Framework metrics
-3. **CONTEXTUAL_RISK_INTELLIGENCE.md** - Understand the design philosophy
-4. **HOW_PREDICTIONS_WORK.md** - Understand the technical approach
+### NordIQ Metrics Framework
+The system uses 14 production metrics:
+- CPU: `cpu_user_pct`, `cpu_sys_pct`, `cpu_iowait_pct`, `cpu_idle_pct`, `java_cpu_pct`
+- Memory: `mem_used_pct`, `swap_used_pct`
+- Disk: `disk_usage_pct`
+- Network: `net_in_mb_s`, `net_out_mb_s`
+- Connections: `back_close_wait`, `front_close_wait`
+- System: `load_average`, `uptime_days`
 
-### Operations
-- MODEL_TRAINING_GUIDELINES.md
-- RETRAINING_PIPELINE.md
-- PRODUCTION_INTEGRATION_GUIDE.md
-- INFERENCE_README.md
+### Server Profiles
+7 profiles for transfer learning:
+- ML_COMPUTE, DATABASE, WEB_API, CONDUCTOR_MGMT
+- DATA_INGEST, RISK_ANALYTICS, GENERIC
 
-### Security
-- AUTHENTICATION_IMPLEMENTATION_GUIDE.md
-- OKTA_SSO_INTEGRATION.md
-
-### Technical Reference
-- SERVER_PROFILES.md
-- UNKNOWN_SERVER_HANDLING.md
-- SPARSE_DATA_HANDLING.md
-- GPU_AUTO_CONFIGURATION.md
-- WHY_TFT.md
-- QUICK_REFERENCE_API.md
-
-### Planning
-- FUTURE_ROADMAP.md
-- HANDOFF_SUMMARY.md
-- HUMAN_VS_AI_TIMELINE.md
-
----
-
-## 🏗️ System Architecture Overview
-
+### Architecture Pattern
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   TFT Monitoring System                 │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  [Metrics Generator] → [Training Data] → [TFT Model]   │
-│         ↓                                      ↓        │
-│  [Synthetic/Real]         [Parquet]      [Safetensors]  │
-│                                                ↓        │
-│                          [Inference Daemon] ← Model      │
-│                                  ↓                      │
-│                          REST API (8000)                │
-│                                  ↓                      │
-│                          [Web Dashboard]                │
-│                              Dash                  │
-│                          http://localhost:8501          │
-└─────────────────────────────────────────────────────────┘
+Data Source → Adapter (push) → Inference Daemon → Dashboard
+                                    ↓
+                              REST API (8000)
+                                    ↓
+                              Grafana / Custom
 ```
 
-**Key Components:**
-- **14 NordIQ Metrics Framework Metrics**: Production-grade monitoring metrics
-- **7 Server Profiles**: Profile-based transfer learning
-- **Contextual Risk Scoring**: Multi-factor intelligent alerts
-- **Graduated Severity**: 7 levels from Healthy to Imminent Failure
-
 ---
 
-## 🚨 Critical Information
-
-### NordIQ Metrics Framework Metrics (Required)
-The system uses **14 production NordIQ Metrics Framework metrics**. Old 4-metric system is deprecated.
-
-```python
-NordIQ Metrics Framework_METRICS = [
-    'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct',  # CPU components
-    'cpu_idle_pct', 'java_cpu_pct',                    # CPU (cont.)
-    'mem_used_pct', 'swap_used_pct',                   # Memory
-    'disk_usage_pct',                                   # Disk
-    'net_in_mb_s', 'net_out_mb_s',                     # Network
-    'back_close_wait', 'front_close_wait',             # TCP connections
-    'load_average', 'uptime_days'                      # System
-]
-```
-
-See [DATA_CONTRACT.md](DATA_CONTRACT.md) for details.
-
-### Server Profiles (Transfer Learning)
-7 profiles enable predictions for new servers without retraining:
-- ML_COMPUTE (ppml####)
-- DATABASE (ppdb###)
-- WEB_API (ppweb###)
-- CONDUCTOR_MGMT (ppcon##)
-- DATA_INGEST (ppdi###)
-- RISK_ANALYTICS (ppra###)
-- GENERIC (ppsrv###)
-
-See [SERVER_PROFILES.md](SERVER_PROFILES.md) for details.
-
----
-
-## 📊 Documentation Stats
-
-**Total Documents**: 24 core documents (down from 52)
-**Categories**: 6 main categories
-**Archive**: 26+ historical documents moved to archive/
-
-### Recent Cleanup (Oct 17, 2025)
-- ✅ Removed presentation/demo docs (6 files)
-- ✅ Archived completion reports (13 files)
-- ✅ Archived implementation plans (4 files)
-- ✅ Removed silly/irrelevant docs (3 files)
-- ✅ Result: 54% reduction in doc count
-
----
-
-## 🔄 Documentation Maintenance
-
-### When to Update
-- **After major features**: Update relevant technical docs and CURRENT_STATE.md
-- **Schema changes**: Update DATA_CONTRACT.md first, then related docs
-- **New profiles**: Update SERVER_PROFILES.md
-- **Security changes**: Update authentication guides
-- **Future plans**: Update FUTURE_ROADMAP.md
-
-### Archive Policy
-Move to `archive/` folder:
-- Session notes (after information is incorporated)
-- Completion reports (after work is done)
-- Implementation plans (after implementation)
-- Presentation materials (after presentation)
-- Obsolete guides (after replacement)
-
----
-
-## 🎓 For New Team Members
-
-**Start here:**
-1. Read [QUICKSTART.md](QUICKSTART.md) - Get the system running
-2. Read [DATA_CONTRACT.md](DATA_CONTRACT.md) - Understand the data
-3. Read [HOW_PREDICTIONS_WORK.md](HOW_PREDICTIONS_WORK.md) - Understand predictions
-4. Read [CONTEXTUAL_RISK_INTELLIGENCE.md](CONTEXTUAL_RISK_INTELLIGENCE.md) - Understand design
-5. Explore the dashboard and try different scenarios
-6. Read [HANDOFF_SUMMARY.md](HANDOFF_SUMMARY.md) - Full context
-
-**For development:**
-- Read [RAG/PROJECT_CODEX.md](RAG/PROJECT_CODEX.md) - Development rules
-- Read [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
-- Check [FUTURE_ROADMAP.md](FUTURE_ROADMAP.md) - See what's planned
-
----
-
-## 🔗 External Resources
-
-### Frameworks & Libraries
-- [PyTorch Forecasting](https://pytorch-forecasting.readthedocs.io/) - TFT implementation
-- [Dash](https://streamlit.io/) - Dashboard framework
-- [FastAPI](https://fastapi.tiangolo.com/) - REST API framework
-
-### Research Papers
-- [Temporal Fusion Transformers (2019)](https://arxiv.org/abs/1912.09363) - Original TFT paper
-- "Attention is All You Need" (2017) - Transformer architecture
-
-### Corporate Resources
-- Linborg Monitoring Documentation (internal)
-- Okta SSO Setup Guide (internal)
-- Spectrum Platform Overview (internal)
-
----
-
-## ❓ Need Help?
-
-**Technical Issues:**
-- Check [QUICKSTART.md](QUICKSTART.md) troubleshooting section
-- Check [INDEX.md](INDEX.md) for detailed navigation
-- Review [RAG/CURRENT_STATE.md](RAG/CURRENT_STATE.md) for current state
-
-**Process Questions:**
-- Check [CONTRIBUTING.md](CONTRIBUTING.md)
-- Check [HANDOFF_SUMMARY.md](HANDOFF_SUMMARY.md)
-
-**Design Questions:**
-- Check [CONTEXTUAL_RISK_INTELLIGENCE.md](CONTEXTUAL_RISK_INTELLIGENCE.md)
-- Check [WHY_TFT.md](WHY_TFT.md)
-
----
-
-**Maintained By**: Project Team
-**Last Major Cleanup**: October 17, 2025
-**Next Review**: After Phase 2 completion
-
-**Welcome to the TFT Monitoring Prediction System documentation!** 🚀
+**Last Updated:** December 2025
+**Maintained By:** Project Team
