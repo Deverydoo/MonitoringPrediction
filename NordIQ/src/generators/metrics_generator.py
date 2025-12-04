@@ -659,7 +659,12 @@ def generate_server_data_wrapper(args):
 def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
                           config: Config) -> Tuple[int, float]:
     """
-    Generate and write data in chunks to avoid memory issues.
+    Generate and write data in TIME-CHUNKED partitions for memory-efficient training.
+
+    Partitioning Strategy:
+    - Primary partition: time_chunk (8-hour slices) - enables streaming training
+    - Each chunk is independently loadable for memory-efficient processing
+
     Returns (total_rows, file_size_mb).
     """
     out_dir = Path(config.out_dir)
@@ -684,9 +689,9 @@ def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
         for i, server_info in enumerate(server_infos)
     ]
 
-    # Process servers in parallel and write in chunks
+    # Output paths
+    partitioned_dir = out_dir / "server_metrics_partitioned"
     parquet_path = out_dir / "server_metrics.parquet"
-    partitioned_dir = out_dir / "server_metrics_parquet"
     csv_path = out_dir / "server_metrics.csv"
 
     total_rows = 0
@@ -731,36 +736,79 @@ def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
     print("   Sorting data...")
     final_df = final_df.sort_values(['timestamp', 'server_name']).reset_index(drop=True)
 
+    # ==========================================================================
+    # TIME-CHUNKED PARTITIONING (8-hour slices for memory-efficient training)
+    # ==========================================================================
+    # Create time_chunk column: each chunk is 8 hours (96 5-min ticks × 5 = 8 hours)
+    # Format: YYYYMMDD_HH where HH is chunk start (00, 08, 16)
+    print(f"\n📦 Creating time-chunked partitions (8-hour slices)...")
+
+    # Ensure timestamp is datetime
+    final_df['timestamp'] = pd.to_datetime(final_df['timestamp'])
+
+    # Create chunk identifier: date + 8-hour bucket (0, 8, 16)
+    final_df['time_chunk'] = (
+        final_df['timestamp'].dt.strftime('%Y%m%d_') +
+        (final_df['timestamp'].dt.hour // 8 * 8).astype(str).str.zfill(2)
+    )
+
+    n_chunks = final_df['time_chunk'].nunique()
+    print(f"   Created {n_chunks} time chunks (8 hours each)")
+
     # Write outputs
     file_size_mb = 0.0
 
     if config.output_format in ["parquet", "both"]:
-        # Write partitioned parquet (by profile) for faster loading
-        print(f"   Writing partitioned Parquet (by profile)...")
+        # Write time-chunked parquet for streaming training
+        print(f"   Writing time-chunked Parquet...")
+
+        # Clean up old partitioned directory
+        if partitioned_dir.exists():
+            import shutil
+            shutil.rmtree(partitioned_dir)
         partitioned_dir.mkdir(parents=True, exist_ok=True)
 
-        # Partition by profile for efficient loading and profile-based queries
+        # Partition by time_chunk for streaming training
         final_df.to_parquet(
             partitioned_dir,
-            partition_cols=['profile'],
+            partition_cols=['time_chunk'],
             compression='snappy',
             index=False
         )
+
         # Calculate total size of partitioned files
         file_size_mb = sum(f.stat().st_size for f in partitioned_dir.rglob('*.parquet')) / (1024 * 1024)
-        print(f"📊 Partitioned Parquet written: {partitioned_dir}/ ({total_rows:,} rows, {file_size_mb:.1f} MB)")
+        print(f"📊 Time-chunked Parquet: {partitioned_dir}/ ({total_rows:,} rows, {n_chunks} chunks, {file_size_mb:.1f} MB)")
+
+        # Write chunk manifest for trainer
+        chunk_manifest = {
+            'chunks': sorted(final_df['time_chunk'].unique().tolist()),
+            'chunk_hours': 8,
+            'total_rows': total_rows,
+            'servers': n_servers,
+            'profiles': fleet['profile'].value_counts().to_dict(),
+            'partition_col': 'time_chunk',
+            'format': 'parquet',
+            'created_at': datetime.now(timezone.utc).isoformat()
+        }
+        with open(partitioned_dir / 'chunk_manifest.json', 'w') as f:
+            json.dump(chunk_manifest, f, indent=2)
+        print(f"   Chunk manifest written: {partitioned_dir}/chunk_manifest.json")
 
         # Also write single file for compatibility (smaller datasets only)
         if total_rows < 5_000_000:  # Only for <5M rows
             print(f"   Writing single Parquet (for compatibility)...")
-            final_df.to_parquet(parquet_path, compression='snappy', index=False)
+            # Drop time_chunk before writing single file
+            single_df = final_df.drop(columns=['time_chunk'])
+            single_df.to_parquet(parquet_path, compression='snappy', index=False)
             print(f"📊 Single Parquet: {parquet_path}")
         else:
-            print(f"   Skipping single Parquet (dataset too large, use partitioned)")
+            print(f"   Skipping single Parquet (dataset too large, use time-chunked)")
 
     if config.output_format in ["csv", "both"]:
         print(f"   Writing CSV...")
-        final_df.to_csv(csv_path, index=False)
+        csv_df = final_df.drop(columns=['time_chunk'])
+        csv_df.to_csv(csv_path, index=False)
         csv_size = csv_path.stat().st_size / (1024 * 1024)
         print(f"📄 CSV written: {csv_path} ({total_rows:,} rows, {csv_size:.1f} MB)")
 
@@ -772,6 +820,7 @@ def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
     print(f"   Start: {start_time}")
     print(f"   End:   {end_time}")
     print(f"   Duration: {duration}")
+    print(f"   Chunks: {n_chunks} × 8 hours each")
 
     # Write metadata
     metadata = {
@@ -786,7 +835,10 @@ def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
         'offline_mode': config.offline_mode,
         'offline_fill': config.offline_fill if config.offline_mode == "dense" else None,
         'profiles': fleet['profile'].value_counts().to_dict(),
-        'format_version': "3.2_optimized"
+        'time_chunks': n_chunks,
+        'chunk_hours': 8,
+        'partitioned_dir': str(partitioned_dir),
+        'format_version': "4.0_time_chunked"
     }
 
     with open(out_dir / 'metrics_metadata.json', 'w') as f:

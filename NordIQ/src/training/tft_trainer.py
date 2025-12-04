@@ -154,8 +154,16 @@ class TFTTrainer:
 
         self.model = None
     
-    def load_dataset(self, dataset_dir: str = "./training/") -> pd.DataFrame:
-        """Load dataset, preferring parquet over JSON format."""
+    def load_dataset(self, dataset_dir: str = "./training/", chunk_id: str = None) -> pd.DataFrame:
+        """Load dataset, preferring time-chunked parquet for memory efficiency.
+
+        Args:
+            dataset_dir: Path to training data directory
+            chunk_id: Specific time chunk to load (e.g., '20251201_08'). If None, loads all data.
+
+        Returns:
+            DataFrame ready for training
+        """
         training_path = Path(dataset_dir)
 
         # Debug: Show what files exist
@@ -166,35 +174,75 @@ class TFTTrainer:
         else:
             print(f"[ERROR] Directory doesn't exist: {training_path}")
 
-        # PRIORITY 1: Try partitioned parquet directory (from metrics_generator.py)
+        # PRIORITY 1: Time-chunked parquet (memory-efficient streaming)
+        partitioned_dir = training_path / 'server_metrics_partitioned'
+        if partitioned_dir.exists() and partitioned_dir.is_dir():
+            manifest_path = partitioned_dir / 'chunk_manifest.json'
+            if manifest_path.exists():
+                with open(manifest_path, 'r') as f:
+                    manifest = json.load(f)
+                print(f"[LOAD] Found time-chunked dataset: {len(manifest['chunks'])} chunks")
+
+                if chunk_id:
+                    # Load specific chunk only
+                    chunk_dir = partitioned_dir / f"time_chunk={chunk_id}"
+                    if chunk_dir.exists():
+                        print(f"[CHUNK] Loading chunk: {chunk_id}")
+                        df = pd.read_parquet(chunk_dir)
+                        print(f"[OK] Loaded {len(df):,} records from chunk {chunk_id}")
+                        return self._prepare_dataframe(df)
+                    else:
+                        print(f"[WARNING] Chunk {chunk_id} not found, loading all data")
+
+                # Load all chunks (fallback for small datasets or full training)
+                print(f"[LOAD] Loading all {len(manifest['chunks'])} time chunks...")
+                try:
+                    import pyarrow.parquet as pq
+                    table = pq.read_table(
+                        partitioned_dir,
+                        use_threads=True,
+                        memory_map=True
+                    )
+                    df = table.to_pandas()
+                    # Drop the partition column if present
+                    if 'time_chunk' in df.columns:
+                        df = df.drop(columns=['time_chunk'])
+                    print(f"[OK] Loaded {len(df):,} records from time-chunked parquet")
+                    return self._prepare_dataframe(df)
+                except Exception as e:
+                    print(f"[WARNING] PyArrow load failed: {e}, trying pandas...")
+                    df = pd.read_parquet(partitioned_dir)
+                    if 'time_chunk' in df.columns:
+                        df = df.drop(columns=['time_chunk'])
+                    print(f"[OK] Loaded {len(df):,} records from time-chunked parquet (pandas)")
+                    return self._prepare_dataframe(df)
+
+        # PRIORITY 2: Legacy partitioned parquet (by profile)
         parquet_dir = training_path / 'server_metrics_parquet'
         if parquet_dir.exists() and parquet_dir.is_dir():
-            print(f"[LOAD] Loading partitioned parquet dataset: {parquet_dir}")
+            print(f"[LOAD] Loading profile-partitioned parquet dataset: {parquet_dir}")
             try:
-                # Use PyArrow for parallel reading of partitions (faster than pandas)
                 import pyarrow.parquet as pq
                 table = pq.read_table(
                     parquet_dir,
-                    use_threads=True,  # Parallel partition reads
-                    memory_map=True    # Memory-mapped I/O for large files
+                    use_threads=True,
+                    memory_map=True
                 )
                 df = table.to_pandas()
                 print(f"[OK] Loaded {len(df):,} records from partitioned parquet (PyArrow)")
                 return self._prepare_dataframe(df)
             except ImportError:
-                # Fallback to pandas if pyarrow direct import fails
                 df = pd.read_parquet(parquet_dir)
                 print(f"[OK] Loaded {len(df):,} records from partitioned parquet (pandas)")
                 return self._prepare_dataframe(df)
             except Exception as e:
-                print(f"[WARNING]  Failed to load partitioned parquet: {e}")
-                # Continue to next option
+                print(f"[WARNING] Failed to load partitioned parquet: {e}")
 
-        # PRIORITY 2: Try single parquet files (faster than JSON)
+        # PRIORITY 3: Try single parquet files
         parquet_candidates = [
-            'server_metrics.parquet',  # From metrics_generator.py CSV mode
-            'metrics_dataset.parquet',  # Legacy name
-            'demo_dataset.parquet'      # From demo_data_generator.py
+            'server_metrics.parquet',
+            'metrics_dataset.parquet',
+            'demo_dataset.parquet'
         ]
 
         for parquet_name in parquet_candidates:
@@ -205,22 +253,17 @@ class TFTTrainer:
                 print(f"[OK] Loaded {len(df):,} records from parquet")
                 return self._prepare_dataframe(df)
 
-        # PRIORITY 3: Try any parquet file in directory
+        # PRIORITY 4: Try any parquet file in directory
         parquet_files = list(training_path.glob("*.parquet"))
         if parquet_files:
-            parquet_file = sorted(parquet_files)[0]  # Use first alphabetically
+            parquet_file = sorted(parquet_files)[0]
             print(f"[INFO] Loading found parquet file: {parquet_file}")
             df = pd.read_parquet(parquet_file)
             print(f"[OK] Loaded {len(df):,} records from parquet")
             return self._prepare_dataframe(df)
 
-        # PRIORITY 4: Try CSV files (faster than JSON for large datasets)
-        csv_candidates = [
-            'server_metrics.csv',
-            'metrics_dataset.csv',
-            'demo_dataset.csv'
-        ]
-
+        # PRIORITY 5: Try CSV files
+        csv_candidates = ['server_metrics.csv', 'metrics_dataset.csv', 'demo_dataset.csv']
         for csv_name in csv_candidates:
             csv_path = training_path / csv_name
             if csv_path.exists():
@@ -229,43 +272,13 @@ class TFTTrainer:
                 print(f"[OK] Loaded {len(df):,} records from CSV")
                 return self._prepare_dataframe(df)
 
-        # PRIORITY 5: Fallback to JSON (slowest, legacy support)
+        # PRIORITY 6: Fallback to JSON
         json_path = training_path / 'metrics_dataset.json'
         if json_path.exists():
-            print(f"[INFO] Loading JSON dataset: {json_path} ([WARNING]  slow for large datasets)")
+            print(f"[INFO] Loading JSON dataset: {json_path}")
             with open(json_path, 'r') as f:
                 data = json.load(f)
-
-            # Handle the actual structure from metrics_generator.py
-            if 'records' in data:
-                records = data['records']
-            elif 'training_samples' in data:  # Fallback for old format
-                records = data['training_samples']
-            else:
-                raise ValueError(f"Dataset format not recognized. Keys: {list(data.keys())}")
-
-            df = pd.DataFrame(records)
-            print(f"[OK] Loaded {len(df):,} records from JSON")
-            return self._prepare_dataframe(df)
-
-        # PRIORITY 6: Try any JSON file
-        json_files = list(training_path.glob("*.json"))
-        # Exclude metadata files
-        json_files = [f for f in json_files if 'metadata' not in f.name.lower()]
-
-        if json_files:
-            json_file = sorted(json_files)[0]
-            print(f"[INFO] Loading found JSON file: {json_file} ([WARNING]  slow for large datasets)")
-            with open(json_file, 'r') as f:
-                data = json.load(f)
-
-            if 'records' in data:
-                records = data['records']
-            elif 'training_samples' in data:
-                records = data['training_samples']
-            else:
-                raise ValueError(f"Dataset format not recognized. Keys: {list(data.keys())}")
-
+            records = data.get('records') or data.get('training_samples', [])
             df = pd.DataFrame(records)
             print(f"[OK] Loaded {len(df):,} records from JSON")
             return self._prepare_dataframe(df)
@@ -273,11 +286,45 @@ class TFTTrainer:
         raise FileNotFoundError(
             f"No dataset files found in {training_path.absolute()}\n"
             f"Looked for:\n"
-            f"  - Parquet (partitioned): server_metrics_parquet/\n"
-            f"  - Parquet (single): *.parquet\n"
+            f"  - Time-chunked: server_metrics_partitioned/\n"
+            f"  - Profile-partitioned: server_metrics_parquet/\n"
+            f"  - Single parquet: *.parquet\n"
             f"  - CSV: *.csv\n"
             f"  - JSON: *.json"
         )
+
+    def get_chunk_manifest(self, dataset_dir: str = "./training/") -> Optional[dict]:
+        """Get chunk manifest for streaming training.
+
+        Returns manifest dict with chunk list, or None if not chunked.
+        """
+        training_path = Path(dataset_dir)
+        manifest_path = training_path / 'server_metrics_partitioned' / 'chunk_manifest.json'
+
+        if manifest_path.exists():
+            with open(manifest_path, 'r') as f:
+                return json.load(f)
+        return None
+
+    def load_chunk(self, dataset_dir: str, chunk_id: str) -> pd.DataFrame:
+        """Load a specific time chunk for streaming training.
+
+        Args:
+            dataset_dir: Path to training data directory
+            chunk_id: Time chunk ID (e.g., '20251201_08')
+
+        Returns:
+            DataFrame for the specified chunk
+        """
+        training_path = Path(dataset_dir)
+        chunk_dir = training_path / 'server_metrics_partitioned' / f'time_chunk={chunk_id}'
+
+        if not chunk_dir.exists():
+            raise FileNotFoundError(f"Chunk {chunk_id} not found at {chunk_dir}")
+
+        df = pd.read_parquet(chunk_dir)
+        print(f"[CHUNK] Loaded {len(df):,} records from chunk {chunk_id}")
+        return self._prepare_dataframe(df)
     
     def _prepare_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """Prepare DataFrame for TFT training."""
@@ -921,17 +968,219 @@ class TFTTrainer:
             self.total_epochs_completed = previous_epochs + self.config['epochs']
             
             print("[OK] Training completed successfully!")
-            
+
             # Save model
             model_dir = self._save_model()
             return str(model_dir)
-            
+
         except Exception as e:
             print(f"[ERROR] Training failed: {e}")
             import traceback
             traceback.print_exc()
             return None
-    
+
+    def train_streaming(self, dataset_path: str = "./training/", chunks_per_epoch: int = None) -> Optional[str]:
+        """
+        Memory-efficient streaming training that processes time chunks sequentially.
+
+        CRITICAL FOR LARGE DATASETS:
+        - Loads one 8-hour time chunk at a time
+        - Each chunk trains for 1 sub-epoch
+        - Memory usage stays bounded (~8-12 GB instead of 130+ GB)
+        - Full dataset is still seen each epoch (all chunks processed)
+
+        Args:
+            dataset_path: Path to training data (must be time-chunked format)
+            chunks_per_epoch: Limit chunks per epoch (None = all chunks)
+
+        Memory Profile:
+        - 90 servers × 8 hours × 5-sec = ~500K rows per chunk
+        - ~500K rows × 50 cols × 8 bytes = ~200MB raw data per chunk
+        - TimeSeriesDataSet overhead: ~3-5x = ~600MB-1GB per chunk
+        - Total memory: ~8-12 GB (vs 130+ GB for full dataset)
+        """
+        print("[TRAIN] Starting STREAMING training mode (memory-efficient)...")
+        print("=" * 70)
+
+        # Log system info
+        self._log_system_info()
+
+        # Set random seed
+        seed = self.config.get('random_seed', 42)
+        set_random_seed(seed)
+
+        try:
+            # Get chunk manifest
+            manifest = self.get_chunk_manifest(dataset_path)
+            if not manifest:
+                print("[ERROR] No time-chunked dataset found!")
+                print("[INFO] Run metrics_generator.py to create time-chunked parquet")
+                print("[INFO] Falling back to standard training...")
+                return self.train(dataset_path)
+
+            all_chunks = manifest['chunks']
+            n_chunks = len(all_chunks)
+
+            if chunks_per_epoch:
+                n_chunks = min(chunks_per_epoch, n_chunks)
+                all_chunks = all_chunks[:n_chunks]
+
+            print(f"[STREAM] Found {len(manifest['chunks'])} time chunks ({manifest['chunk_hours']} hours each)")
+            print(f"[STREAM] Will process {n_chunks} chunks per epoch")
+            print(f"[STREAM] Total epochs: {self.config['epochs']}")
+            print(f"[STREAM] Memory mode: ~1 chunk in memory at a time")
+            print("=" * 70)
+
+            # Initialize model from first chunk to get architecture
+            print(f"\n[INIT] Initializing model from first chunk...")
+            first_chunk_df = self.load_chunk(dataset_path, all_chunks[0])
+            training_dataset, _ = self.create_datasets(first_chunk_df)
+
+            learning_rate = self.config['learning_rate']
+            self.model = TemporalFusionTransformer.from_dataset(
+                training_dataset,
+                learning_rate=learning_rate,
+                hidden_size=self.config['hidden_size'],
+                attention_head_size=self.config['attention_heads'],
+                dropout=self.config['dropout'],
+                hidden_continuous_size=self.config['hidden_continuous_size'],
+                loss=QuantileLoss(),
+                reduce_on_plateau_patience=self.config['reduce_on_plateau_patience']
+            )
+            print(f"[OK] Model initialized with {sum(p.numel() for p in self.model.parameters()):,} parameters")
+
+            # Free first chunk from memory
+            del first_chunk_df, training_dataset
+            import gc
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            # Setup logging
+            logger = TensorBoardLogger(
+                save_dir=self.config['logs_dir'],
+                name='tft_streaming',
+                version=datetime.now().strftime("%Y%m%d_%H%M%S")
+            )
+
+            # Streaming training loop
+            total_epochs = self.config['epochs']
+            best_loss = float('inf')
+            training_start = time.time()
+
+            for epoch in range(total_epochs):
+                epoch_start = time.time()
+                epoch_loss = 0.0
+                chunk_count = 0
+
+                print(f"\n{'='*60}")
+                print(f"[EPOCH {epoch+1}/{total_epochs}] Starting streaming epoch...")
+                print(f"{'='*60}")
+
+                # Shuffle chunks each epoch for better generalization
+                chunk_order = all_chunks.copy()
+                np.random.shuffle(chunk_order)
+
+                for chunk_idx, chunk_id in enumerate(chunk_order):
+                    chunk_start = time.time()
+
+                    # Load this chunk
+                    print(f"\n[CHUNK {chunk_idx+1}/{n_chunks}] Loading {chunk_id}...")
+                    try:
+                        chunk_df = self.load_chunk(dataset_path, chunk_id)
+                    except Exception as e:
+                        print(f"[WARNING] Failed to load chunk {chunk_id}: {e}")
+                        continue
+
+                    # Create datasets for this chunk
+                    try:
+                        train_ds, val_ds = self.create_datasets(chunk_df)
+                    except Exception as e:
+                        print(f"[WARNING] Failed to create dataset from chunk {chunk_id}: {e}")
+                        del chunk_df
+                        gc.collect()
+                        continue
+
+                    # Create dataloaders
+                    train_dl = train_ds.to_dataloader(
+                        train=True,
+                        batch_size=self.config['batch_size'],
+                        num_workers=0,  # Single worker for streaming
+                        pin_memory=torch.cuda.is_available()
+                    )
+                    val_dl = val_ds.to_dataloader(
+                        train=False,
+                        batch_size=self.config['batch_size'] * 2,
+                        num_workers=0
+                    )
+
+                    # Train for 1 sub-epoch on this chunk
+                    trainer = Trainer(
+                        max_epochs=1,
+                        gradient_clip_val=self.config.get('gradient_clip_val', 0.1),
+                        accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+                        devices=1,
+                        enable_checkpointing=False,  # Manual checkpointing
+                        logger=logger,
+                        enable_progress_bar=True,
+                        log_every_n_steps=50,
+                        num_sanity_val_steps=0
+                    )
+
+                    trainer.fit(self.model, train_dl, val_dl)
+
+                    # Get chunk loss
+                    chunk_loss = trainer.callback_metrics.get('val_loss', 0)
+                    if isinstance(chunk_loss, torch.Tensor):
+                        chunk_loss = chunk_loss.item()
+                    epoch_loss += chunk_loss
+                    chunk_count += 1
+
+                    chunk_time = time.time() - chunk_start
+                    print(f"[CHUNK] {chunk_id} done in {chunk_time:.1f}s | Loss: {chunk_loss:.4f}")
+
+                    # Free memory
+                    del chunk_df, train_ds, val_ds, train_dl, val_dl, trainer
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+
+                # Epoch summary
+                avg_epoch_loss = epoch_loss / max(chunk_count, 1)
+                epoch_time = time.time() - epoch_start
+
+                if avg_epoch_loss < best_loss:
+                    best_loss = avg_epoch_loss
+                    improvement = " [BEST]"
+                else:
+                    improvement = ""
+
+                print(f"\n[EPOCH {epoch+1}] Completed in {epoch_time/60:.1f} min | Avg Loss: {avg_epoch_loss:.4f}{improvement}")
+
+                # ETA
+                elapsed = time.time() - training_start
+                remaining = (elapsed / (epoch + 1)) * (total_epochs - epoch - 1)
+                print(f"[ETA] Elapsed: {elapsed/60:.1f} min | Remaining: {remaining/60:.1f} min")
+
+            # Training complete
+            total_time = time.time() - training_start
+            print(f"\n{'='*60}")
+            print(f"[OK] STREAMING TRAINING COMPLETE")
+            print(f"   Total time: {total_time/60:.1f} minutes")
+            print(f"   Best loss: {best_loss:.4f}")
+            print(f"{'='*60}")
+
+            # Save model
+            self.total_epochs_completed = total_epochs
+            model_dir = self._save_model()
+            return str(model_dir)
+
+        except Exception as e:
+            print(f"[ERROR] Streaming training failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def _save_model(self) -> Path:
         """Save model with Safetensors format."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1017,18 +1266,24 @@ class TFTTrainer:
 def train_model(dataset_path: str = "./training/",
                 epochs: Optional[int] = None,
                 per_server: bool = False,
-                incremental: bool = True) -> Optional[str]:
+                incremental: bool = True,
+                streaming: bool = False) -> Optional[str]:
     """
-    Module interface for training with incremental training support.
+    Module interface for training with incremental and streaming support.
 
     Args:
         dataset_path: Path to training data directory
         epochs: Number of training epochs to add (overrides config)
         per_server: Train separate model per server (default: False - single fleet model)
         incremental: Resume from latest checkpoint (default: True)
+        streaming: Use memory-efficient streaming mode (default: False)
 
     Returns:
         Path to trained model directory, or None if failed
+
+    Training Modes:
+        - Standard: Loads full dataset into memory (fast, but memory-heavy)
+        - Streaming: Loads 8-hour chunks one at a time (slower, but ~10x less memory)
 
     Incremental Training:
         - When incremental=True (default), finds latest checkpoint and resumes
@@ -1041,22 +1296,27 @@ def train_model(dataset_path: str = "./training/",
         config['epochs'] = epochs
 
     if per_server:
-        # Per-server training mode
         print("[PREP] Per-server training mode enabled")
-        print("[WARNING]  Note: This will train multiple models (one per server)")
-        # For now, just train single model - per-server implementation is future work
-        print("[WARNING]  Per-server mode not yet implemented - training fleet-wide model")
-        # TODO: Implement per-server model training
+        print("[WARNING] Per-server mode not yet implemented - training fleet-wide model")
 
     trainer = TFTTrainer(config)
-    return trainer.train(dataset_path, incremental=incremental)
+
+    if streaming:
+        return trainer.train_streaming(dataset_path)
+    else:
+        return trainer.train(dataset_path, incremental=incremental)
 
 
 def main():
     """Command line interface."""
     parser = argparse.ArgumentParser(
-        description="Train TFT model with incremental training support",
-        epilog="Example: python tft_trainer.py --epochs 1 --incremental  # Add 1 epoch to existing model"
+        description="Train TFT model with incremental and streaming training support",
+        epilog="""
+Examples:
+  python tft_trainer.py --epochs 1 --incremental  # Add 1 epoch to existing model
+  python tft_trainer.py --streaming               # Memory-efficient streaming mode
+  python tft_trainer.py --fresh --epochs 3        # Fresh training, 3 epochs
+        """
     )
     parser.add_argument("--dataset", type=str, default="./training/",
                        help="Path to dataset directory")
@@ -1068,6 +1328,8 @@ def main():
                        help="Resume from latest checkpoint (default: True)")
     parser.add_argument("--fresh", action="store_true",
                        help="Start fresh training (ignore checkpoints)")
+    parser.add_argument("--streaming", action="store_true",
+                       help="Memory-efficient streaming mode (loads 8-hour chunks)")
 
     args = parser.parse_args()
 
@@ -1078,6 +1340,7 @@ def main():
     model_path = train_model(
         dataset_path=args.dataset,
         epochs=args.epochs,
+        streaming=args.streaming,
         per_server=args.per_server,
         incremental=incremental
     )
