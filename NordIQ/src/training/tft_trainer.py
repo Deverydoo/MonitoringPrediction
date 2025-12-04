@@ -984,20 +984,20 @@ class TFTTrainer:
         Memory-efficient streaming training that processes time chunks sequentially.
 
         CRITICAL FOR LARGE DATASETS:
-        - Loads one 8-hour time chunk at a time
+        - Loads one time chunk at a time (chunk size from config, default 2 hours)
         - Each chunk trains for 1 sub-epoch
-        - Memory usage stays bounded (~8-12 GB instead of 130+ GB)
+        - Memory usage stays bounded (~2-4 GB per chunk instead of 130+ GB)
         - Full dataset is still seen each epoch (all chunks processed)
 
         Args:
             dataset_path: Path to training data (must be time-chunked format)
             chunks_per_epoch: Limit chunks per epoch (None = all chunks)
 
-        Memory Profile:
-        - 90 servers × 8 hours × 5-sec = ~500K rows per chunk
-        - ~500K rows × 50 cols × 8 bytes = ~200MB raw data per chunk
-        - TimeSeriesDataSet overhead: ~3-5x = ~600MB-1GB per chunk
-        - Total memory: ~8-12 GB (vs 130+ GB for full dataset)
+        Memory Profile (2-hour chunks, 90 servers):
+        - 90 servers × 2 hours × 5-sec = ~130K rows per chunk
+        - ~130K rows × 50 cols × 8 bytes = ~50MB raw data per chunk
+        - TimeSeriesDataSet overhead: ~3-5x = ~150-250MB per chunk
+        - Total memory: ~2-4 GB (vs 130+ GB for full dataset)
         """
         print("[TRAIN] Starting STREAMING training mode (memory-efficient)...")
         print("=" * 70)

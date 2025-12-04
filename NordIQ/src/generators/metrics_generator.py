@@ -737,23 +737,31 @@ def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
     final_df = final_df.sort_values(['timestamp', 'server_name']).reset_index(drop=True)
 
     # ==========================================================================
-    # TIME-CHUNKED PARTITIONING (8-hour slices for memory-efficient training)
+    # TIME-CHUNKED PARTITIONING (configurable chunk size for memory-efficient training)
     # ==========================================================================
-    # Create time_chunk column: each chunk is 8 hours (96 5-min ticks × 5 = 8 hours)
-    # Format: YYYYMMDD_HH where HH is chunk start (00, 08, 16)
-    print(f"\n📦 Creating time-chunked partitions (8-hour slices)...")
+    # Import chunk_hours from config, default to 2 hours for safety
+    try:
+        from core.config.model_config import MODEL_CONFIG
+        chunk_hours = MODEL_CONFIG.get('streaming_chunk_hours', 2)
+    except ImportError:
+        chunk_hours = 2  # Safe default
+
+    print(f"\n📦 Creating time-chunked partitions ({chunk_hours}-hour slices)...")
 
     # Ensure timestamp is datetime
     final_df['timestamp'] = pd.to_datetime(final_df['timestamp'])
 
-    # Create chunk identifier: date + 8-hour bucket (0, 8, 16)
+    # Create chunk identifier: date + N-hour bucket
+    # For 2-hour chunks: 00, 02, 04, 06, 08, 10, 12, 14, 16, 18, 20, 22
+    # For 4-hour chunks: 00, 04, 08, 12, 16, 20
+    # For 8-hour chunks: 00, 08, 16
     final_df['time_chunk'] = (
         final_df['timestamp'].dt.strftime('%Y%m%d_') +
-        (final_df['timestamp'].dt.hour // 8 * 8).astype(str).str.zfill(2)
+        (final_df['timestamp'].dt.hour // chunk_hours * chunk_hours).astype(str).str.zfill(2)
     )
 
     n_chunks = final_df['time_chunk'].nunique()
-    print(f"   Created {n_chunks} time chunks (8 hours each)")
+    print(f"   Created {n_chunks} time chunks ({chunk_hours} hours each)")
 
     # Write outputs
     file_size_mb = 0.0
@@ -783,7 +791,7 @@ def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
         # Write chunk manifest for trainer
         chunk_manifest = {
             'chunks': sorted(final_df['time_chunk'].unique().tolist()),
-            'chunk_hours': 8,
+            'chunk_hours': chunk_hours,
             'total_rows': total_rows,
             'servers': n_servers,
             'profiles': fleet['profile'].value_counts().to_dict(),
@@ -820,7 +828,7 @@ def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
     print(f"   Start: {start_time}")
     print(f"   End:   {end_time}")
     print(f"   Duration: {duration}")
-    print(f"   Chunks: {n_chunks} × 8 hours each")
+    print(f"   Chunks: {n_chunks} × {chunk_hours} hours each")
 
     # Write metadata
     metadata = {
@@ -836,9 +844,9 @@ def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
         'offline_fill': config.offline_fill if config.offline_mode == "dense" else None,
         'profiles': fleet['profile'].value_counts().to_dict(),
         'time_chunks': n_chunks,
-        'chunk_hours': 8,
+        'chunk_hours': chunk_hours,
         'partitioned_dir': str(partitioned_dir),
-        'format_version': "4.0_time_chunked"
+        'format_version': "4.1_configurable_chunks"
     }
 
     with open(out_dir / 'metrics_metadata.json', 'w') as f:

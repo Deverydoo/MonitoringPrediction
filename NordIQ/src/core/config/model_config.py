@@ -73,6 +73,13 @@ MODEL_CONFIG = {
     'persistent_workers': True,          # Keep workers alive between epochs (faster)
     'prefetch_factor': 3,                # Number of batches to prefetch per worker
 
+    # =============================================================================
+    # Streaming Training (Memory-Efficient Mode)
+    # =============================================================================
+    # For large datasets (30+ days, 90+ servers), streaming mode loads time chunks
+    # one at a time to prevent memory exhaustion (130GB+ → 8-12GB)
+    'streaming_chunk_hours': 2,          # Hours per chunk: 2 (safest), 4, 8 (faster but more memory)
+
     # Mixed precision training (faster on modern GPUs)
     'mixed_precision': True,             # Enable mixed precision (FP16/FP32)
 
