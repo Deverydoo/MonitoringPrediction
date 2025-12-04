@@ -8,6 +8,13 @@ REM   daemon.bat stop [inference|metrics|dashboard|all]
 REM   daemon.bat restart [inference|metrics|dashboard|all]
 REM   daemon.bat status
 
+REM ============================================
+REM CONFIGURATION - Adjust these as needed
+REM ============================================
+set CONDA_ENV=py310
+
+REM ============================================
+
 cd /d "%~dp0"
 
 if "%1"=="" goto show_usage
@@ -65,19 +72,19 @@ goto end
 
 :start_inference
 echo [INFO] Starting Inference Daemon...
-start "TFT Inference Daemon" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\tft_inference_daemon.py"
+start "TFT Inference Daemon" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\tft_inference_daemon.py"
 echo [OK] Inference Daemon started (port 8000)
 goto :eof
 
 :start_metrics
 echo [INFO] Starting Metrics Generator...
-start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\metrics_generator_daemon.py --stream --servers 20"
+start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\metrics_generator_daemon.py --stream --servers 20"
 echo [OK] Metrics Generator started
 goto :eof
 
 :start_dashboard
 echo [INFO] Starting Dashboard...
-start "ArgusAI Dashboard (Dash)" cmd /k "cd /d "%~dp0" && conda activate py310 && python dash_app.py"
+start "ArgusAI Dashboard (Dash)" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && python dash_app.py"
 echo [OK] Dashboard started (port 8501)
 goto :eof
 
@@ -159,13 +166,13 @@ echo.
 goto end
 
 :check_environment
-call conda activate py310 2>nul
+call conda activate %CONDA_ENV% 2>nul
 if errorlevel 1 (
-    echo [ERROR] Conda environment 'py310' not found
-    echo Run: conda create -n py310 python=3.10
+    echo [ERROR] Conda environment '%CONDA_ENV%' not found
+    echo Run: conda create -n %CONDA_ENV% python=3.10
     exit /b 1
 )
-echo [OK] Conda environment: py310
+echo [OK] Conda environment: %CONDA_ENV%
 
 if not exist "models\" (
     echo [WARN] No trained models found

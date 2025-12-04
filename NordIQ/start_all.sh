@@ -12,8 +12,11 @@
 set -e  # Exit on error
 
 # ============================================
-# CONFIGURATION
+# CONFIGURATION - Adjust these as needed
 # ============================================
+
+# Conda environment name (change this if using a different environment)
+CONDA_ENV="py310"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/logs"
@@ -93,14 +96,14 @@ check_python() {
     if ! command -v python >/dev/null 2>&1; then
         echo "[ERROR] Python not found in PATH"
         echo "        Activate your Python environment first:"
-        echo "        conda activate py310"
+        echo "        conda activate $CONDA_ENV"
         exit 1
     fi
 
     # Check for required packages
     if ! python -c "import torch, pytorch_forecasting, dash" 2>/dev/null; then
         echo "[WARNING] Some required packages may be missing"
-        echo "          Ensure you're in the correct Python environment"
+        echo "          Ensure you're in the correct Python environment ($CONDA_ENV)"
     fi
 }
 

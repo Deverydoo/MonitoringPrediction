@@ -3,20 +3,28 @@ REM ArgusAI - Windows Startup Script
 REM Built by Craig Giannelli and Claude Code
 REM Predictive System Monitoring
 
+REM ============================================
+REM CONFIGURATION - Adjust these as needed
+REM ============================================
+set CONDA_ENV=py310
+
+REM ============================================
+
 echo ============================================
 echo ArgusAI - Starting...
 echo ============================================
 
 cd /d "%~dp0"
 
-call conda activate py310 2>nul
+call conda activate %CONDA_ENV% 2>nul
 if errorlevel 1 (
-    echo [ERROR] Conda environment 'py310' not found
+    echo [ERROR] Conda environment '%CONDA_ENV%' not found
+    echo        Create it with: conda create -n %CONDA_ENV% python=3.10
     pause
     exit /b 1
 )
 
-echo [OK] Conda environment: py310
+echo [OK] Conda environment: %CONDA_ENV%
 echo.
 
 echo [INFO] Checking API key...
@@ -52,17 +60,17 @@ if not exist "models\" (
 )
 
 echo [INFO] Starting Inference Daemon...
-start "TFT Inference Daemon" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\tft_inference_daemon.py"
+start "TFT Inference Daemon" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\tft_inference_daemon.py"
 
 timeout /t 5 /nobreak >nul
 
 echo [INFO] Starting Metrics Generator...
-start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\metrics_generator_daemon.py --stream --servers 20"
+start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\metrics_generator_daemon.py --stream --servers 20"
 
 timeout /t 3 /nobreak >nul
 
 echo [INFO] Starting Dash Dashboard (Production)...
-start "NordIQ Dashboard - DASH" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python dash_app.py"
+start "NordIQ Dashboard - DASH" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python dash_app.py"
 
 echo.
 echo ============================================

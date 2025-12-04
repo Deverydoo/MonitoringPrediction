@@ -8,6 +8,13 @@
 #   ./daemon.sh restart [inference|metrics|dashboard|all]
 #   ./daemon.sh status
 
+# ============================================
+# CONFIGURATION - Adjust these as needed
+# ============================================
+CONDA_ENV="py310"
+
+# ============================================
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -45,12 +52,12 @@ log_error() {
 
 check_environment() {
     # Activate conda environment
-    if ! conda activate py310 2>/dev/null; then
-        log_error "Conda environment 'py310' not found"
-        echo "Run: conda create -n py310 python=3.10"
+    if ! conda activate "$CONDA_ENV" 2>/dev/null; then
+        log_error "Conda environment '$CONDA_ENV' not found"
+        echo "Run: conda create -n $CONDA_ENV python=3.10"
         exit 1
     fi
-    log_ok "Conda environment: py310"
+    log_ok "Conda environment: $CONDA_ENV"
 
     # Check for models
     if [ ! -d "models" ]; then
