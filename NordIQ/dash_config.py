@@ -54,8 +54,8 @@ BRAND_FAVICON_URL = None  # Add favicon URL if available
 # APP METADATA
 # =============================================================================
 
-APP_TITLE = "ArgusAI - Predictive Infrastructure Monitoring"
-APP_DESCRIPTION = "Predictive System Monitoring"
+APP_TITLE = "Tachyon Argus"
+APP_DESCRIPTION = "Predictive Infrastructure Monitoring"
 APP_VERSION = "2.0.0-dash"  # Version 2.0 = Dash migration
 APP_COPYRIGHT = "Built by Craig Giannelli and Claude Code"
 
@@ -171,6 +171,29 @@ CUSTOM_CSS = f"""
 .nav-tabs .nav-link:hover {{
     border-color: {BRAND_COLOR_SECONDARY};
 }}
+
+/* Time range selector for Historical tab */
+.time-range-selector .form-check {{
+    display: inline-block;
+    margin-right: 10px;
+}}
+
+.time-range-selector .form-check-input:checked {{
+    background-color: {BRAND_COLOR_PRIMARY};
+    border-color: {BRAND_COLOR_PRIMARY};
+}}
+
+.time-range-selector .form-check-label {{
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}}
+
+.time-range-selector .form-check-input:checked + .form-check-label {{
+    background-color: {BRAND_COLOR_PRIMARY};
+    color: white;
+}}
 """
 
 # =============================================================================
@@ -184,6 +207,7 @@ __all__ = [
     'BRAND_NAME',
     'BRAND_COLOR_PRIMARY',
     'APP_TITLE',
+    'APP_DESCRIPTION',
     'APP_VERSION',
     'get_auth_headers',
     'format_render_time',

@@ -979,7 +979,71 @@ class TFTTrainer:
             traceback.print_exc()
             return None
 
-    def train_streaming(self, dataset_path: str = "./training/", chunks_per_epoch: int = None) -> Optional[str]:
+    def _get_streaming_checkpoint_path(self) -> Path:
+        """Get path for streaming checkpoint file."""
+        return Path(self.config['models_dir']) / 'streaming_checkpoint.pt'
+
+    def _save_streaming_checkpoint(self, epoch: int, chunk_idx: int, best_loss: float,
+                                    chunk_order: list, training_start: float,
+                                    epoch_loss: float, chunk_count: int) -> None:
+        """Save streaming training checkpoint for resume capability.
+
+        Saves:
+        - Model weights
+        - Current epoch and chunk index
+        - Best loss seen so far
+        - Chunk order for current epoch (to maintain shuffle consistency)
+        - Training start time (for ETA calculations)
+        - Accumulated epoch loss and chunk count
+        """
+        checkpoint_path = self._get_streaming_checkpoint_path()
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+
+        checkpoint = {
+            'model_state_dict': self.model.state_dict(),
+            'epoch': epoch,
+            'chunk_idx': chunk_idx,
+            'best_loss': best_loss,
+            'chunk_order': chunk_order,
+            'training_start': training_start,
+            'epoch_loss': epoch_loss,
+            'chunk_count': chunk_count,
+            'config': self.config,
+            'saved_at': datetime.now().isoformat()
+        }
+
+        torch.save(checkpoint, checkpoint_path)
+        print(f"[CHECKPOINT] Saved at epoch {epoch+1}, chunk {chunk_idx+1} -> {checkpoint_path}")
+
+    def _load_streaming_checkpoint(self) -> Optional[dict]:
+        """Load streaming checkpoint if it exists.
+
+        Returns checkpoint dict or None if no checkpoint exists.
+        """
+        checkpoint_path = self._get_streaming_checkpoint_path()
+
+        if not checkpoint_path.exists():
+            return None
+
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location=self.device)
+            print(f"[CHECKPOINT] Found checkpoint from {checkpoint.get('saved_at', 'unknown')}")
+            print(f"[CHECKPOINT] Epoch {checkpoint['epoch']+1}, Chunk {checkpoint['chunk_idx']+1}")
+            print(f"[CHECKPOINT] Best loss so far: {checkpoint['best_loss']:.4f}")
+            return checkpoint
+        except Exception as e:
+            print(f"[WARNING] Failed to load checkpoint: {e}")
+            return None
+
+    def _clear_streaming_checkpoint(self) -> None:
+        """Remove streaming checkpoint after successful training completion."""
+        checkpoint_path = self._get_streaming_checkpoint_path()
+        if checkpoint_path.exists():
+            checkpoint_path.unlink()
+            print(f"[CHECKPOINT] Cleared checkpoint file")
+
+    def train_streaming(self, dataset_path: str = "./training/", chunks_per_epoch: int = None,
+                        checkpoint_every: int = 5) -> Optional[str]:
         """
         Memory-efficient streaming training that processes time chunks sequentially.
 
@@ -988,16 +1052,23 @@ class TFTTrainer:
         - Each chunk trains for 1 sub-epoch
         - Memory usage stays bounded (~2-4 GB per chunk instead of 130+ GB)
         - Full dataset is still seen each epoch (all chunks processed)
+        - Checkpoints every N chunks for resume capability
 
         Args:
             dataset_path: Path to training data (must be time-chunked format)
             chunks_per_epoch: Limit chunks per epoch (None = all chunks)
+            checkpoint_every: Save checkpoint every N chunks (default: 5)
 
         Memory Profile (2-hour chunks, 90 servers):
         - 90 servers × 2 hours × 5-sec = ~130K rows per chunk
         - ~130K rows × 50 cols × 8 bytes = ~50MB raw data per chunk
         - TimeSeriesDataSet overhead: ~3-5x = ~150-250MB per chunk
         - Total memory: ~2-4 GB (vs 130+ GB for full dataset)
+
+        Resume Capability:
+        - Checkpoints saved every N chunks (configurable, default 5)
+        - If interrupted, restart with same command to resume
+        - Checkpoint includes: model weights, epoch, chunk index, best loss
         """
         print("[TRAIN] Starting STREAMING training mode (memory-efficient)...")
         print("=" * 70)
@@ -1028,8 +1099,19 @@ class TFTTrainer:
             print(f"[STREAM] Found {len(manifest['chunks'])} time chunks ({manifest['chunk_hours']} hours each)")
             print(f"[STREAM] Will process {n_chunks} chunks per epoch")
             print(f"[STREAM] Total epochs: {self.config['epochs']}")
+            print(f"[STREAM] Checkpoint every {checkpoint_every} chunks")
             print(f"[STREAM] Memory mode: ~1 chunk in memory at a time")
             print("=" * 70)
+
+            # Check for existing checkpoint to resume from
+            checkpoint = self._load_streaming_checkpoint()
+            start_epoch = 0
+            start_chunk_idx = 0
+            best_loss = float('inf')
+            chunk_order = None
+            training_start = time.time()
+            epoch_loss = 0.0
+            chunk_count = 0
 
             # Initialize model from first chunk to get architecture
             print(f"\n[INIT] Initializing model from first chunk...")
@@ -1049,6 +1131,28 @@ class TFTTrainer:
             )
             print(f"[OK] Model initialized with {sum(p.numel() for p in self.model.parameters()):,} parameters")
 
+            # Load checkpoint state if resuming
+            if checkpoint:
+                print(f"\n[RESUME] Restoring from checkpoint...")
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+                start_epoch = checkpoint['epoch']
+                start_chunk_idx = checkpoint['chunk_idx'] + 1  # Start from next chunk
+                best_loss = checkpoint['best_loss']
+                chunk_order = checkpoint['chunk_order']
+                epoch_loss = checkpoint['epoch_loss']
+                chunk_count = checkpoint['chunk_count']
+
+                # If we finished an epoch, move to next
+                if start_chunk_idx >= n_chunks:
+                    start_epoch += 1
+                    start_chunk_idx = 0
+                    chunk_order = None  # Will reshuffle
+                    epoch_loss = 0.0
+                    chunk_count = 0
+
+                print(f"[RESUME] Continuing from epoch {start_epoch+1}, chunk {start_chunk_idx+1}")
+                print(f"[RESUME] Best loss: {best_loss:.4f}")
+
             # Free first chunk from memory
             del first_chunk_df, training_dataset
             import gc
@@ -1065,23 +1169,27 @@ class TFTTrainer:
 
             # Streaming training loop
             total_epochs = self.config['epochs']
-            best_loss = float('inf')
-            training_start = time.time()
 
-            for epoch in range(total_epochs):
+            for epoch in range(start_epoch, total_epochs):
                 epoch_start = time.time()
-                epoch_loss = 0.0
-                chunk_count = 0
+
+                # Reset epoch stats if starting fresh epoch
+                if epoch > start_epoch or start_chunk_idx == 0:
+                    epoch_loss = 0.0
+                    chunk_count = 0
 
                 print(f"\n{'='*60}")
                 print(f"[EPOCH {epoch+1}/{total_epochs}] Starting streaming epoch...")
                 print(f"{'='*60}")
 
-                # Shuffle chunks each epoch for better generalization
-                chunk_order = all_chunks.copy()
-                np.random.shuffle(chunk_order)
+                # Use saved chunk order if resuming mid-epoch, otherwise shuffle
+                if chunk_order is None or epoch > start_epoch:
+                    chunk_order = all_chunks.copy()
+                    np.random.shuffle(chunk_order)
+                    start_chunk_idx = 0  # Reset for new epochs
 
-                for chunk_idx, chunk_id in enumerate(chunk_order):
+                for chunk_idx in range(start_chunk_idx if epoch == start_epoch else 0, n_chunks):
+                    chunk_id = chunk_order[chunk_idx]
                     chunk_start = time.time()
 
                     # Load this chunk
@@ -1145,6 +1253,18 @@ class TFTTrainer:
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
 
+                    # Save checkpoint every N chunks
+                    if (chunk_idx + 1) % checkpoint_every == 0:
+                        self._save_streaming_checkpoint(
+                            epoch=epoch,
+                            chunk_idx=chunk_idx,
+                            best_loss=best_loss,
+                            chunk_order=chunk_order,
+                            training_start=training_start,
+                            epoch_loss=epoch_loss,
+                            chunk_count=chunk_count
+                        )
+
                 # Epoch summary
                 avg_epoch_loss = epoch_loss / max(chunk_count, 1)
                 epoch_time = time.time() - epoch_start
@@ -1157,10 +1277,24 @@ class TFTTrainer:
 
                 print(f"\n[EPOCH {epoch+1}] Completed in {epoch_time/60:.1f} min | Avg Loss: {avg_epoch_loss:.4f}{improvement}")
 
+                # Save checkpoint at end of epoch
+                self._save_streaming_checkpoint(
+                    epoch=epoch,
+                    chunk_idx=n_chunks - 1,
+                    best_loss=best_loss,
+                    chunk_order=chunk_order,
+                    training_start=training_start,
+                    epoch_loss=epoch_loss,
+                    chunk_count=chunk_count
+                )
+
                 # ETA
                 elapsed = time.time() - training_start
-                remaining = (elapsed / (epoch + 1)) * (total_epochs - epoch - 1)
+                remaining = (elapsed / (epoch - start_epoch + 1)) * (total_epochs - epoch - 1)
                 print(f"[ETA] Elapsed: {elapsed/60:.1f} min | Remaining: {remaining/60:.1f} min")
+
+                # Reset for next epoch
+                chunk_order = None
 
             # Training complete
             total_time = time.time() - training_start
@@ -1169,6 +1303,9 @@ class TFTTrainer:
             print(f"   Total time: {total_time/60:.1f} minutes")
             print(f"   Best loss: {best_loss:.4f}")
             print(f"{'='*60}")
+
+            # Clear checkpoint after successful completion
+            self._clear_streaming_checkpoint()
 
             # Save model
             self.total_epochs_completed = total_epochs

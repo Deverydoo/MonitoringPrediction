@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ArgusAI - Dash Production Dashboard
-======================================
+Tachyon Argus - Dash Production Dashboard
+==========================================
 
 High-performance dashboard built with Plotly Dash.
 
@@ -10,7 +10,7 @@ Architecture: Callback-based (only active tab renders)
 Scalability: Supports unlimited concurrent users
 
 Built by Craig Giannelli and Claude Code
-Predictive System Monitoring
+Predictive Infrastructure Monitoring
 """
 
 import dash
@@ -23,6 +23,7 @@ import time
 from dash_config import (
     APP_TITLE,
     APP_VERSION,
+    APP_DESCRIPTION,
     APP_COPYRIGHT,
     BRAND_COLOR_PRIMARY,
     CUSTOM_CSS,
@@ -43,7 +44,10 @@ from dash_utils.performance import PerformanceTimer, format_performance_badge, l
 
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[
+        dbc.themes.BOOTSTRAP,
+        dbc.icons.BOOTSTRAP  # Bootstrap Icons for download buttons etc.
+    ],
     suppress_callback_exceptions=True,
     title=APP_TITLE
 )
@@ -82,11 +86,12 @@ app.layout = dbc.Container([
     # Hidden div to store page load timestamp
     html.Div(id='load-start-time', style={'display': 'none'}, children=str(datetime.now())),
 
-    # Header - Wells Fargo Red Banner
+
+    # Header - Brand Banner
     dbc.Row([
         dbc.Col([
-            html.H1("🧭 ArgusAI", style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '0'}),
-            html.P("Predictive System Monitoring - Predictive Infrastructure Monitoring",
+            html.H1(f"🧭 {APP_TITLE}", style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '0'}),
+            html.P(APP_DESCRIPTION,
                    style={'color': 'white', 'opacity': '0.9', 'marginBottom': '0'})
         ], width=10),
         dbc.Col([
@@ -96,7 +101,7 @@ app.layout = dbc.Container([
             ])
         ], width=2)
     ], className="mb-3", style={
-        'backgroundColor': BRAND_COLOR_PRIMARY,  # Wells Fargo Red
+        'backgroundColor': BRAND_COLOR_PRIMARY,
         'padding': '20px 30px',
         'borderRadius': '8px',
         'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
@@ -125,7 +130,9 @@ app.layout = dbc.Container([
                             300000: '5m'
                         },
                         step=5000,
-                        tooltip={"placement": "bottom", "always_visible": True}
+                        tooltip=None,  # Disable tooltip entirely - marks show the values
+                        persistence=True,  # Persist slider value across page refreshes
+                        persistence_type='local'  # Use localStorage (survives browser close)
                     )
                 ], width=6),
                 dbc.Col([
@@ -224,7 +231,7 @@ app.layout = dbc.Container([
     # Footer
     html.Hr(),
     html.P([
-        f"🧭 ArgusAI - Predictive System Monitoring | ",
+        f"🧭 {APP_TITLE} - {APP_DESCRIPTION} | ",
         f"{APP_COPYRIGHT} | Built with Dash"
     ], className="text-center text-muted small")
 
@@ -234,22 +241,16 @@ app.layout = dbc.Container([
 # CALLBACKS
 # =============================================================================
 
-# Refresh Interval Control
+# Refresh Interval - Update interval and display when slider changes
+# Note: Slider uses built-in persistence (persistence=True, persistence_type='local')
+# so the value automatically survives page refreshes without a separate Store
 @app.callback(
     [Output('refresh-interval', 'interval'),
      Output('refresh-interval-display', 'children')],
     Input('refresh-interval-slider', 'value')
 )
 def update_refresh_interval(slider_value):
-    """
-    Update refresh interval when user adjusts slider.
-
-    Args:
-        slider_value: Milliseconds from slider
-
-    Returns:
-        tuple: (interval_ms, display_text)
-    """
+    """Update refresh interval and display text when slider changes."""
     if slider_value is None:
         slider_value = REFRESH_INTERVAL_DEFAULT
 
@@ -561,7 +562,27 @@ def render_tab(active_tab, predictions, start_time, history):
         content = top_risks.render(predictions, risk_scores, server_preds)
     elif active_tab == "historical":
         from dash_tabs import historical
-        content = historical.render(predictions, risk_scores, history)
+        import requests
+        # Fetch historical data from daemon API
+        historical_data = {}
+        try:
+            # Default to 1d time range for initial render
+            summary_resp = requests.get(f"{DAEMON_URL}/historical/summary", params={'time_range': '1d'}, timeout=3)
+            if summary_resp.ok:
+                historical_data['summary'] = summary_resp.json()
+
+            alerts_resp = requests.get(f"{DAEMON_URL}/historical/alerts", params={'time_range': '1d'}, timeout=3)
+            if alerts_resp.ok:
+                data = alerts_resp.json()
+                historical_data['alerts'] = data.get('alerts', [])
+
+            env_resp = requests.get(f"{DAEMON_URL}/historical/environment", params={'time_range': '1d'}, timeout=3)
+            if env_resp.ok:
+                data = env_resp.json()
+                historical_data['environment'] = data.get('snapshots', [])
+        except:
+            pass
+        content = historical.render(predictions, risk_scores, history, historical_data=historical_data)
     elif active_tab == "insights":
         from dash_tabs import insights
         content = insights.render(predictions, risk_scores)
@@ -638,6 +659,8 @@ def update_insights_content(selected_server, refresh_clicks):
     - Actionable recommendations
     - Technical details (collapsed by default)
     """
+    import requests
+
     if not selected_server:
         return dbc.Alert("Select a server to analyze", color="info")
 
@@ -659,9 +682,37 @@ def update_insights_content(selected_server, refresh_clicks):
             ], className="mb-0")
         ], color="warning")
 
-    # Get risk score for this server
+    # Get risk score for this server - try multiple sources for reliability
     server_pred = explanation.get('prediction', {})
-    risk_score = server_pred.get('risk_score', 50)
+    risk_score = None
+
+    # Source 1: Top-level risk_score from explanation response (most reliable)
+    if 'risk_score' in explanation:
+        risk_score = explanation['risk_score']
+
+    # Source 2: Direct risk_score from prediction object
+    if risk_score is None and 'risk_score' in server_pred:
+        risk_score = server_pred['risk_score']
+
+    # Source 3: Alert object score
+    if risk_score is None and 'alert' in server_pred:
+        risk_score = server_pred['alert'].get('score')
+
+    # Source 4: Fetch current predictions as fallback
+    if risk_score is None:
+        try:
+            resp = requests.get(f"{DAEMON_URL}/predictions/current", timeout=3)
+            if resp.ok:
+                current_preds = resp.json()
+                current_server_pred = current_preds.get('predictions', {}).get(selected_server, {})
+                risk_score = current_server_pred.get('risk_score') or current_server_pred.get('alert', {}).get('score')
+        except:
+            pass
+
+    # Fallback to default if still not found
+    if risk_score is None:
+        risk_score = 50
+        print(f"[WARN] Could not find risk_score for {selected_server}, using default 50")
 
     # Get the explanation data
     shap_data = explanation.get('shap', {})
@@ -681,17 +732,12 @@ def update_insights_content(selected_server, refresh_clicks):
             dbc.CardBody(key_factors)
         ], className="mb-4"))
 
-    # 3. Timeline summary (when did it start)
-    timeline = insights.generate_timeline_summary(attention_data)
-    if timeline:
-        content.append(timeline)
-
-    # 4. Actionable recommendations
+    # 3. Actionable recommendations (the star of the show!)
     content.append(dbc.Card([
         dbc.CardBody(insights.generate_action_cards(counterfactual_data, risk_score))
     ], className="mb-4"))
 
-    # 5. Technical details (collapsed)
+    # 4. Technical details (collapsed, for engineers)
     content.append(html.Div([
         html.H6("🔧 Technical Details", className="text-muted mt-4 mb-2"),
         html.P("For engineers who want to dig deeper:", className="text-muted small"),
@@ -777,6 +823,150 @@ def update_at_risk_servers(predictions, cost_per_hour, avg_duration):
     cost_per_incident = (cost_per_hour or 50000) * (avg_duration or 2.5)
 
     return cost_avoidance.create_at_risk_table(server_preds, risk_scores, cost_per_incident)
+
+
+# =============================================================================
+# HISTORICAL TAB CALLBACKS - Time Range & CSV Export
+# =============================================================================
+
+@app.callback(
+    Output('historical-content', 'children'),
+    [Input('historical-time-range', 'value')],
+    prevent_initial_call=True
+)
+def update_historical_content(time_range):
+    """
+    Update historical content when time range changes.
+
+    Args:
+        time_range: Selected time range ('30m', '1h', '8h', '1d', '1w', '1M')
+
+    Returns:
+        Updated historical tab content
+    """
+    import requests
+    from dash_tabs import historical
+
+    if not time_range:
+        time_range = '1d'
+
+    # Fetch historical data from daemon API
+    historical_data = {}
+    try:
+        # Get summary stats
+        summary_resp = requests.get(f"{DAEMON_URL}/historical/summary",
+                                   params={'time_range': time_range}, timeout=5)
+        if summary_resp.ok:
+            historical_data['summary'] = summary_resp.json()
+
+        # Get alert events
+        alerts_resp = requests.get(f"{DAEMON_URL}/historical/alerts",
+                                  params={'time_range': time_range}, timeout=5)
+        if alerts_resp.ok:
+            data = alerts_resp.json()
+            historical_data['alerts'] = data.get('alerts', [])
+
+        # Get environment snapshots
+        env_resp = requests.get(f"{DAEMON_URL}/historical/environment",
+                               params={'time_range': time_range}, timeout=5)
+        if env_resp.ok:
+            data = env_resp.json()
+            historical_data['environment'] = data.get('snapshots', [])
+
+    except Exception as e:
+        print(f"[WARN] Historical API error: {e}")
+
+    # Build content
+    summary = historical_data.get('summary', {})
+    alerts = historical_data.get('alerts', [])
+    env_snapshots = historical_data.get('environment', [])
+
+    content = [
+        historical.create_summary_cards(summary),
+        dbc.Row([
+            dbc.Col([
+                historical.create_alert_history_section(alerts)
+            ], width=6),
+            dbc.Col([
+                historical.create_environment_chart(env_snapshots)
+            ], width=6),
+        ], className="mb-4"),
+        historical.create_server_breakdown_section(alerts),
+    ]
+
+    return content
+
+
+@app.callback(
+    Output('download-alerts-csv', 'data'),
+    Input('export-alerts-btn', 'n_clicks'),
+    State('historical-time-range', 'value'),
+    prevent_initial_call=True
+)
+def export_alerts_csv(n_clicks, time_range):
+    """Export alerts data as CSV download."""
+    import requests
+    from datetime import datetime
+
+    if not n_clicks:
+        return None
+
+    time_range = time_range or '1d'
+
+    try:
+        response = requests.get(f"{DAEMON_URL}/historical/export/alerts",
+                               params={'time_range': time_range}, timeout=10)
+        if response.ok:
+            data = response.json()
+            if data.get('success') and data.get('csv_data'):
+                return dict(
+                    content=data['csv_data'],
+                    filename=data.get('filename', f'argus_alerts_{time_range}.csv')
+                )
+    except Exception as e:
+        print(f"[ERROR] CSV export failed: {e}")
+
+    # Return empty CSV with headers if no data
+    return dict(
+        content="timestamp,server_name,event_type,previous_level,new_level,risk_score,resolved_at,resolution_duration_minutes,caused_incident,notes\n",
+        filename=f"argus_alerts_{time_range}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    )
+
+
+@app.callback(
+    Output('download-env-csv', 'data'),
+    Input('export-env-btn', 'n_clicks'),
+    State('historical-time-range', 'value'),
+    prevent_initial_call=True
+)
+def export_environment_csv(n_clicks, time_range):
+    """Export environment snapshots as CSV download."""
+    import requests
+    from datetime import datetime
+
+    if not n_clicks:
+        return None
+
+    time_range = time_range or '1d'
+
+    try:
+        response = requests.get(f"{DAEMON_URL}/historical/export/environment",
+                               params={'time_range': time_range}, timeout=10)
+        if response.ok:
+            data = response.json()
+            if data.get('success') and data.get('csv_data'):
+                return dict(
+                    content=data['csv_data'],
+                    filename=data.get('filename', f'argus_environment_{time_range}.csv')
+                )
+    except Exception as e:
+        print(f"[ERROR] CSV export failed: {e}")
+
+    # Return empty CSV with headers if no data
+    return dict(
+        content="timestamp,total_servers,critical_count,warning_count,degraded_count,healthy_count,prob_30m,prob_8h,avg_risk_score,max_risk_score,top_risk_server,fleet_health\n",
+        filename=f"argus_environment_{time_range}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    )
 
 
 # =============================================================================

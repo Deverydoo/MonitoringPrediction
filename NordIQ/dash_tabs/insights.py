@@ -133,8 +133,16 @@ def generate_executive_summary(shap_data: Dict, risk_score: float, server_name: 
 
 
 def generate_action_cards(counterfactual_data, risk_score: float) -> html.Div:
-    """Generate action recommendation cards in plain English."""
+    """
+    Generate enhanced action recommendation cards.
 
+    Each card shows:
+    - Clear action name and what it does
+    - Expected improvement (with visual indicator)
+    - Effort required and risk level
+    - Step-by-step guidance
+    - Confidence level
+    """
     # Handle different data formats
     if isinstance(counterfactual_data, list):
         scenarios = counterfactual_data
@@ -145,112 +153,261 @@ def generate_action_cards(counterfactual_data, risk_score: float) -> html.Div:
         if risk_score < 40:
             return dbc.Alert([
                 html.H5("✅ No Action Required", className="alert-heading"),
-                html.P("This server is healthy. Continue monitoring as usual.")
+                html.P("This server is healthy. Continue monitoring as usual.", className="mb-0")
             ], color="success")
         else:
             return dbc.Alert([
-                html.H5("⚠️ Analysis Unavailable", className="alert-heading"),
-                html.P("Could not generate specific recommendations. Review server metrics manually.")
+                html.H5("⚠️ Recommendations Unavailable", className="alert-heading"),
+                html.P("Could not generate specific recommendations. Review server metrics manually.", className="mb-0")
             ], color="warning")
 
-    action_cards = []
-
-    # Process scenarios into simple action cards
+    # Process scenarios
     if isinstance(scenarios, dict):
         scenario_items = list(scenarios.items())
     else:
         scenario_items = [(s.get('scenario', f'Option {i+1}'), s) for i, s in enumerate(scenarios)]
 
-    for i, (name, scenario) in enumerate(scenario_items[:4]):  # Limit to top 4 recommendations
-        if isinstance(scenario, dict):
-            action = scenario.get('action', 'Review this server')
-            change = scenario.get('change', 0)
-            effort = scenario.get('effort', 'MEDIUM')
-            confidence = scenario.get('confidence', 0.5)
-            is_safe = scenario.get('safe', True)
-        else:
-            action = str(scenario)
-            change = 0
-            effort = 'MEDIUM'
-            confidence = 0.5
-            is_safe = True
+    # Filter out "Do nothing" and sort by improvement
+    actionable = [(name, s) for name, s in scenario_items
+                  if isinstance(s, dict) and s.get('change', 0) < 0]
+    actionable.sort(key=lambda x: x[1].get('change', 0))
 
-        # Determine card styling
-        if change < -10:
-            impact_text = "High Impact"
-            impact_color = "#10B981"
-            badge_color = "success"
-        elif change < 0:
-            impact_text = "Moderate Impact"
-            impact_color = "#3B82F6"
-            badge_color = "primary"
-        else:
-            impact_text = "Low Impact"
-            impact_color = "#6B7280"
-            badge_color = "secondary"
+    if not actionable:
+        return dbc.Alert([
+            html.H5("📊 Current Status", className="alert-heading"),
+            html.P("No interventions would significantly improve this server's health. Continue monitoring.", className="mb-0")
+        ], color="info")
 
-        effort_badges = {
-            'LOW': ('Easy', 'success'),
-            'MEDIUM': ('Moderate Effort', 'warning'),
-            'HIGH': ('Complex', 'danger'),
+    # Build action cards
+    action_cards = []
+
+    # Find the best recommendation (highest impact with reasonable effort)
+    best_idx = 0
+    best_score = float('-inf')
+    effort_scores = {'LOW': 3, 'MEDIUM': 2, 'HIGH': 1, 'None': 0}
+
+    for i, (name, scenario) in enumerate(actionable[:4]):
+        change = abs(scenario.get('change', 0))
+        effort = effort_scores.get(scenario.get('effort', 'MEDIUM'), 2)
+        score = change * effort  # Higher is better
+        if score > best_score:
+            best_score = score
+            best_idx = i
+
+    for i, (name, scenario) in enumerate(actionable[:4]):
+        is_best = (i == best_idx)
+
+        # Extract scenario data
+        action = scenario.get('action', 'Review this server')
+        change = scenario.get('change', 0)
+        predicted_cpu = scenario.get('predicted_cpu', 0)
+        effort = scenario.get('effort', 'MEDIUM')
+        risk = scenario.get('risk', 'MEDIUM')
+        confidence = scenario.get('confidence', 0.5)
+        is_safe = scenario.get('safe', True)
+        scenario_name = scenario.get('scenario', name)
+
+        # Calculate improvement percentage
+        improvement = abs(change)
+
+        # Friendly scenario names
+        friendly_names = {
+            'Restart service': ('🔄 Restart the Service', 'Quick reset to clear issues'),
+            'Scale horizontally': ('📈 Add More Capacity', 'Distribute the load across more servers'),
+            'Stabilize workload': ('⚖️ Stabilize the Workload', 'Prevent further increases'),
+            'Reduce memory': ('🧹 Free Up Memory', 'Clear caches and reduce memory pressure'),
+            'Optimize disk': ('💾 Optimize Disk Usage', 'Speed up disk operations'),
         }
-        effort_text, effort_badge = effort_badges.get(effort, ('Unknown', 'secondary'))
 
-        # Simplify action text for executives
-        simple_action = action
-        if 'restart' in action.lower():
-            simple_action = "Restart the server or application"
-        elif 'scale' in action.lower():
-            simple_action = "Add more resources or servers"
-        elif 'memory' in action.lower() or 'cache' in action.lower():
-            simple_action = "Free up memory"
-        elif 'disk' in action.lower():
-            simple_action = "Clear disk space"
-        elif 'connection' in action.lower():
-            simple_action = "Check network connections"
+        # Match scenario to friendly name
+        display_name = scenario_name
+        description = ""
+        for key, (friendly, desc) in friendly_names.items():
+            if key.lower() in scenario_name.lower():
+                display_name = friendly
+                description = desc
+                break
+
+        # Effort and risk indicators
+        effort_config = {
+            'LOW': ('✓ Easy', 'success', 'Can be done quickly with minimal planning'),
+            'MEDIUM': ('◐ Moderate', 'warning', 'Requires some planning and coordination'),
+            'HIGH': ('✗ Complex', 'danger', 'Needs significant planning and resources'),
+        }
+        risk_config = {
+            'LOW': ('Safe', 'success'),
+            'MEDIUM': ('Some Risk', 'warning'),
+            'HIGH': ('Risky', 'danger'),
+        }
+
+        effort_text, effort_color, effort_desc = effort_config.get(effort, ('Unknown', 'secondary', ''))
+        risk_text, risk_color = risk_config.get(risk, ('Unknown', 'secondary'))
+
+        # Simplify technical commands to plain English steps
+        steps = generate_action_steps(scenario_name, action)
+
+        # Card border color based on best recommendation
+        border_color = '#10B981' if is_best else '#E5E7EB'
+        header_bg = '#ECFDF5' if is_best else '#F9FAFB'
 
         card = dbc.Card([
             dbc.CardHeader([
                 dbc.Row([
                     dbc.Col([
-                        html.H5(f"Option {i+1}: {name.replace('_', ' ').title()}", className="mb-0")
+                        html.Div([
+                            html.Span("⭐ RECOMMENDED" if is_best else "",
+                                     className="text-success fw-bold small me-2") if is_best else None,
+                            html.H5(display_name, className="mb-0 d-inline"),
+                        ]),
+                        html.Small(description, className="text-muted") if description else None
                     ], width=8),
                     dbc.Col([
-                        dbc.Badge(impact_text, color=badge_color, className="me-2"),
-                        dbc.Badge(effort_text, color=effort_badge)
-                    ], width=4, className="text-end")
+                        html.Div([
+                            html.Span(f"−{improvement:.0f}%",
+                                     style={'fontSize': '1.5rem', 'fontWeight': 'bold',
+                                            'color': '#10B981' if improvement > 10 else '#3B82F6'}),
+                            html.Br(),
+                            html.Small("improvement", className="text-muted")
+                        ], className="text-end")
+                    ], width=4)
                 ])
-            ]),
+            ], style={'backgroundColor': header_bg}),
+
             dbc.CardBody([
-                html.P([
-                    html.Strong("What to do: "),
-                    simple_action
+                # Expected outcome
+                dbc.Row([
+                    dbc.Col([
+                        html.Div([
+                            html.Strong("Expected Result: ", className="text-muted"),
+                            html.Span(
+                                f"CPU drops to ~{predicted_cpu:.0f}%" if predicted_cpu else "Improvement expected",
+                                style={'color': '#10B981' if is_safe else '#F59E0B'}
+                            ),
+                            html.Span(" ✓ Safe zone" if is_safe else " ⚠ Still elevated",
+                                     className="ms-2 small",
+                                     style={'color': '#10B981' if is_safe else '#F59E0B'})
+                        ])
+                    ], width=12)
+                ], className="mb-3"),
+
+                # Steps to take
+                html.Div([
+                    html.Strong("📋 Steps to Take:", className="mb-2 d-block"),
+                    html.Ol([
+                        html.Li(step, className="mb-1") for step in steps
+                    ], className="mb-0 ps-3", style={'fontSize': '0.95rem'})
+                ], className="mb-3 p-2", style={'backgroundColor': '#F8FAFC', 'borderRadius': '6px'}),
+
+                # Effort and Risk indicators
+                dbc.Row([
+                    dbc.Col([
+                        html.Div([
+                            html.Strong("Effort: ", className="text-muted"),
+                            dbc.Badge(effort_text, color=effort_color, className="me-2"),
+                            html.Small(effort_desc, className="text-muted d-none d-md-inline")
+                        ])
+                    ], width=6),
+                    dbc.Col([
+                        html.Div([
+                            html.Strong("Risk: ", className="text-muted"),
+                            dbc.Badge(risk_text, color=risk_color)
+                        ])
+                    ], width=3),
+                    dbc.Col([
+                        html.Div([
+                            html.Strong("Confidence: ", className="text-muted"),
+                            html.Span(f"{confidence:.0%}",
+                                     style={'fontWeight': 'bold',
+                                            'color': '#10B981' if confidence > 0.7 else '#F59E0B' if confidence > 0.5 else '#EF4444'})
+                        ])
+                    ], width=3)
                 ], className="mb-2"),
-                html.P([
-                    html.Strong("Expected result: "),
-                    f"{'Improvement' if change < 0 else 'Minimal change'} in server health",
-                    f" ({abs(change):.0f}% {'better' if change < 0 else 'impact'})" if change != 0 else ""
-                ], className="mb-2 text-muted"),
+
+                # Confidence bar
                 dbc.Progress(
                     value=confidence * 100,
-                    label=f"{confidence:.0%} confidence",
-                    color="success" if confidence > 0.7 else "warning" if confidence > 0.4 else "danger",
-                    style={'height': '24px'}
+                    color="success" if confidence > 0.7 else "warning" if confidence > 0.5 else "danger",
+                    style={'height': '6px'},
+                    className="mt-2"
                 )
             ])
-        ], className="mb-3")
+        ], className="mb-3", style={'border': f'2px solid {border_color}'})
 
         action_cards.append(card)
 
     return html.Div([
-        html.H5("🎯 Recommended Actions", className="mb-3"),
-        html.P("Listed in order of potential impact:", className="text-muted mb-3"),
+        html.Div([
+            html.H5("🎯 Recommended Actions", className="mb-1"),
+            html.P("What you can do to improve this server's health, ranked by effectiveness:",
+                   className="text-muted mb-3")
+        ]),
         html.Div(action_cards)
     ])
 
 
+def generate_action_steps(scenario_name: str, technical_action: str) -> List[str]:
+    """Generate user-friendly step-by-step instructions."""
+
+    scenario_lower = scenario_name.lower()
+
+    if 'restart' in scenario_lower:
+        return [
+            "Notify affected teams about brief service interruption",
+            "Schedule restart during low-traffic period if possible",
+            "Execute the service restart (typically 30-60 seconds downtime)",
+            "Verify service is back online and responding normally",
+            "Monitor for 15 minutes to confirm improvement"
+        ]
+
+    elif 'scale' in scenario_lower:
+        return [
+            "Review current capacity and confirm additional resources are available",
+            "Spin up additional server instances (2+ recommended)",
+            "Update load balancer to include new instances",
+            "Verify traffic is being distributed across all instances",
+            "Monitor new instances for health and performance"
+        ]
+
+    elif 'stabilize' in scenario_lower or 'workload' in scenario_lower:
+        return [
+            "Identify the source of increasing load (check logs, metrics)",
+            "Enable rate limiting or request throttling if available",
+            "Consider redirecting traffic to healthier instances",
+            "Communicate with development team about load patterns",
+            "Monitor to confirm load has stabilized"
+        ]
+
+    elif 'memory' in scenario_lower or 'cache' in scenario_lower:
+        return [
+            "Identify largest memory consumers (check heap dumps, process list)",
+            "Clear application caches if safe to do so",
+            "Review and reduce connection pool sizes if oversized",
+            "Consider restarting memory-heavy processes",
+            "Monitor memory usage after each action"
+        ]
+
+    elif 'disk' in scenario_lower:
+        return [
+            "Identify slow queries or high I/O operations",
+            "Add database indexes for frequent queries",
+            "Enable query caching if not already active",
+            "Consider moving large files to faster storage",
+            "Monitor disk I/O metrics after changes"
+        ]
+
+    else:
+        # Generic steps
+        return [
+            "Review current server metrics and recent changes",
+            "Identify the root cause of the issue",
+            "Apply the recommended action",
+            "Verify the issue is resolved",
+            "Document the fix for future reference"
+        ]
+
+
 def generate_key_factors(shap_data: Dict) -> html.Div:
-    """Generate a simple visual of key factors."""
+    """Generate a simple visual of key factors driving the risk."""
     feature_importance = shap_data.get('feature_importance', [])
 
     if not feature_importance:
@@ -304,30 +461,8 @@ def generate_key_factors(shap_data: Dict) -> html.Div:
     ])
 
 
-def generate_timeline_summary(attention_data: Dict) -> html.Div:
-    """Generate a simple timeline summary."""
-    summary = attention_data.get('summary', '')
-    important_periods = attention_data.get('important_periods', [])
-
-    if not important_periods:
-        return html.Div()
-
-    # Find the most important period
-    most_important = max(important_periods, key=lambda x: x.get('attention', 0))
-    period_name = most_important.get('period', 'Recent activity')
-
-    return dbc.Alert([
-        html.H6("⏰ When It Started", className="mb-2"),
-        html.P([
-            f"The AI is paying most attention to: ",
-            html.Strong(period_name.lower()),
-            ". This suggests the issue began or worsened during this timeframe."
-        ], className="mb-0")
-    ], color="light")
-
-
 def render_technical_details(shap_data: Dict, attention_data: Dict, counterfactual_data) -> html.Div:
-    """Render collapsible technical details for advanced users."""
+    """Render collapsible technical details for engineers."""
 
     # SHAP details
     feature_importance = shap_data.get('feature_importance', [])
@@ -342,56 +477,27 @@ def render_technical_details(shap_data: Dict, attention_data: Dict, counterfactu
 
     shap_df = pd.DataFrame(shap_table_data) if shap_table_data else pd.DataFrame()
 
-    # Attention weights chart
-    attention_weights = attention_data.get('attention_weights', [])
-    attention_chart = html.Div()
-    if attention_weights and len(attention_weights) > 10:
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=list(range(len(attention_weights))),
-            y=attention_weights,
-            mode='lines',
-            fill='tozeroy',
-            line=dict(color='#0EA5E9', width=2)
-        ))
-        fig.update_layout(
-            title="Attention Weights Over Time",
-            xaxis_title="Timestep",
-            yaxis_title="Attention Weight",
-            height=250,
-            margin=dict(l=40, r=40, t=40, b=40)
-        )
-        attention_chart = dcc.Graph(figure=fig)
-
     return dbc.Accordion([
         dbc.AccordionItem([
-            html.P("This table shows the raw SHAP (SHapley Additive exPlanations) values for each metric.",
+            html.P("Raw SHAP (SHapley Additive exPlanations) values showing feature contributions.",
                    className="text-muted mb-3"),
             dbc.Table.from_dataframe(shap_df, striped=True, bordered=True, hover=True, size='sm')
             if not shap_df.empty else html.P("No SHAP data available")
-        ], title="📊 SHAP Feature Importance (Technical)"),
-
-        dbc.AccordionItem([
-            html.P("This chart shows which time periods the model weighted most heavily.",
-                   className="text-muted mb-3"),
-            attention_chart if attention_weights else html.P("No attention data available")
-        ], title="⏱️ Attention Weights (Technical)"),
+        ], title="📊 Feature Importance (Technical)"),
 
         dbc.AccordionItem([
             html.P("Raw counterfactual scenario data from the model.", className="text-muted mb-3"),
             html.Pre(
-                str(counterfactual_data)[:2000] + "..." if len(str(counterfactual_data)) > 2000 else str(counterfactual_data),
+                str(counterfactual_data)[:3000] + "..." if len(str(counterfactual_data)) > 3000 else str(counterfactual_data),
                 style={'fontSize': '0.8rem', 'whiteSpace': 'pre-wrap', 'backgroundColor': '#f8f9fa', 'padding': '1rem', 'borderRadius': '4px'}
             )
-        ], title="🎯 Raw Counterfactual Data (Technical)")
+        ], title="🎯 Raw Scenario Data (Technical)")
     ], start_collapsed=True, className="mt-4")
 
 
 def render(predictions: Dict, risk_scores: Dict[str, float],
            selected_server: str = None) -> html.Div:
-    """
-    Render Insights tab - Executive-friendly version.
-    """
+    """Render Insights tab - Executive-friendly version."""
     server_preds = predictions.get('predictions', {})
 
     if not server_preds:
@@ -424,7 +530,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float],
     # Header
     header = html.Div([
         html.H4("🧠 Server Health Insights", className="mb-2"),
-        html.P("Select a server to understand its health and get recommendations.",
+        html.P("Select a server to understand its health and get actionable recommendations.",
                className="text-muted mb-4")
     ])
 
@@ -473,17 +579,17 @@ def render(predictions: Dict, risk_scores: Dict[str, float],
     ])
 
 
-# Export the render functions for the callback in dash_app.py
+# Backward compatibility wrappers
 def render_shap_explanation(shap_data: Dict) -> html.Div:
-    """Wrapper for backward compatibility with dash_app.py callback."""
+    """Wrapper for backward compatibility."""
     return generate_key_factors(shap_data)
 
 
 def render_attention_analysis(attention_data: Dict) -> html.Div:
-    """Wrapper for backward compatibility with dash_app.py callback."""
-    return generate_timeline_summary(attention_data)
+    """Wrapper for backward compatibility - returns empty since we removed this."""
+    return html.Div()
 
 
 def render_counterfactuals(counterfactual_data) -> html.Div:
-    """Wrapper for backward compatibility with dash_app.py callback."""
-    return generate_action_cards(counterfactual_data, 50)  # Default risk score
+    """Wrapper for backward compatibility."""
+    return generate_action_cards(counterfactual_data, 50)

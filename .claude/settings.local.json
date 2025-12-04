@@ -7,7 +7,20 @@
       "Bash(nul)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(move \"COLOR_AUDIT_2025-10-18.md\" archive )",
+      "Bash(move \"HUMAN_TODO_CHECKLIST.md\" archive )",
+      "Bash(move \"HUMAN_VS_AI_TIMELINE.md\" archive )",
+      "Bash(move \"PHASE_3_OPTIMIZATIONS_APPLIED.md\" archive )",
+      "Bash(move \"PHASE_4_OPTIMIZATIONS_COMPLETE.md\" archive )",
+      "Bash(move \"PERFORMANCE_OPTIMIZATIONS_APPLIED.md\" archive )",
+      "Bash(move \"SCRIPT_DEPRECATION_ANALYSIS.md\" archive )",
+      "Bash(move \"XAI_POLISH_CHECKLIST.md\" archive )",
+      "Bash(move \"SMART_CACHE_STRATEGY.md\" archive )",
+      "Bash(move:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(git reset:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

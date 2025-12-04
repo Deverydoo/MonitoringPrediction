@@ -1005,48 +1005,106 @@ class TFTInference:
     def _calculate_environment_metrics(self, current_data: pd.DataFrame, predictions: Dict) -> Dict:
         """Calculate environment-wide incident probabilities.
 
-        OPTIMIZATION: Uses NumPy for vectorized max() operations (5x faster).
+        Uses pre-calculated risk scores for accurate fleet-wide assessment.
+        Only considers metrics that actually indicate problems.
         """
         prob_30m = 0.0
         prob_8h = 0.0
         high_risk_count = 0
         total_servers = len(predictions)
 
+        # Critical metrics to check for environment-wide risk
+        # These are the metrics where HIGH values indicate problems
+        CRITICAL_HIGH_METRICS = {
+            'cpu_user_pct': (80, 90),      # High CPU usage is bad
+            'cpu_sys_pct': (50, 70),       # High system CPU is bad
+            'cpu_iowait_pct': (20, 40),    # I/O wait > 20% is concerning
+            'mem_used_pct': (85, 95),      # High memory is bad
+            'swap_used_pct': (10, 30),     # Any swap usage is concerning
+            'disk_usage_pct': (80, 90),    # High disk usage is bad
+            'java_cpu_pct': (70, 85),      # High JVM CPU is bad
+        }
+
+        # Metrics where LOW values indicate problems
+        CRITICAL_LOW_METRICS = {
+            'cpu_idle_pct': (20, 10),      # Low idle = high usage = bad
+        }
+
         for server, server_preds in predictions.items():
-            risk_30m = 0.0
-            risk_8h = 0.0
+            server_risk_30m = 0.0
+            server_risk_8h = 0.0
+            metrics_checked = 0
 
             for metric, forecast in server_preds.items():
+                # Skip non-metric fields
+                if not isinstance(forecast, dict) or 'p50' not in forecast:
+                    continue
+
                 p50 = forecast.get('p50', [])
                 p90 = forecast.get('p90', [])
 
-                # OPTIMIZATION: Use NumPy max instead of Python max (5x faster for large arrays)
-                # 30-minute risk: only flag if p50 > 90 OR p90 > 98 (severe conditions)
-                if len(p50) >= 6:
-                    max_p50 = np.max(p50[:6])
-                    max_p90 = np.max(p90[:6]) if len(p90) >= 6 else 0
+                if not p50:
+                    continue
 
-                    if max_p50 > 90 or max_p90 > 98:
-                        risk_30m += 0.35
-                    elif max_p50 > 85 or max_p90 > 95:
-                        risk_30m += 0.15
+                # Check if this is a critical metric we should evaluate
+                if metric in CRITICAL_HIGH_METRICS:
+                    warn_thresh, crit_thresh = CRITICAL_HIGH_METRICS[metric]
 
-                # 8-hour risk: only flag if p50 > 88 OR p90 > 96
-                if len(p50) >= 96:
-                    max_p50 = np.max(p50)
-                    max_p90 = np.max(p90) if len(p90) >= 96 else 0
+                    # 30-minute risk (first 6 timesteps = 30 min at 5-sec intervals)
+                    if len(p50) >= 6:
+                        max_p50_30m = float(np.max(p50[:6]))
+                        max_p90_30m = float(np.max(p90[:6])) if len(p90) >= 6 else max_p50_30m
 
-                    if max_p50 > 88 or max_p90 > 96:
-                        risk_8h += 0.25
-                    elif max_p50 > 82 or max_p90 > 92:
-                        risk_8h += 0.10
+                        if max_p50_30m > crit_thresh or max_p90_30m > crit_thresh + 5:
+                            server_risk_30m += 0.25
+                        elif max_p50_30m > warn_thresh or max_p90_30m > warn_thresh + 5:
+                            server_risk_30m += 0.10
 
-            if risk_30m > 0.6:
+                    # 8-hour risk (all timesteps)
+                    if len(p50) >= 20:
+                        max_p50_8h = float(np.max(p50))
+                        max_p90_8h = float(np.max(p90)) if len(p90) >= 20 else max_p50_8h
+
+                        if max_p50_8h > crit_thresh or max_p90_8h > crit_thresh + 5:
+                            server_risk_8h += 0.20
+                        elif max_p50_8h > warn_thresh or max_p90_8h > warn_thresh + 5:
+                            server_risk_8h += 0.08
+
+                    metrics_checked += 1
+
+                elif metric in CRITICAL_LOW_METRICS:
+                    warn_thresh, crit_thresh = CRITICAL_LOW_METRICS[metric]
+
+                    # For idle CPU: LOW is bad (means high usage)
+                    if len(p50) >= 6:
+                        min_p50_30m = float(np.min(p50[:6]))
+
+                        if min_p50_30m < crit_thresh:
+                            server_risk_30m += 0.25
+                        elif min_p50_30m < warn_thresh:
+                            server_risk_30m += 0.10
+
+                    if len(p50) >= 20:
+                        min_p50_8h = float(np.min(p50))
+
+                        if min_p50_8h < crit_thresh:
+                            server_risk_8h += 0.20
+                        elif min_p50_8h < warn_thresh:
+                            server_risk_8h += 0.08
+
+                    metrics_checked += 1
+
+            # Cap per-server risk at 1.0
+            server_risk_30m = min(1.0, server_risk_30m)
+            server_risk_8h = min(1.0, server_risk_8h)
+
+            if server_risk_30m > 0.5:
                 high_risk_count += 1
 
-            prob_30m += min(1.0, risk_30m)
-            prob_8h += min(1.0, risk_8h)
+            prob_30m += server_risk_30m
+            prob_8h += server_risk_8h
 
+        # Average across all servers
         if total_servers > 0:
             prob_30m = prob_30m / total_servers
             prob_8h = prob_8h / total_servers
@@ -1058,7 +1116,7 @@ class TFTInference:
             'incident_probability_8h': float(min(1.0, prob_8h)),    # Backwards compatibility
             'high_risk_servers': high_risk_count,
             'total_servers': total_servers,
-            'fleet_health': 'critical' if prob_30m > 0.7 else 'warning' if prob_30m > 0.4 else 'healthy'
+            'fleet_health': 'critical' if prob_30m > 0.6 else 'warning' if prob_30m > 0.3 else 'healthy'
         }
 
     def _empty_response(self) -> Dict:
@@ -1246,8 +1304,25 @@ class CleanInferenceDaemon:
         self.counterfactual_generator = CounterfactualGenerator(self.inference)
         print(f"[OK] XAI components initialized (SHAP, Attention, Counterfactuals)")
 
+        # Initialize historical data store for reporting (Parquet-based)
+        print(f"[INIT] Loading Historical Data Store...")
+        try:
+            from core.historical_store import get_historical_store
+            self.historical_store = get_historical_store("./data")
+            # Set to None initially so first snapshot is recorded immediately
+            self.last_snapshot_time = None
+            self.snapshot_interval_seconds = 60  # Record environment snapshot every 1 minute
+            print(f"[OK] Historical data store initialized (Parquet)")
+        except Exception as e:
+            print(f"[WARNING] Historical store not available: {e}")
+            self.historical_store = None
+            self.last_snapshot_time = None
+
         # Track per-server data counts for warmup
         self.server_timesteps = {}
+
+        # Track previous alert states for change detection
+        self.previous_alert_states = {}
 
         # Initialize data buffer for automated retraining
         if enable_retraining:
@@ -1687,15 +1762,59 @@ class CleanInferenceDaemon:
                 # Add display-ready metrics (dashboard doesn't need extraction logic)
                 server_pred['display_metrics'] = self._format_display_metrics(server_pred)
 
-                # Count by severity
+                # Determine alert level
                 if risk_score >= 80:
+                    current_level = 'critical'
                     alert_counts['critical'] += 1
                 elif risk_score >= 60:
+                    current_level = 'warning'
                     alert_counts['warning'] += 1
                 elif risk_score >= 50:
+                    current_level = 'degraded'
                     alert_counts['degrading'] += 1
                 else:
+                    current_level = 'healthy'
                     alert_counts['healthy'] += 1
+
+                # Track state changes for historical store
+                if self.historical_store:
+                    previous_level = self.previous_alert_states.get(server_name, 'healthy')
+
+                    # Detect state change
+                    if current_level != previous_level:
+                        # Determine event type
+                        level_order = {'healthy': 0, 'degraded': 1, 'warning': 2, 'critical': 3}
+                        if level_order.get(current_level, 0) > level_order.get(previous_level, 0):
+                            event_type = 'escalation'
+                        elif current_level == 'healthy':
+                            event_type = 'resolved'
+                        else:
+                            event_type = 'de-escalation'
+
+                        # Record the event
+                        try:
+                            metrics = {
+                                'cpu': server_pred.get('display_metrics', {}).get('cpu_used', 0),
+                                'memory': server_pred.get('display_metrics', {}).get('mem_used', 0),
+                                'iowait': server_pred.get('display_metrics', {}).get('iowait', 0),
+                            }
+                            self.historical_store.record_alert_event(
+                                server_name=server_name,
+                                event_type=event_type,
+                                previous_level=previous_level,
+                                new_level=current_level,
+                                risk_score=risk_score,
+                                metrics=metrics
+                            )
+
+                            # If resolved, mark previous alert as resolved
+                            if event_type == 'resolved':
+                                self.historical_store.resolve_alert(server_name)
+                        except Exception as e:
+                            print(f"[WARN] Failed to record alert event: {e}")
+
+                    # Update state tracking
+                    self.previous_alert_states[server_name] = current_level
 
             # Sort servers by risk (pre-calculate top N lists for dashboard)
             sorted_servers = sorted(
@@ -1704,6 +1823,11 @@ class CleanInferenceDaemon:
                 reverse=True
             )
 
+            # Calculate additional stats for historical store
+            all_scores = list(risk_scores.values())
+            avg_risk = sum(all_scores) / len(all_scores) if all_scores else 0
+            max_risk = max(all_scores) if all_scores else 0
+
             # Add summary statistics (dashboard-ready aggregates)
             result['summary'] = {
                 'total_servers': len(predictions),
@@ -1711,11 +1835,45 @@ class CleanInferenceDaemon:
                 'warning_count': alert_counts['warning'],
                 'degrading_count': alert_counts['degrading'],
                 'healthy_count': alert_counts['healthy'],
+                'avg_risk_score': round(avg_risk, 1),
+                'max_risk_score': round(max_risk, 1),
                 'top_5_risks': sorted_servers[:5],
                 'top_10_risks': sorted_servers[:10],
                 'top_20_risks': sorted_servers[:20],
                 'risk_calculation_time': datetime.now().isoformat(),
             }
+
+            # Record environment snapshot periodically (every 1 minute)
+            if self.historical_store:
+                should_record = False
+                if self.last_snapshot_time is None:
+                    # First snapshot - record immediately
+                    should_record = True
+                else:
+                    elapsed = (datetime.now() - self.last_snapshot_time).total_seconds()
+                    if elapsed >= self.snapshot_interval_seconds:
+                        should_record = True
+
+                if should_record:
+                    try:
+                        env_metrics = result.get('environment', {})
+                        self.historical_store.record_environment_snapshot({
+                            'total_servers': len(predictions),
+                            'critical_count': alert_counts['critical'],
+                            'warning_count': alert_counts['warning'],
+                            'degraded_count': alert_counts['degrading'],
+                            'healthy_count': alert_counts['healthy'],
+                            'prob_30m': env_metrics.get('prob_30m', 0),
+                            'prob_8h': env_metrics.get('prob_8h', 0),
+                            'avg_risk_score': avg_risk,
+                            'max_risk_score': max_risk,
+                            'top_risk_server': sorted_servers[0] if sorted_servers else '',
+                            'fleet_health': env_metrics.get('fleet_health', 'unknown')
+                        })
+                        self.last_snapshot_time = datetime.now()
+                        print(f"[HISTORY] Environment snapshot recorded")
+                    except Exception as e:
+                        print(f"[WARN] Failed to record environment snapshot: {e}")
 
             print(f"[OK] Risk scores calculated: {alert_counts['critical']} critical, {alert_counts['warning']} warning, {alert_counts['healthy']} healthy")
 
@@ -2037,6 +2195,9 @@ class CleanInferenceDaemon:
                 current_prediction=current_cpu
             )
 
+            # Extract risk score explicitly for clarity
+            risk_score = server_pred.get('risk_score', server_pred.get('alert', {}).get('score', 50))
+
             return {
                 'server_name': server_name,
                 'timestamp': datetime.now().isoformat(),
@@ -2044,6 +2205,7 @@ class CleanInferenceDaemon:
                 'attention': attention_analysis,
                 'counterfactuals': counterfactuals,
                 'prediction': server_pred,
+                'risk_score': risk_score,  # Explicit top-level risk score
                 'data_points': len(server_data)
             }
 
@@ -2358,12 +2520,207 @@ async def cancel_training(
 
     return daemon.auto_retrainer.cancel_current_job()
 
+# =============================================================================
+# HISTORICAL DATA ENDPOINTS - For Executive Reporting
+# =============================================================================
+
+@app.get("/historical/summary")
+async def get_historical_summary(
+    time_range: str = "1d",
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get summary statistics for executive reporting.
+
+    Args:
+        time_range: '30m', '1h', '8h', '1d', '1w', '1M'
+
+    Returns:
+        Summary stats including alerts, resolution rates, etc.
+    """
+    if not daemon.historical_store:
+        return {
+            'success': False,
+            'error': 'Historical data store not available'
+        }
+
+    try:
+        summary = daemon.historical_store.get_summary_stats(time_range)
+        return {
+            'success': True,
+            **summary
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+@app.get("/historical/alerts")
+async def get_historical_alerts(
+    time_range: str = "1h",
+    server_name: Optional[str] = None,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get alert events for a time range.
+
+    Args:
+        time_range: '30m', '1h', '8h', '1d', '1w', '1M'
+        server_name: Optional filter by server
+
+    Returns:
+        List of alert events
+    """
+    if not daemon.historical_store:
+        return {
+            'success': False,
+            'alerts': [],
+            'error': 'Historical data store not available'
+        }
+
+    try:
+        alerts = daemon.historical_store.get_alert_events(time_range, server_name)
+        return {
+            'success': True,
+            'time_range': time_range,
+            'count': len(alerts),
+            'alerts': alerts
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'alerts': [],
+            'error': str(e)
+        }
+
+@app.get("/historical/environment")
+async def get_historical_environment(
+    time_range: str = "1h",
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get environment health snapshots over time.
+
+    Args:
+        time_range: '30m', '1h', '8h', '1d', '1w', '1M'
+
+    Returns:
+        List of environment snapshots
+    """
+    if not daemon.historical_store:
+        return {
+            'success': False,
+            'snapshots': [],
+            'error': 'Historical data store not available'
+        }
+
+    try:
+        snapshots = daemon.historical_store.get_environment_snapshots(time_range)
+        return {
+            'success': True,
+            'time_range': time_range,
+            'count': len(snapshots),
+            'snapshots': snapshots
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'snapshots': [],
+            'error': str(e)
+        }
+
+@app.get("/historical/server/{server_name}")
+async def get_server_history(
+    server_name: str,
+    time_range: str = "1d",
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get detailed history for a specific server.
+
+    Args:
+        server_name: Server to get history for
+        time_range: '30m', '1h', '8h', '1d', '1w', '1M'
+
+    Returns:
+        Server-specific history and stats
+    """
+    if not daemon.historical_store:
+        return {
+            'success': False,
+            'error': 'Historical data store not available'
+        }
+
+    try:
+        history = daemon.historical_store.get_server_history(server_name, time_range)
+        return {
+            'success': True,
+            **history
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+@app.get("/historical/export/{table}")
+async def export_historical_csv(
+    table: str,
+    time_range: str = "1d",
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Export historical data as CSV.
+
+    Args:
+        table: 'alerts' or 'environment'
+        time_range: '30m', '1h', '8h', '1d', '1w', '1M'
+
+    Returns:
+        CSV data as string (or base64 encoded)
+    """
+    if not daemon.historical_store:
+        return {
+            'success': False,
+            'error': 'Historical data store not available'
+        }
+
+    if table not in ['alerts', 'environment']:
+        return {
+            'success': False,
+            'error': f"Invalid table '{table}'. Use 'alerts' or 'environment'"
+        }
+
+    try:
+        csv_data = daemon.historical_store.export_to_csv(table, time_range)
+
+        # If no data, return CSV with headers only
+        if not csv_data:
+            if table == 'alerts':
+                csv_data = "timestamp,server_name,event_type,previous_level,new_level,risk_score,resolved_at,resolution_duration_minutes,caused_incident,notes\n"
+            else:
+                csv_data = "timestamp,total_servers,critical_count,warning_count,degraded_count,healthy_count,prob_30m,prob_8h,avg_risk_score,max_risk_score,top_risk_server,fleet_health\n"
+
+        return {
+            'success': True,
+            'table': table,
+            'time_range': time_range,
+            'csv_data': csv_data,
+            'filename': f"argus_{table}_{time_range}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
 @app.get("/")
 async def root():
     """Root endpoint with info."""
     return {
         "service": "TFT Inference Daemon",
-        "version": "2.3",  # Bumped for automated retraining
+        "version": "2.4",  # Bumped for historical reporting
         "status": "running",
         "endpoints": {
             "health": "GET /health",
@@ -2372,6 +2729,11 @@ async def root():
             "alerts": "GET /alerts/active",
             "explain": "GET /explain/{server_name}",
             "status": "GET /status",
+            "historical_summary": "GET /historical/summary",
+            "historical_alerts": "GET /historical/alerts",
+            "historical_environment": "GET /historical/environment",
+            "historical_server": "GET /historical/server/{server_name}",
+            "historical_export": "GET /historical/export/{table}",
             "admin_models": "GET /admin/models",
             "admin_reload": "POST /admin/reload-model",
             "admin_model_info": "GET /admin/model-info",
@@ -2385,7 +2747,8 @@ async def root():
             "retraining": "Automated background model retraining",
             "persistence": "Rolling window state persistence",
             "hot_reload": "Hot reload models without daemon restart",
-            "continuous_learning": "Data buffer accumulates metrics for retraining"
+            "continuous_learning": "Data buffer accumulates metrics for retraining",
+            "historical_reporting": "Executive reports with CSV export"
         },
         "feed_example": "python metrics_generator.py --stream --servers 20 --scenario healthy"
     }
