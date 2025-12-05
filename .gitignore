@@ -155,7 +155,8 @@ NordIQ-Website/
 # Exclude from git: Historical session notes, deprecated docs
 Docs/archive/
 
-# Training data (too large for git)
-NordIQ/training/server_metrics_parquet/
-NordIQ/training/*.parquet
+# NordIQ training data, models, and checkpoints (too large for git)
+NordIQ/training/
+NordIQ/models/
+NordIQ/checkpoints/
 NordIQ/data_buffer/
