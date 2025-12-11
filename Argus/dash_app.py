@@ -171,7 +171,7 @@ app.layout = dbc.Container([
                         outline=True,
                         className="w-100"
                     )
-                ], width=4),
+                ], width=3),
                 dbc.Col([
                     dbc.Button(
                         "🟡 Degrading",
@@ -180,7 +180,7 @@ app.layout = dbc.Container([
                         outline=True,
                         className="w-100"
                     )
-                ], width=4),
+                ], width=3),
                 dbc.Col([
                     dbc.Button(
                         "🔴 Critical",
@@ -189,7 +189,16 @@ app.layout = dbc.Container([
                         outline=True,
                         className="w-100"
                     )
-                ], width=4)
+                ], width=3),
+                dbc.Col([
+                    dbc.Button(
+                        "🔗 Cascade",
+                        id='scenario-cascade-btn',
+                        color="info",
+                        outline=True,
+                        className="w-100"
+                    )
+                ], width=3)
             ], className="mb-2"),
             html.Div(id='scenario-status-display', className="mt-2")
         ])
@@ -337,10 +346,11 @@ def update_connection_status(predictions):
     [Input('scenario-healthy-btn', 'n_clicks'),
      Input('scenario-degrading-btn', 'n_clicks'),
      Input('scenario-critical-btn', 'n_clicks'),
+     Input('scenario-cascade-btn', 'n_clicks'),
      Input('refresh-interval', 'n_intervals')],
     prevent_initial_call=False
 )
-def handle_scenario_controls(healthy_clicks, degrading_clicks, critical_clicks, n_intervals):
+def handle_scenario_controls(healthy_clicks, degrading_clicks, critical_clicks, cascade_clicks, n_intervals):
     """
     Handle demo scenario control buttons and display current status.
 
@@ -403,6 +413,22 @@ def handle_scenario_controls(healthy_clicks, degrading_clicks, critical_clicks, 
             except Exception as e:
                 return dbc.Alert("⚠️ Cannot connect to metrics generator (port 8001)", color="warning", className="mb-0")
 
+        elif trigger_id == 'scenario-cascade-btn':
+            try:
+                response = requests.post(
+                    f"{generator_url}/scenario/set",
+                    json={"scenario": "cascade"},
+                    timeout=2
+                )
+                if response.ok:
+                    result = response.json()
+                    affected = result.get('affected_servers', 0)
+                    return dbc.Alert(f"🔗 Scenario set to: CASCADE (database failure rippling to {affected} dependent servers)", color="info", className="mb-0")
+                else:
+                    return dbc.Alert(f"❌ Failed: HTTP {response.status_code}", color="danger", className="mb-0")
+            except Exception as e:
+                return dbc.Alert("⚠️ Cannot connect to metrics generator (port 8001)", color="warning", className="mb-0")
+
     # Show current scenario status (on page load or refresh)
     try:
         scenario_response = requests.get(f"{generator_url}/scenario/status", timeout=1)
@@ -422,8 +448,11 @@ def handle_scenario_controls(healthy_clicks, degrading_clicks, critical_clicks, 
             elif scenario == 'CRITICAL':
                 color = 'danger'
                 icon = '🔴'
-            else:
+            elif scenario == 'CASCADE':
                 color = 'info'
+                icon = '🔗'
+            else:
+                color = 'secondary'
                 icon = '📊'
 
             return dbc.Alert([

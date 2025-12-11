@@ -41,8 +41,12 @@ import pandas as pd
 from core.config.metrics_config import (
     ServerProfile,
     ServerState,
+    DependencyImpact,
     PROFILE_BASELINES,
-    STATE_MULTIPLIERS
+    STATE_MULTIPLIERS,
+    SERVER_DEPENDENCIES,
+    DEPENDENCY_IMPACT_EFFECTS,
+    CASCADE_CONFIG,
 )
 
 # Suppress warnings for cleaner output
@@ -499,8 +503,155 @@ def generate_scenario_windows(n_timestamps: int, hours_per_day: int, rng: np.ran
     return scenario_values
 
 
+# =============================================================================
+# CASCADE EVENT GENERATION (Inter-Server Dependencies)
+# =============================================================================
+
+def generate_fleet_cascade_events(fleet_df: pd.DataFrame, n_timestamps: int,
+                                   rng: np.random.Generator) -> dict:
+    """
+    Generate cascade events for the entire fleet based on dependency graph.
+
+    A cascade event occurs when an upstream server (e.g., DATABASE) enters
+    a critical/offline state, causing operational impacts on dependent servers.
+
+    Returns:
+        Dict mapping server_name -> array of cascade impact values (0.0-1.0)
+        where 1.0 = full cascade impact, 0.0 = no impact
+    """
+    cascade_impacts = {}
+    ticks_per_day = (24 * 3600) // 5  # 17280 ticks per day
+
+    # Group servers by profile
+    servers_by_profile = {}
+    for _, row in fleet_df.iterrows():
+        profile = ServerProfile(row['profile'])
+        if profile not in servers_by_profile:
+            servers_by_profile[profile] = []
+        servers_by_profile[profile].append(row['server_name'])
+
+    # Initialize all servers with zero impact
+    for server_name in fleet_df['server_name']:
+        cascade_impacts[server_name] = np.zeros(n_timestamps)
+
+    # Generate cascade events from upstream servers
+    # Focus on DATABASE as the primary cascade source (most impactful)
+    upstream_profiles = [ServerProfile.DATABASE, ServerProfile.CONDUCTOR_MGMT, ServerProfile.DATA_INGEST]
+
+    for upstream_profile in upstream_profiles:
+        if upstream_profile not in servers_by_profile:
+            continue
+
+        upstream_servers = servers_by_profile[upstream_profile]
+
+        for upstream_server in upstream_servers:
+            # Determine how many cascade events this server generates
+            days_in_data = n_timestamps / ticks_per_day
+            expected_events = CASCADE_CONFIG['cascade_probability_per_day'] * days_in_data
+
+            # Problem children cause more cascades
+            is_problem = fleet_df[fleet_df['server_name'] == upstream_server]['problem_child'].iloc[0]
+            if is_problem:
+                expected_events *= 1.5
+
+            n_events = rng.poisson(expected_events)
+
+            for _ in range(n_events):
+                # Random event duration
+                duration = rng.integers(
+                    CASCADE_CONFIG['min_duration_ticks'],
+                    CASCADE_CONFIG['max_duration_ticks']
+                )
+                ramp_up = CASCADE_CONFIG['ramp_up_ticks']
+                ramp_down = CASCADE_CONFIG['ramp_down_ticks']
+
+                # Random start time (slightly prefer business hours)
+                if rng.random() < 0.6:  # 60% during business hours
+                    # Find a business hour slot
+                    day_offset = rng.integers(0, max(1, n_timestamps // ticks_per_day)) * ticks_per_day
+                    hour_offset = rng.integers(8, 18) * (3600 // 5)
+                    start = day_offset + hour_offset
+                else:
+                    start = rng.integers(0, max(1, n_timestamps - duration))
+
+                if start + duration + ramp_down > n_timestamps:
+                    continue
+
+                # Create impact envelope (ramp up -> sustain -> ramp down)
+                impact_envelope = np.zeros(duration + ramp_down)
+
+                # Ramp up
+                ramp_up_end = min(ramp_up, duration)
+                impact_envelope[:ramp_up_end] = np.linspace(0, 1.0, ramp_up_end)
+
+                # Sustain at full impact
+                impact_envelope[ramp_up_end:duration] = 1.0
+
+                # Ramp down
+                impact_envelope[duration:duration + ramp_down] = np.linspace(1.0, 0.0, ramp_down)
+
+                # Apply to all dependent servers
+                for downstream_profile, dependencies in SERVER_DEPENDENCIES.items():
+                    # Check if this profile depends on the upstream profile
+                    for dep_upstream, strength, impact_type in dependencies:
+                        if dep_upstream == upstream_profile:
+                            # Apply to all servers of this downstream profile
+                            if downstream_profile in servers_by_profile:
+                                for downstream_server in servers_by_profile[downstream_profile]:
+                                    # Apply with dependency strength
+                                    end_idx = min(start + len(impact_envelope), n_timestamps)
+                                    actual_len = end_idx - start
+                                    cascade_impacts[downstream_server][start:end_idx] = np.maximum(
+                                        cascade_impacts[downstream_server][start:end_idx],
+                                        impact_envelope[:actual_len] * strength
+                                    )
+
+    return cascade_impacts
+
+
+def apply_cascade_impact_to_metrics(base_value: float, metric: str,
+                                     cascade_intensity: float,
+                                     profile: ServerProfile) -> float:
+    """
+    Apply cascade impact effects to a single metric value.
+
+    Args:
+        base_value: Original metric value
+        metric: Metric name (e.g., 'cpu_user', 'back_close_wait')
+        cascade_intensity: 0.0-1.0 impact intensity
+        profile: Server profile for context
+
+    Returns:
+        Adjusted metric value
+    """
+    if cascade_intensity <= 0:
+        return base_value
+
+    # Get dependencies for this profile
+    if profile not in SERVER_DEPENDENCIES:
+        return base_value
+
+    # Aggregate effects from all impact types that affect this metric
+    total_multiplier = 1.0
+    total_additive = 0.0
+
+    for upstream, strength, impact_type in SERVER_DEPENDENCIES[profile]:
+        if impact_type in DEPENDENCY_IMPACT_EFFECTS:
+            effects = DEPENDENCY_IMPACT_EFFECTS[impact_type]
+            if metric in effects:
+                mult, add = effects[metric]
+                # Scale by cascade intensity and dependency strength
+                effective_intensity = cascade_intensity * strength
+                # Interpolate multiplier toward target
+                total_multiplier *= 1.0 + (mult - 1.0) * effective_intensity
+                total_additive += add * effective_intensity
+
+    return base_value * total_multiplier + total_additive
+
+
 def generate_server_data(server_info: dict, timestamps: np.ndarray, hours: np.ndarray,
-                         config: Config, server_seed: int) -> pd.DataFrame:
+                         config: Config, server_seed: int,
+                         cascade_impacts: dict = None) -> pd.DataFrame:
     """
     Generate complete data for a single server (vectorized).
     Called in parallel for each server.
@@ -601,6 +752,19 @@ def generate_server_data(server_info: dict, timestamps: np.ndarray, hours: np.nd
                 base_values[critical_mask] = base_values[critical_mask] + \
                     (target - base_values[critical_mask]) * progress
 
+        # =============================================================
+        # APPLY CASCADE IMPACT (inter-server dependencies)
+        # When upstream servers have issues, apply operational effects
+        # =============================================================
+        if cascade_impacts is not None and server_name in cascade_impacts:
+            server_cascade = cascade_impacts[server_name]
+            # Apply cascade effects vectorized
+            for i in range(n_timestamps):
+                if server_cascade[i] > 0:
+                    base_values[i] = apply_cascade_impact_to_metrics(
+                        base_values[i], metric, server_cascade[i], profile
+                    )
+
         # Apply AR(1) smoothing (except uptime)
         if metric != 'uptime_days':
             smoothed = ar1_series_vectorized(base_values, phi=0.85, sigma=std*0.1, rng=rng)
@@ -626,11 +790,25 @@ def generate_server_data(server_info: dict, timestamps: np.ndarray, hours: np.nd
         else:
             data[metric] = np.maximum(smoothed, 0)
 
-    # Generate notes
+    # Add cascade impact indicator column
+    if cascade_impacts is not None and server_name in cascade_impacts:
+        server_cascade = cascade_impacts[server_name]
+        # Track cascade intensity (0.0-1.0) for analysis and training
+        data['cascade_impact'] = np.clip(server_cascade[:n_timestamps], 0, 1)
+    else:
+        data['cascade_impact'] = np.zeros(n_timestamps)
+
+    # Generate notes (include cascade events in notes)
     notes = []
-    for state_idx in state_indices:
+    for i, state_idx in enumerate(state_indices):
         state = IDX_TO_STATE[state_idx]
-        if state == ServerState.MORNING_SPIKE:
+        cascade_val = data['cascade_impact'][i] if 'cascade_impact' in data else 0
+
+        if cascade_val > 0.7:
+            notes.append("upstream dependency failure")
+        elif cascade_val > 0.3:
+            notes.append("upstream degradation")
+        elif state == ServerState.MORNING_SPIKE:
             notes.append("auth surge" if rng.random() < 0.3 else "batch warmup")
         elif state == ServerState.CRITICAL_ISSUE:
             notes.append(rng.choice(["high cpu", "high iowait", "memory pressure", "swap thrashing", "network timeout"]))
@@ -680,10 +858,23 @@ def write_outputs_chunked(fleet: pd.DataFrame, timestamps: pd.DatetimeIndex,
     print(f"\n⚡ Generating data for {n_servers} servers × {n_timestamps:,} timestamps")
     print(f"   Workers: {config.num_workers}")
 
-    # Prepare arguments for parallel processing
+    # ==========================================================================
+    # GENERATE CASCADE EVENTS (fleet-wide, before individual server generation)
+    # ==========================================================================
     base_seed = config.seed if config.seed else 42
+    cascade_rng = np.random.default_rng(base_seed + 999)  # Separate seed for cascades
+    print(f"\n🔗 Generating inter-server cascade events...")
+    cascade_impacts = generate_fleet_cascade_events(fleet, n_timestamps, cascade_rng)
+
+    # Count servers affected by cascades
+    affected_servers = sum(1 for impacts in cascade_impacts.values() if np.any(impacts > 0))
+    total_cascade_ticks = sum(np.sum(impacts > 0) for impacts in cascade_impacts.values())
+    print(f"   Cascade events will affect {affected_servers}/{n_servers} servers")
+    print(f"   Total cascade impact ticks: {total_cascade_ticks:,}")
+
+    # Prepare arguments for parallel processing
     args_list = [
-        (server_info, timestamps_np, hours_np, config, base_seed + i)
+        (server_info, timestamps_np, hours_np, config, base_seed + i, cascade_impacts)
         for i, server_info in enumerate(server_infos)
     ]
 
@@ -1147,6 +1338,19 @@ def main():
     print(f"   Est. critical incidents: ~{expected_critical} (1.5/week/server)")
     print(f"   Degrading ramp: 2 hours gradual climb to 75% CPU, 80% MEM")
     print(f"   Critical ramp: 30 min rapid climb to 92% CPU, 95% MEM")
+
+    # Cascade dependency stats
+    days_in_data = config.hours / 24
+    n_databases = fleet[fleet['profile'] == 'database'].shape[0]
+    n_conductor = fleet[fleet['profile'] == 'conductor_mgmt'].shape[0]
+    expected_db_cascades = int(CASCADE_CONFIG['cascade_probability_per_day'] * days_in_data * n_databases)
+    expected_conductor_cascades = int(CASCADE_CONFIG['cascade_probability_per_day'] * days_in_data * n_conductor)
+    print(f"\n🔗 Cascade Events (inter-server dependencies):")
+    print(f"   Database → WEB_API, DATA_INGEST, RISK_ANALYTICS, CONDUCTOR_MGMT")
+    print(f"   Conductor → ML_COMPUTE (job scheduling)")
+    print(f"   Est. database cascade events: ~{expected_db_cascades}")
+    print(f"   Est. conductor cascade events: ~{expected_conductor_cascades}")
+    print(f"   Impact types: connection_failures, request_queuing, idle_resources, data_starvation")
 
     print(f"\n⚡ Performance:")
     print(f"   Generation time: {gen_elapsed:.1f} seconds ({gen_elapsed/60:.1f} minutes)")

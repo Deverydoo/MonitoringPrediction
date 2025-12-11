@@ -51,7 +51,7 @@ class ServerState(Enum):
 # NordIQ Metrics Framework Metrics Configuration
 # =============================================================================
 
-# 14 NordIQ Metrics Framework Metrics (matches production monitoring)
+# 15 NordIQ Metrics Framework Metrics (matches production monitoring)
 NORDIQ_METRICS = [
     # CPU metrics (5)
     'cpu_user_pct',
@@ -77,7 +77,10 @@ NORDIQ_METRICS = [
 
     # System metrics (2)
     'load_average',
-    'uptime_days'
+    'uptime_days',
+
+    # Dependency metrics (1) - NEW
+    'cascade_impact',      # 0.0-1.0 - Impact from upstream server failures
 ]
 
 # =============================================================================
@@ -422,6 +425,136 @@ PROBLEM_CHILD_MULTIPLIERS = {
 }
 
 # =============================================================================
+# Inter-Server Dependency Graph
+# =============================================================================
+# Defines how server failures cascade through the infrastructure.
+# When an upstream server has issues, downstream servers experience
+# OPERATIONAL impacts (not health issues).
+#
+# Impact Types:
+# - connection_failures: Increased back_close_wait, front_close_wait
+# - request_queuing: Increased load_average, response delays
+# - idle_resources: Decreased network I/O (nothing to process)
+# - retry_storms: Brief CPU spikes from retry logic
+#
+# Dependency Format:
+# {downstream_profile: [(upstream_profile, dependency_strength, impact_type), ...]}
+# dependency_strength: 0.0-1.0 (how much the downstream depends on upstream)
+
+class DependencyImpact:
+    """Types of operational impacts from dependency failures."""
+    CONNECTION_FAILURES = "connection_failures"
+    REQUEST_QUEUING = "request_queuing"
+    IDLE_RESOURCES = "idle_resources"
+    RETRY_STORMS = "retry_storms"
+    DATA_STARVATION = "data_starvation"
+
+
+# Dependency graph: who depends on whom
+SERVER_DEPENDENCIES = {
+    # WEB_API depends heavily on DATABASE for queries
+    ServerProfile.WEB_API: [
+        (ServerProfile.DATABASE, 0.85, DependencyImpact.CONNECTION_FAILURES),
+        (ServerProfile.DATABASE, 0.70, DependencyImpact.REQUEST_QUEUING),
+    ],
+
+    # DATA_INGEST depends on DATABASE for writes
+    ServerProfile.DATA_INGEST: [
+        (ServerProfile.DATABASE, 0.75, DependencyImpact.CONNECTION_FAILURES),
+        (ServerProfile.DATABASE, 0.60, DependencyImpact.REQUEST_QUEUING),
+    ],
+
+    # RISK_ANALYTICS depends on DATABASE for market data reads
+    ServerProfile.RISK_ANALYTICS: [
+        (ServerProfile.DATABASE, 0.80, DependencyImpact.DATA_STARVATION),
+        (ServerProfile.DATABASE, 0.50, DependencyImpact.IDLE_RESOURCES),
+    ],
+
+    # ML_COMPUTE depends on CONDUCTOR_MGMT for job scheduling
+    # and DATA_INGEST for training data
+    ServerProfile.ML_COMPUTE: [
+        (ServerProfile.CONDUCTOR_MGMT, 0.90, DependencyImpact.IDLE_RESOURCES),
+        (ServerProfile.DATA_INGEST, 0.60, DependencyImpact.DATA_STARVATION),
+    ],
+
+    # CONDUCTOR_MGMT depends on DATABASE for job state
+    ServerProfile.CONDUCTOR_MGMT: [
+        (ServerProfile.DATABASE, 0.70, DependencyImpact.CONNECTION_FAILURES),
+    ],
+}
+
+# Impact multipliers: how each impact type affects specific metrics
+# Format: {impact_type: {metric: (multiplier_when_impacted, additive_value)}}
+# multiplier applies to baseline, additive is added after
+DEPENDENCY_IMPACT_EFFECTS = {
+    DependencyImpact.CONNECTION_FAILURES: {
+        # Connection counts spike as retries queue up
+        "back_close_wait": (3.0, 15),      # 3x baseline + 15 extra connections
+        "front_close_wait": (2.5, 10),     # 2.5x baseline + 10 extra
+        "load_average": (1.3, 0),          # Slight load increase from connection handling
+        "cpu_sys": (1.4, 0),               # System CPU for socket handling
+    },
+    DependencyImpact.REQUEST_QUEUING: {
+        # Requests pile up waiting for responses
+        "load_average": (2.0, 0),          # Load doubles from queued work
+        "mem_used": (1.15, 0),             # Memory grows with queued requests
+        "back_close_wait": (1.5, 5),       # Some connection accumulation
+        "java_cpu": (1.2, 0),              # Thread pool management overhead
+    },
+    DependencyImpact.IDLE_RESOURCES: {
+        # Server has nothing to do - metrics DROP
+        "cpu_user": (0.3, 0),              # CPU drops significantly
+        "java_cpu": (0.2, 0),              # Java idle
+        "net_in_mb_s": (0.1, 0),           # Network nearly stops
+        "net_out_mb_s": (0.1, 0),
+        "load_average": (0.4, 0),          # Load drops
+    },
+    DependencyImpact.RETRY_STORMS: {
+        # Brief CPU spikes from retry logic
+        "cpu_user": (1.6, 0),              # CPU spikes from retries
+        "cpu_sys": (1.4, 0),               # System calls for retries
+        "net_out_mb_s": (1.8, 0),          # Retry packets
+        "load_average": (1.5, 0),
+    },
+    DependencyImpact.DATA_STARVATION: {
+        # Can't get data to process
+        "cpu_user": (0.4, 0),              # CPU drops - nothing to compute
+        "java_cpu": (0.3, 0),
+        "net_in_mb_s": (0.15, 0),          # No incoming data
+        "mem_used": (0.9, 0),              # Memory slightly lower
+        "load_average": (0.5, 0),
+    },
+}
+
+# Cascade event configuration
+CASCADE_CONFIG = {
+    # How long (in ticks) a cascade event typically lasts
+    'min_duration_ticks': 60,      # 5 minutes minimum
+    'max_duration_ticks': 720,     # 1 hour maximum
+    'avg_duration_ticks': 180,     # ~15 minutes average
+
+    # Probability of cascade events per day (per upstream server)
+    'cascade_probability_per_day': 0.15,  # 15% chance per day per server
+
+    # Ramp-up/ramp-down periods (gradual onset/recovery)
+    'ramp_up_ticks': 24,           # 2 minutes to full impact
+    'ramp_down_ticks': 36,         # 3 minutes to recover
+
+    # Which states trigger cascade effects on dependents
+    'triggering_states': [
+        ServerState.CRITICAL_ISSUE,
+        ServerState.OFFLINE,
+    ],
+
+    # Partial impact from degraded states (not full cascade)
+    'degraded_states': {
+        ServerState.HEAVY_LOAD: 0.3,      # 30% of full cascade impact
+        ServerState.RECOVERY: 0.2,         # 20% - still recovering
+    },
+}
+
+
+# =============================================================================
 # Fleet Distribution Configuration
 # =============================================================================
 
@@ -481,7 +614,10 @@ METRIC_BOUNDS = {
     'load_average': (0, None),
 
     # Uptime (0-30 days)
-    'uptime_days': (0, 30)
+    'uptime_days': (0, 30),
+
+    # Cascade impact (0.0-1.0 intensity)
+    'cascade_impact': (0, 1)
 }
 
 # =============================================================================
@@ -502,15 +638,22 @@ METRICS_CONFIG = {
     'fleet_distribution': FLEET_DISTRIBUTION,
     'fleet_config': FLEET_CONFIG,
     'timeseries_config': TIMESERIES_CONFIG,
-    'metric_bounds': METRIC_BOUNDS
+    'metric_bounds': METRIC_BOUNDS,
+    'server_dependencies': SERVER_DEPENDENCIES,
+    'dependency_impact_effects': DEPENDENCY_IMPACT_EFFECTS,
+    'cascade_config': CASCADE_CONFIG,
 }
 
-# Export enums
+# Export enums and classes
 __all__ = [
     'ServerProfile',
     'ServerState',
+    'DependencyImpact',
     'METRICS_CONFIG',
     'NORDIQ_METRICS',
     'PROFILE_BASELINES',
-    'STATE_MULTIPLIERS'
+    'STATE_MULTIPLIERS',
+    'SERVER_DEPENDENCIES',
+    'DEPENDENCY_IMPACT_EFFECTS',
+    'CASCADE_CONFIG',
 ]

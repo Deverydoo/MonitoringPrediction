@@ -74,6 +74,13 @@ from generators.metrics_generator import (
     get_state_transition_probs, diurnal_multiplier
 )
 
+# Import dependency configuration for cascade scenario
+from core.config.metrics_config import (
+    SERVER_DEPENDENCIES,
+    DEPENDENCY_IMPACT_EFFECTS,
+    DependencyImpact,
+)
+
 # Import API configuration (SINGLE SOURCE OF TRUTH)
 from core.config.api_config import API_CONFIG
 
@@ -137,9 +144,10 @@ class MetricsGeneratorDaemon:
         # Scenario-based gradual degradation (realistic trending patterns)
         self.scenario_config = {
             'healthy': {
-                'use_trending': False,  # Natural state transitions
+                'use_trending': False,  # No trending - all servers healthy
                 'affected_pct': 0.0,    # No servers affected
-                'description': 'Normal operations - natural state transitions'
+                'force_healthy': True,  # Force all servers to healthy state
+                'description': 'All servers operating normally - no issues'
             },
             'degrading': {
                 'use_trending': True,   # Gradual climb over time
@@ -172,8 +180,29 @@ class MetricsGeneratorDaemon:
                     'description': 'Escalation - degrading servers rapidly worsen to critical'
                 },
                 'description': 'Critical incident - servers rapidly reach critical resource levels'
+            },
+            'cascade': {
+                'use_trending': False,   # Uses cascade impact system instead
+                'use_cascade': True,     # Enable cascade effects
+                'source_profile': 'database',  # Which profile fails first
+                'num_source_servers': 2,  # How many source servers fail
+                'cascade_config': {
+                    'ramp_up_ticks': 24,      # 2 minutes to full impact
+                    'sustain_ticks': 120,     # 10 minutes at full impact
+                    'ramp_down_ticks': 36,    # 3 minutes to recover (if scenario changes)
+                    'source_cpu_target': 0.95,     # Source servers go critical
+                    'source_mem_target': 0.92,
+                    'source_iowait_target': 0.45,  # Databases show high I/O wait
+                    'description': 'Database servers fail, cascading to dependent services'
+                },
+                'description': 'Cascade failure - database issues ripple through web/risk/ETL servers'
             }
         }
+
+        # Cascade scenario state
+        self.cascade_progress = 0.0
+        self.cascade_source_servers = set()
+        self.cascade_affected_servers = set()  # Servers affected by cascade (downstream)
 
         # Create fleet (matches training data exactly)
         print(f"[INIT] Creating server fleet...")
@@ -193,6 +222,52 @@ class MetricsGeneratorDaemon:
     def update_affected_servers(self, previous_scenario: str = None):
         """Update which servers are affected by current scenario."""
         scenario_conf = self.scenario_config[self.scenario]
+
+        # Reset cascade state when switching away from cascade
+        if self.scenario != 'cascade':
+            self.cascade_progress = 0.0
+            self.cascade_source_servers = set()
+            self.cascade_affected_servers = set()
+
+        # Special handling for CASCADE scenario
+        if self.scenario == 'cascade' and scenario_conf.get('use_cascade'):
+            source_profile = scenario_conf['source_profile']
+            num_sources = scenario_conf['num_source_servers']
+
+            # Find servers of the source profile (e.g., databases)
+            source_candidates = self.fleet[self.fleet['profile'] == source_profile]['server_name'].tolist()
+
+            if len(source_candidates) >= num_sources:
+                self.cascade_source_servers = set(np.random.choice(
+                    source_candidates,
+                    num_sources,
+                    replace=False
+                ))
+            else:
+                self.cascade_source_servers = set(source_candidates)
+
+            # Find all servers that depend on the source profile
+            self.cascade_affected_servers = set()
+            source_profile_enum = ServerProfile(source_profile)
+
+            for profile_enum, dependencies in SERVER_DEPENDENCIES.items():
+                for dep_profile, strength, impact_type in dependencies:
+                    if dep_profile == source_profile_enum:
+                        # This profile depends on the failing profile
+                        dependent_servers = self.fleet[self.fleet['profile'] == profile_enum.value]['server_name'].tolist()
+                        self.cascade_affected_servers.update(dependent_servers)
+
+            # affected_servers = source servers (they show direct issues)
+            self.affected_servers = self.cascade_source_servers
+
+            cascade_conf = scenario_conf['cascade_config']
+            print(f"[SCENARIO] {self.scenario.upper()}: Cascade failure initiated")
+            print(f"           Source profile: {source_profile} ({len(self.cascade_source_servers)} servers)")
+            print(f"           Source servers: {', '.join(sorted(self.cascade_source_servers))}")
+            print(f"           Cascade affects: {len(self.cascade_affected_servers)} downstream servers")
+            print(f"           Ramp-up: {cascade_conf['ramp_up_ticks'] * TICK_INTERVAL:.0f}s → Sustain: {cascade_conf['sustain_ticks'] * TICK_INTERVAL:.0f}s")
+            print(f"           Description: {scenario_conf['description']}")
+            return
 
         # Special handling for CRITICAL scenario
         if self.scenario == 'critical' and scenario_conf.get('escalate_from_degrading'):
@@ -228,7 +303,10 @@ class MetricsGeneratorDaemon:
 
         if affected_pct == 0.0:
             self.affected_servers = set()
-            print(f"[SCENARIO] {self.scenario.upper()}: All servers healthy, natural transitions")
+            if scenario_conf.get('force_healthy'):
+                print(f"[SCENARIO] {self.scenario.upper()}: All servers forced to healthy state")
+            else:
+                print(f"[SCENARIO] {self.scenario.upper()}: All servers healthy, natural transitions")
         else:
             # Select affected servers based on scenario config
             num_affected = max(1, int(len(self.fleet) * affected_pct))
@@ -254,12 +332,12 @@ class MetricsGeneratorDaemon:
         Change the current scenario mode.
 
         Args:
-            scenario: "healthy", "degrading", or "critical"
+            scenario: "healthy", "degrading", "critical", or "cascade"
 
         Returns:
             Status dict
         """
-        if scenario not in ['healthy', 'degrading', 'critical']:
+        if scenario not in ['healthy', 'degrading', 'critical', 'cascade']:
             return {"status": "error", "message": f"Invalid scenario: {scenario}"}
 
         old_scenario = self.scenario
@@ -323,7 +401,28 @@ class MetricsGeneratorDaemon:
         # Calculate trending progress (0.0 to 1.0) for demo scenarios
         trending_progress = 0.0
         active_trending = None
-        if scenario_conf.get('use_trending'):
+
+        # CASCADE SCENARIO: Calculate cascade progress
+        cascade_intensity = 0.0
+        if scenario_conf.get('use_cascade'):
+            cascade_conf = scenario_conf['cascade_config']
+            ticks_elapsed = self.tick_count - self.scenario_start_tick
+            ramp_up = cascade_conf['ramp_up_ticks']
+            sustain = cascade_conf['sustain_ticks']
+
+            if ticks_elapsed < ramp_up:
+                # Ramping up
+                cascade_intensity = ticks_elapsed / ramp_up
+            elif ticks_elapsed < ramp_up + sustain:
+                # At full intensity
+                cascade_intensity = 1.0
+            else:
+                # Still at full intensity (sustain indefinitely until scenario changes)
+                cascade_intensity = 1.0
+
+            self.cascade_progress = cascade_intensity
+
+        elif scenario_conf.get('use_trending'):
             if self.scenario == 'critical':
                 if hasattr(self, '_came_from_degrading') and self._came_from_degrading:
                     active_trending = scenario_conf['trending_escalation']
@@ -342,17 +441,23 @@ class MetricsGeneratorDaemon:
             profile = server['profile']
             is_problem_child = server['problem_child']
             is_affected = server_name in self.affected_servers
+            is_cascade_source = server_name in self.cascade_source_servers
+            is_cascade_affected = server_name in self.cascade_affected_servers
 
             # =========================================================
-            # STATE TRANSITIONS - IDENTICAL TO BATCH GENERATOR
-            # Uses get_state_transition_probs() from metrics_generator.py
+            # STATE TRANSITIONS
             # =========================================================
-            current_state = self.server_states[server_name]
-            probs = get_state_transition_probs(current_state, hour, is_problem_child)
-            states = list(probs.keys())
-            probabilities = list(probs.values())
-            next_state = np.random.choice(states, p=probabilities)
-            self.server_states[server_name] = next_state
+            # Force healthy state if scenario requires it
+            if scenario_conf.get('force_healthy'):
+                next_state = ServerState.HEALTHY
+                self.server_states[server_name] = next_state
+            else:
+                current_state = self.server_states[server_name]
+                probs = get_state_transition_probs(current_state, hour, is_problem_child)
+                states = list(probs.keys())
+                probabilities = list(probs.values())
+                next_state = np.random.choice(states, p=probabilities)
+                self.server_states[server_name] = next_state
 
             # Skip offline servers (sparse mode - matches batch generator)
             if next_state == ServerState.OFFLINE:
@@ -399,6 +504,37 @@ class MetricsGeneratorDaemon:
                         value = value + (target - value) * trending_progress
 
                 # =========================================================
+                # CASCADE SCENARIO - Source servers degrade, dependents get impact
+                # =========================================================
+                if cascade_intensity > 0:
+                    cascade_conf = scenario_conf['cascade_config']
+
+                    if is_cascade_source:
+                        # Source servers (e.g., databases) show direct degradation
+                        if metric == 'cpu_user':
+                            target = cascade_conf['source_cpu_target']
+                            value = value + (target - value) * cascade_intensity
+                        elif metric == 'mem_used':
+                            target = cascade_conf['source_mem_target']
+                            value = value + (target - value) * cascade_intensity
+                        elif metric == 'cpu_iowait':
+                            target = cascade_conf['source_iowait_target']
+                            value = value + (target - value) * cascade_intensity
+
+                    elif is_cascade_affected:
+                        # Dependent servers get operational impacts
+                        # Apply dependency effects from config
+                        for dep_profile, strength, impact_type in SERVER_DEPENDENCIES.get(profile_enum, []):
+                            if impact_type in DEPENDENCY_IMPACT_EFFECTS:
+                                effects = DEPENDENCY_IMPACT_EFFECTS[impact_type]
+                                if metric in effects:
+                                    mult, add = effects[metric]
+                                    effective = cascade_intensity * strength
+                                    # Interpolate toward impact
+                                    value = value * (1.0 + (mult - 1.0) * effective)
+                                    value = value + add * effective
+
+                # =========================================================
                 # BOUNDS AND OUTPUT FORMAT - IDENTICAL TO BATCH GENERATOR
                 # =========================================================
                 if metric in ['cpu_user', 'cpu_sys', 'cpu_iowait', 'cpu_idle', 'java_cpu',
@@ -415,6 +551,23 @@ class MetricsGeneratorDaemon:
                     # Other metrics (load_average, net_*_mb_s)
                     metrics[metric] = round(max(0, value), 2)
 
+            # Calculate cascade impact for this server
+            server_cascade_impact = 0.0
+            if cascade_intensity > 0:
+                if is_cascade_source:
+                    server_cascade_impact = cascade_intensity  # Source is the problem
+                elif is_cascade_affected:
+                    server_cascade_impact = cascade_intensity * 0.8  # Downstream impact
+
+            # Generate notes based on scenario
+            notes = ''
+            if server_cascade_impact > 0.7:
+                notes = 'upstream dependency failure'
+            elif server_cascade_impact > 0.3:
+                notes = 'upstream degradation'
+            elif is_cascade_source and cascade_intensity > 0.5:
+                notes = 'database performance issue'
+
             # Build record (same structure as batch generator)
             record = {
                 'timestamp': current_time.isoformat(),
@@ -423,7 +576,8 @@ class MetricsGeneratorDaemon:
                 'status': next_state.value,  # 'status' matches batch generator
                 'problem_child': bool(is_problem_child),
                 **metrics,
-                'notes': ''
+                'cascade_impact': round(server_cascade_impact, 3),
+                'notes': notes
             }
 
             batch.append(record)
@@ -468,8 +622,9 @@ class MetricsGeneratorDaemon:
                     status_icon = {
                         'healthy': '🟢',
                         'degrading': '🟡',
-                        'critical': '🔴'
-                    }[self.scenario]
+                        'critical': '🔴',
+                        'cascade': '🔗'
+                    }.get(self.scenario, '📊')
 
                     # Calculate active vs offline
                     fleet_size = len(self.fleet)

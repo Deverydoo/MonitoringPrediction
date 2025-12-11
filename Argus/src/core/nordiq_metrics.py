@@ -8,7 +8,7 @@ Date: 2025-10-18
 """
 
 # =============================================================================
-# ALL 14 NORDIQ METRICS
+# ALL 15 NORDIQ METRICS
 # =============================================================================
 
 NORDIQ_METRICS = [
@@ -35,6 +35,9 @@ NORDIQ_METRICS = [
     # System metrics (2 continuous)
     'load_average',      # System load average (≥0)
     'uptime_days',       # Days since last boot (0-30)
+
+    # Cascade/dependency metrics (1 continuous)
+    'cascade_impact',    # Inter-server dependency impact score (0-1)
 ]
 
 # =============================================================================
@@ -53,12 +56,13 @@ NORDIQ_METRICS_COUNTS = [
     'front_close_wait'
 ]
 
-# Continuous float metrics (4 total)
+# Continuous float metrics (5 total)
 NORDIQ_METRICS_CONTINUOUS = [
     'net_in_mb_s',
     'net_out_mb_s',
     'load_average',
-    'uptime_days'  # Actually integer, but stored as float in some places
+    'uptime_days',       # Actually integer, but stored as float in some places
+    'cascade_impact'     # Inter-server dependency impact (0-1)
 ]
 
 # =============================================================================
@@ -116,7 +120,7 @@ SCHEMA_VERSION = "1.0.0_nordiq"
 
 # Number of metrics (for validation)
 NUM_NORDIQ_METRICS = len(NORDIQ_METRICS)
-assert NUM_NORDIQ_METRICS == 14, f"Expected 14 NordIQ Metrics Framework metrics, got {NUM_NORDIQ_METRICS}"
+assert NUM_NORDIQ_METRICS == 15, f"Expected 15 NordIQ Metrics Framework metrics, got {NUM_NORDIQ_METRICS}"
 
 # =============================================================================
 # VALIDATION HELPERS

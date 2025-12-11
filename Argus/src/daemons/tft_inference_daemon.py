@@ -643,13 +643,8 @@ class TFTInference:
         # This saves 3+ MB of memory allocation per prediction
 
         # NordIQ Metrics Framework metrics should be passed directly
-        required_cols = ['server_name', 'timestamp'] + [
-            'cpu_user_pct', 'cpu_sys_pct', 'cpu_iowait_pct', 'cpu_idle_pct', 'java_cpu_pct',
-            'mem_used_pct', 'swap_used_pct', 'disk_usage_pct',
-            'net_in_mb_s', 'net_out_mb_s',
-            'back_close_wait', 'front_close_wait',
-            'load_average', 'uptime_days'
-        ]
+        # Use centralized NORDIQ_METRICS to ensure consistency with training
+        required_cols = ['server_name', 'timestamp'] + NORDIQ_METRICS
 
         missing = [col for col in required_cols if col not in df.columns]
         if missing:
