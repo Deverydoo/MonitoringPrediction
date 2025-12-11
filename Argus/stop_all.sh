@@ -1,13 +1,11 @@
 #!/bin/bash
-# ArgusAI - Production Stop Script
-# Built by Craig Giannelli and Claude Code
-# Predictive System Monitoring
+# Tachyon Argus - Production Stop Script
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_DIR="$SCRIPT_DIR/logs/pids"
 
 echo "============================================"
-echo "ArgusAI - Stopping Services"
+echo "Tachyon Argus - Stopping Services"
 echo "============================================"
 echo
 

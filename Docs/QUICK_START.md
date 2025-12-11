@@ -99,6 +99,39 @@ After feeding ~100 records (warmup period):
 curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8000/predictions/current
 ```
 
+## Step 7: Check Fleet Health (Cascading Failure Detection)
+
+The system automatically detects cascading failures across your server fleet:
+
+```bash
+# Get fleet health score
+curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8000/cascade/health
+
+# Response shows fleet-wide status:
+# {
+#   "health_score": 85.2,
+#   "status": "healthy",
+#   "correlation_score": 0.234,
+#   "anomaly_rate": 0.05,
+#   "cascade_risk": "low"
+# }
+```
+
+## Step 8: Monitor Model Drift
+
+Check if the model needs retraining:
+
+```bash
+curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8000/drift/status
+
+# Response:
+# {
+#   "drift_detected": false,
+#   "auto_retrain_enabled": true,
+#   "last_retrain": "2025-01-15T10:30:00"
+# }
+```
+
 ## Access Points
 
 | Service | URL | Description |
@@ -106,6 +139,16 @@ curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8000/predictions/current
 | API | http://localhost:8000 | REST API for predictions |
 | Dashboard | http://localhost:8501 | Web dashboard (if started) |
 | Health | http://localhost:8000/health | Health check endpoint |
+| Cascade Status | http://localhost:8000/cascade/status | Cascading failure detection |
+| Fleet Health | http://localhost:8000/cascade/health | Fleet-wide health score |
+| Drift Status | http://localhost:8000/drift/status | Model drift monitoring |
+
+## Key Features
+
+- **Multi-Target Prediction**: Predicts CPU, memory, swap, I/O wait, and load simultaneously
+- **Cascading Failure Detection**: Identifies fleet-wide issues even when individual servers appear healthy
+- **Automatic Model Drift Detection**: Monitors prediction accuracy and triggers retraining when needed
+- **Continuous Learning**: Model improves automatically as drift is detected
 
 ## What's Next?
 

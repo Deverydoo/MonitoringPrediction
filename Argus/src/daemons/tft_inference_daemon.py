@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
 """
-ArgusAI - TFT Inference Daemon
-Predictive System Monitoring
-
-Built by Craig Giannelli and Claude Code
-
-This software is licensed under the Business Source License 1.1.
-See LICENSE file for details.
-
 TFT Inference Daemon - Clean & Minimal (Standalone)
 
 Pure inference engine that:
@@ -20,7 +12,6 @@ No data generation, no scenarios, no complexity.
 Feed it with: python metrics_generator_daemon.py --stream
 
 This file is completely standalone - includes TFTInference class directly.
-No dependencies on the messy old tft_inference.py file.
 """
 
 # Setup Python path for imports
@@ -1325,10 +1316,14 @@ class CleanInferenceDaemon:
         self.previous_alert_states = {}
 
         # Initialize data buffer for automated retraining
+        self.drift_monitor = None
+        self.correlation_detector = None
         if enable_retraining:
             try:
                 from core.data_buffer import DataBuffer
                 from core.auto_retrainer import AutoRetrainer
+                from core.drift_monitor import DriftMonitor
+                from core.correlation_detector import CorrelationDetector
 
                 self.data_buffer = DataBuffer(
                     buffer_dir='./data_buffer',
@@ -1337,14 +1332,36 @@ class CleanInferenceDaemon:
                 )
                 print(f"[OK] Data buffer initialized for automated retraining")
 
-                # Initialize auto-retrainer with callback to reload model
+                # Initialize drift monitor for automatic retraining detection
+                self.drift_monitor = DriftMonitor(
+                    window_size=1000,
+                    save_path='./data_buffer/drift_metrics.json'
+                )
+                print(f"[OK] Drift monitor initialized")
+
+                # Initialize correlation detector for cascading failure detection
+                self.correlation_detector = CorrelationDetector(
+                    window_size=100,
+                    correlation_threshold=0.7,
+                    cascade_server_threshold=3,
+                    anomaly_z_threshold=2.0
+                )
+                print(f"[OK] Correlation detector initialized for cascading failure detection")
+
+                # Initialize auto-retrainer with callback to reload model AND drift monitor
                 self.auto_retrainer = AutoRetrainer(
                     data_buffer=self.data_buffer,
                     reload_callback=self.reload_model,
                     training_days=30,
-                    min_records_threshold=100000
+                    min_records_threshold=100000,
+                    drift_monitor=self.drift_monitor,
+                    auto_retrain_on_drift=True
                 )
-                print(f"[OK] Auto-retrainer initialized")
+                print(f"[OK] Auto-retrainer initialized with drift-triggered retraining")
+
+                # Track last drift check time
+                self.last_drift_check_tick = 0
+                self.drift_check_interval = 720  # Check drift every 720 ticks (~1 hour at 5s intervals)
 
             except ImportError as e:
                 print(f"[WARNING] Retraining components not found - disabled: {e}")
@@ -1386,6 +1403,19 @@ class CleanInferenceDaemon:
             except Exception as e:
                 print(f"[WARNING] Failed to buffer data for retraining: {e}")
 
+        # Update correlation detector for cascading failure detection
+        cascade_alert = None
+        if self.correlation_detector:
+            try:
+                cascade_result = self.correlation_detector.update(records)
+                if cascade_result.get('cascade_detected'):
+                    cascade_alert = cascade_result.get('alert')
+                    logger.warning(f"[CASCADE] Cascading failure detected!")
+                    logger.warning(f"[CASCADE] Affected servers: {cascade_result.get('servers_with_anomalies')}")
+                    logger.warning(f"[CASCADE] Correlation score: {cascade_result.get('correlation_score', 0):.2%}")
+            except Exception as e:
+                logger.error(f"[CASCADE] Correlation detection failed: {e}")
+
         # Track per-server counts for warmup status
         for record in records:
             server = record.get('server_name')
@@ -1400,7 +1430,20 @@ class CleanInferenceDaemon:
         # Auto-save check (every 100 ticks ≈ 8 minutes)
         self._autosave_check()
 
-        return {
+        # Periodic drift check and auto-retraining (every ~1 hour)
+        if self.auto_retrainer and hasattr(self, 'drift_check_interval'):
+            if self.tick_count - self.last_drift_check_tick >= self.drift_check_interval:
+                self.last_drift_check_tick = self.tick_count
+                try:
+                    drift_result = self.auto_retrainer.check_drift_and_retrain()
+                    if drift_result.get('drift_detected'):
+                        logger.warning(f"[DRIFT] Drift detected - Combined score: {drift_result.get('metrics', {}).get('combined_score', 0):.2%}")
+                        if drift_result.get('training_triggered'):
+                            logger.warning(f"[DRIFT] Training triggered: {drift_result.get('training_job_id')}")
+                except Exception as e:
+                    logger.error(f"[DRIFT] Drift check failed: {e}")
+
+        response = {
             "status": "accepted",
             "tick": self.tick_count,
             "window_size": len(self.rolling_window),
@@ -1408,6 +1451,12 @@ class CleanInferenceDaemon:
             "servers_ready": servers_ready,
             "warmup_complete": is_warmed_up
         }
+
+        # Include cascade alert if detected
+        if cascade_alert:
+            response["cascade_alert"] = cascade_alert
+
+        return response
 
     def _calculate_server_risk_score(self, server_pred: Dict) -> float:
         """
@@ -2519,6 +2568,85 @@ async def cancel_training(
         }
 
     return daemon.auto_retrainer.cancel_current_job()
+
+# =============================================================================
+# CASCADE & DRIFT DETECTION ENDPOINTS
+# =============================================================================
+
+@app.get("/cascade/status")
+async def get_cascade_status(
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get current cascading failure detection status.
+
+    Returns:
+        Cascade detection status including correlation scores and any active alerts
+    """
+    if not daemon.correlation_detector:
+        return {
+            'success': False,
+            'error': 'Correlation detector not enabled'
+        }
+
+    return daemon.correlation_detector.get_cascade_status()
+
+@app.get("/cascade/health")
+async def get_fleet_correlation_health(
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get fleet health score based on cross-server correlations.
+
+    Returns:
+        Fleet health metrics including correlation-based risk assessment
+    """
+    if not daemon.correlation_detector:
+        return {
+            'success': False,
+            'error': 'Correlation detector not enabled'
+        }
+
+    return daemon.correlation_detector.get_fleet_health_score()
+
+@app.get("/drift/status")
+async def get_drift_status(
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get current model drift detection status.
+
+    Returns:
+        Drift metrics and retraining recommendations
+    """
+    if not daemon.drift_monitor:
+        return {
+            'success': False,
+            'error': 'Drift monitor not enabled'
+        }
+
+    return daemon.drift_monitor.get_drift_status()
+
+@app.get("/drift/report")
+async def get_drift_report(
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get human-readable drift detection report.
+
+    Returns:
+        Formatted drift report with metrics and recommendations
+    """
+    if not daemon.drift_monitor:
+        return {
+            'success': False,
+            'error': 'Drift monitor not enabled'
+        }
+
+    return {
+        'success': True,
+        'report': daemon.drift_monitor.generate_report()
+    }
 
 # =============================================================================
 # HISTORICAL DATA ENDPOINTS - For Executive Reporting

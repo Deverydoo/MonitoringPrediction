@@ -537,5 +537,3 @@ curl -H "X-API-Key: $API_KEY" http://localhost:8000/admin/training-status
 ```
 
 ---
-
-Built by Craig Giannelli and Claude Code

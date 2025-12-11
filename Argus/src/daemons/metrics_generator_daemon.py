@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
 """
-Tachyon Argus - Metrics Generator Daemon
-Predictive Infrastructure Monitoring
-
-Built by Craig Giannelli and Claude Code
-
-This software is licensed under the Business Source License 1.1.
-See LICENSE file for details.
-
 Metrics Generator Daemon - Stream Mode with REST API
 
 Runs as a service that:

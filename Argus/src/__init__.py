@@ -1,7 +1,5 @@
 """
-ArgusAI - Predictive Infrastructure Monitoring
-
-Built by Craig Giannelli and Claude Code
+Tachyon Argus - Predictive Infrastructure Monitoring
 """
 
 import sys
@@ -12,5 +10,4 @@ SRC_DIR = Path(__file__).parent
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-__version__ = "1.1.0"
-__company__ = "ArgusAI, LLC"
+__version__ = "2.1.0"

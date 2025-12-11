@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """
-Alert Levels - ArgusAI Centralized Alert Level System
+Alert Levels - Centralized Alert Level System
 Single source of truth for risk scores, colors, labels, and emojis
-
-Version: 1.2.1
-Built by Craig Giannelli and Claude Code
 """
 
 from enum import Enum

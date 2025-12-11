@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2025-12-11
+
+### Streaming Training Improvements
+- Enhanced checkpoint support for training resume after interruption
+- Added overall progress percentage tracking (e.g., "75/180 chunks (41.7%)")
+- Added ETA estimation based on rolling average of chunk processing times
+- Improved epoch and training completion summaries with comprehensive statistics
+
+### Code Cleanup
+- Removed copyright headers from source files
+- Removed attribution footers from documentation
+
+---
+
 ## [1.1.0] - 2025-10-17
 
 ### 🎨 Tachyon Argus Branding Release

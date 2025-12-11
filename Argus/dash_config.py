@@ -57,7 +57,7 @@ BRAND_FAVICON_URL = None  # Add favicon URL if available
 APP_TITLE = "Tachyon Argus"
 APP_DESCRIPTION = "Predictive Infrastructure Monitoring"
 APP_VERSION = "2.0.0-dash"  # Version 2.0 = Dash migration
-APP_COPYRIGHT = "Built by Craig Giannelli and Claude Code"
+APP_COPYRIGHT = ""
 
 # =============================================================================
 # FEATURE FLAGS

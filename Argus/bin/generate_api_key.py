@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-API Key Generator and Manager for ArgusAI
-
-Built by Craig Giannelli and Claude Code
+API Key Generator and Manager
 
 This script generates a secure API key and stores it in a dedicated file
 (.nordiq_key) separate from other environment variables (.env).

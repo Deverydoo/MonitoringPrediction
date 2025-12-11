@@ -1,6 +1,5 @@
 #!/bin/bash
-# ArgusAI - Daemon Management Script (Linux/Mac)
-# Built by Craig Giannelli and Claude Code
+# Tachyon Argus - Daemon Management Script (Linux/Mac)
 #
 # Usage:
 #   ./daemon.sh start [inference|metrics|dashboard|all]

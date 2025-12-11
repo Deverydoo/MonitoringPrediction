@@ -1,10 +1,8 @@
 @echo off
-REM ArgusAI - Dash Production Startup Script
-REM Built by Craig Giannelli and Claude Code
-REM Predictive System Monitoring
+REM Tachyon Argus - Dash Production Startup Script
 
 echo ============================================
-echo ArgusAI Dash Dashboard - Starting...
+echo Tachyon Argus Dashboard - Starting...
 echo ============================================
 
 cd /d "%~dp0"

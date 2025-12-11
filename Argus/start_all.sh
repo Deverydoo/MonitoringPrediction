@@ -1,7 +1,5 @@
 #!/bin/bash
-# ArgusAI - Production Startup Script
-# Built by Craig Giannelli and Claude Code
-# Predictive System Monitoring
+# Tachyon Argus - Production Startup Script
 #
 # PRODUCTION MODE: Runs all services as background daemons
 # - No conda activation (assumes correct environment is active)

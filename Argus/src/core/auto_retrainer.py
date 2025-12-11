@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
 """
-ArgusAI - Automated Retraining System
-Predictive System Monitoring
-
-Built by Craig Giannelli and Claude Code
-
-This software is licensed under the Business Source License 1.1.
-See LICENSE file for details.
-
 Automated Retraining System - Background Model Training
 
 Handles automated model retraining triggered by:
@@ -83,6 +75,7 @@ class AutoRetrainer:
     Automated retraining system with background job execution.
 
     Manages training jobs, tracks progress, and handles model reload.
+    Supports drift-triggered automatic retraining.
     """
 
     def __init__(
@@ -90,7 +83,9 @@ class AutoRetrainer:
         data_buffer,
         reload_callback: Optional[Callable[[str], Dict]] = None,
         training_days: int = 30,
-        min_records_threshold: int = 100000
+        min_records_threshold: int = 100000,
+        drift_monitor=None,
+        auto_retrain_on_drift: bool = True
     ):
         """
         Initialize auto-retrainer.
@@ -100,11 +95,15 @@ class AutoRetrainer:
             reload_callback: Callback function to reload model after training
             training_days: How many days of data to use for training
             min_records_threshold: Minimum records needed to trigger retraining
+            drift_monitor: Optional DriftMonitor instance for drift-triggered retraining
+            auto_retrain_on_drift: If True, automatically trigger training when drift detected
         """
         self.data_buffer = data_buffer
         self.reload_callback = reload_callback
         self.training_days = training_days
         self.min_records_threshold = min_records_threshold
+        self.drift_monitor = drift_monitor
+        self.auto_retrain_on_drift = auto_retrain_on_drift
 
         # Job tracking
         self.current_job: Optional[TrainingJob] = None
@@ -117,7 +116,14 @@ class AutoRetrainer:
         self.failed_trainings = 0
         self.last_training_time: Optional[datetime] = None
 
+        # Drift-triggered retraining tracking
+        self.drift_triggered_trainings = 0
+        self.last_drift_check: Optional[datetime] = None
+        self.min_hours_between_drift_retraining = 24  # Don't retrain more than once per day due to drift
+
         logger.info("🤖 AutoRetrainer initialized")
+        if drift_monitor:
+            logger.info("🔗 Drift monitor connected - automatic retraining enabled")
 
     def can_train(self) -> tuple[bool, str]:
         """
@@ -140,6 +146,128 @@ class AutoRetrainer:
             return False, f"Not enough days: {stats['file_count']} < {self.training_days} days"
 
         return True, "Ready to train"
+
+    def check_drift_and_retrain(self) -> Dict:
+        """
+        Check drift monitor and trigger retraining if drift detected.
+
+        This method should be called periodically (e.g., every hour) to
+        automatically detect model drift and trigger retraining.
+
+        Returns:
+            Dict with drift status and any triggered training info
+        """
+        if not self.drift_monitor:
+            return {
+                'drift_check': False,
+                'reason': 'No drift monitor configured'
+            }
+
+        if not self.auto_retrain_on_drift:
+            return {
+                'drift_check': False,
+                'reason': 'Auto-retrain on drift disabled'
+            }
+
+        # Check cooldown period
+        if self.last_drift_check:
+            hours_since_check = (datetime.now() - self.last_drift_check).total_seconds() / 3600
+            if hours_since_check < 1:  # Don't check more than once per hour
+                return {
+                    'drift_check': False,
+                    'reason': f'Drift check cooldown ({hours_since_check:.1f}h < 1h)'
+                }
+
+        self.last_drift_check = datetime.now()
+
+        # Get drift metrics
+        try:
+            drift_metrics = self.drift_monitor.calculate_drift_metrics()
+        except Exception as e:
+            logger.error(f"Failed to calculate drift metrics: {e}")
+            return {
+                'drift_check': True,
+                'drift_detected': False,
+                'error': str(e)
+            }
+
+        # Check if drift warrants retraining
+        needs_retraining = drift_metrics.get('needs_retraining', False)
+
+        if not needs_retraining:
+            return {
+                'drift_check': True,
+                'drift_detected': False,
+                'metrics': {
+                    'per': drift_metrics.get('per', 0),
+                    'dss': drift_metrics.get('dss', 0),
+                    'fds': drift_metrics.get('fds', 0),
+                    'combined_score': drift_metrics.get('combined_score', 0)
+                },
+                'message': 'Model performance within acceptable range'
+            }
+
+        # Check if we're in cooldown from last drift-triggered training
+        if self.last_training_time:
+            hours_since_training = (datetime.now() - self.last_training_time).total_seconds() / 3600
+            if hours_since_training < self.min_hours_between_drift_retraining:
+                return {
+                    'drift_check': True,
+                    'drift_detected': True,
+                    'training_triggered': False,
+                    'reason': f'Training cooldown ({hours_since_training:.1f}h < {self.min_hours_between_drift_retraining}h)',
+                    'metrics': drift_metrics
+                }
+
+        # Trigger retraining
+        logger.warning(f"🔴 DRIFT DETECTED - Triggering automatic retraining")
+        logger.warning(f"   PER: {drift_metrics.get('per', 0):.2%}")
+        logger.warning(f"   DSS: {drift_metrics.get('dss', 0):.2%}")
+        logger.warning(f"   FDS: {drift_metrics.get('fds', 0):.2%}")
+        logger.warning(f"   Combined: {drift_metrics.get('combined_score', 0):.2%}")
+
+        # Trigger training with modest epochs for drift correction
+        training_result = self.trigger_training(
+            epochs=5,  # Quick retraining for drift correction
+            incremental=True,  # Build on existing model
+            blocking=False  # Non-blocking
+        )
+
+        if training_result.get('success'):
+            self.drift_triggered_trainings += 1
+            logger.info(f"✅ Drift-triggered training started: {training_result.get('job_id')}")
+
+        return {
+            'drift_check': True,
+            'drift_detected': True,
+            'training_triggered': training_result.get('success', False),
+            'training_job_id': training_result.get('job_id'),
+            'metrics': {
+                'per': drift_metrics.get('per', 0),
+                'dss': drift_metrics.get('dss', 0),
+                'fds': drift_metrics.get('fds', 0),
+                'combined_score': drift_metrics.get('combined_score', 0)
+            }
+        }
+
+    def update_drift_monitor(
+        self,
+        predictions: Dict[str, float],
+        actuals: Optional[Dict[str, float]] = None,
+        features: Optional[Dict[str, float]] = None
+    ):
+        """
+        Update drift monitor with new prediction data.
+
+        Call this after each prediction to feed the drift monitor.
+
+        Args:
+            predictions: Model predictions
+            actuals: Actual observed values (if available)
+            features: Current feature values
+        """
+        if self.drift_monitor:
+            self.drift_monitor.update(predictions, actuals, features)
 
     def trigger_training(
         self,

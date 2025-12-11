@@ -295,7 +295,3 @@ crontab -e  # Add weekly_retrain.sh
 ```
 
 **Production-ready in 5 commands. Zero ongoing maintenance.**
-
----
-
-Built by Craig Giannelli and Claude Code

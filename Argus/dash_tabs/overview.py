@@ -3,6 +3,7 @@ Overview Tab - Main dashboard view with KPIs, alerts, and risk distribution
 ============================================================================
 
 Provides high-level fleet health overview with:
+- Fleet health score and cascade risk (from cascade detection)
 - Environment status and incident probabilities
 - Fleet risk distribution charts (bar + pie)
 - Active alerts summary
@@ -12,16 +13,17 @@ from dash import html, dcc
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import pandas as pd
-from typing import Dict
+from typing import Dict, Optional
 
 
-def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
+def render(predictions: Dict, risk_scores: Dict[str, float], cascade_health: Optional[Dict] = None) -> html.Div:
     """
     Render Overview tab.
 
     Args:
         predictions: Full predictions dict from daemon
         risk_scores: PRE-CALCULATED risk scores from daemon (optimization!)
+        cascade_health: Optional fleet health from cascade detection
 
     Returns:
         html.Div: Tab content
@@ -30,6 +32,56 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
     server_preds = predictions.get('predictions', {})
 
     # Risk scores already calculated in callback - no need to recalculate!
+
+    # Fleet Health Banner (if cascade data available)
+    fleet_health_banner = None
+    if cascade_health:
+        health_score = cascade_health.get('health_score', 0)
+        health_status = cascade_health.get('status', 'unknown')
+        cascade_risk = cascade_health.get('cascade_risk', 'unknown')
+        correlation = cascade_health.get('correlation_score', 0)
+
+        # Determine banner color and icon based on status
+        status_config = {
+            'healthy': {'color': 'success', 'icon': '✅', 'text': 'Fleet Healthy'},
+            'degraded': {'color': 'warning', 'icon': '⚠️', 'text': 'Fleet Degraded'},
+            'warning': {'color': 'warning', 'icon': '⚠️', 'text': 'Fleet Warning'},
+            'critical': {'color': 'danger', 'icon': '🔴', 'text': 'Fleet Critical'},
+        }
+        config = status_config.get(health_status, {'color': 'info', 'icon': 'ℹ️', 'text': 'Fleet Status Unknown'})
+
+        fleet_health_banner = dbc.Alert([
+            dbc.Row([
+                dbc.Col([
+                    html.H4([
+                        html.Span(config['icon'], className="me-2"),
+                        config['text']
+                    ], className="mb-0"),
+                ], width=4),
+                dbc.Col([
+                    html.Div([
+                        html.Strong("Health Score: "),
+                        html.Span(f"{health_score:.1f}", className="fs-4"),
+                        html.Span("/100", className="text-muted")
+                    ])
+                ], width=3),
+                dbc.Col([
+                    html.Div([
+                        html.Strong("Cascade Risk: "),
+                        dbc.Badge(
+                            cascade_risk.upper(),
+                            color="danger" if cascade_risk == 'high' else "warning" if cascade_risk == 'medium' else "success"
+                        )
+                    ])
+                ], width=3),
+                dbc.Col([
+                    html.Div([
+                        html.Strong("Correlation: "),
+                        html.Span(f"{correlation:.1%}")
+                    ])
+                ], width=2),
+            ], className="align-items-center")
+        ], color=config['color'], className="mb-4")
 
     # KPI cards
     kpis = dbc.Row([
@@ -123,4 +175,10 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
         color="warning" if alert_count > 0 else "success"
     )
 
-    return html.Div([kpis, charts, alerts_info])
+    # Build content list
+    content = []
+    if fleet_health_banner:
+        content.append(fleet_health_banner)
+    content.extend([kpis, charts, alerts_info])
+
+    return html.Div(content)

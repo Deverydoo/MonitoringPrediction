@@ -65,7 +65,7 @@ MODEL_CONFIG = {
     # Use '32-true' for stability, or 'bf16-mixed' on A100/H100 GPUs (larger dynamic range)
     'precision': '32-true',              # Options: '32-true' (stable), 'bf16-mixed' (A100+ GPUs only)
     'accumulate_grad_batches': 1,        # Gradient accumulation (1 = disabled, 4 = effective batch_size × 4)
-    'multi_target': False,               # Set to True for multi-target prediction
+    'multi_target': True,                # Multi-target prediction for all key metrics
 
     # Data loader settings (CRITICAL for performance)
     'num_workers': 4,                    # PRODUCTION: 4-8, LOW CPU: 0-2

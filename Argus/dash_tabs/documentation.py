@@ -3,10 +3,12 @@ Documentation Tab - Complete user guide for the Dash Dashboard
 ===============================================================
 
 Comprehensive documentation covering:
-- Overview and features
+- Overview and features (v2.1 with cascade detection and drift monitoring)
 - Understanding risk scores
 - Alert priority levels
 - Contextual intelligence philosophy
+- Cascading failure detection
+- Model drift monitoring
 - Server profiles
 - How to interpret alerts
 - Best practices
@@ -37,8 +39,12 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
         html.H4("📚 Dashboard Documentation", className="mb-3"),
         dbc.Alert([
             html.Strong("Complete Guide: "),
-            "Understanding and using the ArgusAI Monitoring Dashboard"
-        ], color="info")
+            "Understanding and using the Tachyon Argus Monitoring Dashboard (v2.1)"
+        ], color="info"),
+        dbc.Alert([
+            html.Strong("New in v2.1: "),
+            "Cascading failure detection, model drift monitoring, multi-target predictions, and continuous learning!"
+        ], color="success")
     ])
 
     # Create comprehensive documentation in Bootstrap accordions
@@ -49,18 +55,23 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
             html.H5("Key Capabilities:", className="mb-3"),
             html.Ul([
                 html.Li([html.Strong("Real-time Monitoring: "), "Live metrics from 20+ servers across 7 profiles"]),
-                html.Li([html.Strong("30-Minute Predictions: "), "AI forecasts CPU, Memory, Latency with 85-90% accuracy"]),
+                html.Li([html.Strong("Multi-Target Predictions: "), "AI forecasts CPU, Memory, Swap, I/O Wait, and Load Average"]),
                 html.Li([html.Strong("8-Hour Horizon: "), "Extended forecasts for capacity planning"]),
+                html.Li([html.Strong("Cascading Failure Detection: "), "Fleet-wide correlation analysis to detect spreading issues"]),
+                html.Li([html.Strong("Model Drift Monitoring: "), "Automatic detection of model degradation with auto-retraining"]),
                 html.Li([html.Strong("Contextual Intelligence: "), "Risk scoring considers server profiles, trends, and multi-metric correlations"]),
                 html.Li([html.Strong("Graduated Alerts: "), "7 severity levels from Healthy to Imminent Failure"]),
-                html.Li([html.Strong("Early Warning: "), "15-60 minute advance notice before problems become critical"])
+                html.Li([html.Strong("Early Warning: "), "15-60 minute advance notice before problems become critical"]),
+                html.Li([html.Strong("Explainable AI: "), "SHAP values and attention weights explain every prediction"])
             ], className="mb-3"),
             html.H6("Technology Stack:", className="mb-2"),
             html.Ul([
                 html.Li("Model: PyTorch Forecasting Temporal Fusion Transformer (TFT)"),
                 html.Li("Architecture: Microservices with REST APIs"),
                 html.Li("Dashboard: Plotly Dash with real-time updates"),
-                html.Li("Training: Transfer learning with profile-specific fine-tuning")
+                html.Li("Training: Streaming training with checkpoints and hot model reload"),
+                html.Li("Cascade Detection: 18 fleet-level features for correlation analysis"),
+                html.Li("Drift Monitoring: 4 drift metrics (PER, DSS, FDS, Anomaly Rate)")
             ])
         ], title="🎯 Overview & Features"),
 
@@ -177,7 +188,126 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
             ])
         ], title="🧠 Contextual Intelligence"),
 
-        # Section 5: Server Profiles
+        # Section 5: Cascading Failure Detection
+        dbc.AccordionItem([
+            html.P([
+                html.Strong("Purpose: "),
+                "Detect when problems are spreading across multiple servers - a sign of infrastructure-wide issues."
+            ], className="mb-3"),
+            dbc.Alert([
+                html.H6("Why Cascade Detection Matters:", className="mb-2"),
+                html.P("Traditional monitoring treats each server independently. But real-world failures often cascade: "
+                       "a database slowdown causes web servers to queue up, which causes load balancers to timeout, "
+                       "which causes user-facing errors. By the time individual alerts fire, the cascade is in full swing.")
+            ], color="warning", className="mb-3"),
+            html.H6("Key Metrics:", className="mb-3"),
+            dbc.Row([
+                dbc.Col([
+                    html.H6("Fleet Health Score (0-100)", className="mb-2"),
+                    html.Ul([
+                        html.Li("80-100: Healthy - servers operating independently"),
+                        html.Li("60-79: Degraded - some correlation detected"),
+                        html.Li("40-59: Warning - significant cross-server correlation"),
+                        html.Li("0-39: Critical - active cascade in progress")
+                    ])
+                ], width=6),
+                dbc.Col([
+                    html.H6("Cascade Risk Levels", className="mb-2"),
+                    html.Ul([
+                        html.Li([dbc.Badge("LOW", color="success", className="me-2"), "Normal operations"]),
+                        html.Li([dbc.Badge("MEDIUM", color="warning", className="me-2"), "Monitor closely"]),
+                        html.Li([dbc.Badge("HIGH", color="danger", className="me-2"), "Immediate investigation"])
+                    ])
+                ], width=6)
+            ], className="mb-3"),
+            html.H6("Detection Mechanisms:", className="mb-2"),
+            html.Ul([
+                html.Li([html.Strong("Cross-Server Correlation: "), "Tracks how synchronized metric changes are across servers"]),
+                html.Li([html.Strong("Anomaly Rate: "), "Percentage of servers showing anomalous behavior simultaneously"]),
+                html.Li([html.Strong("18 Fleet-Level Features: "), "Aggregated metrics used to detect fleet-wide patterns"]),
+                html.Li([html.Strong("Cascade Event Timeline: "), "Historical view of detected cascade events"])
+            ]),
+            dbc.Alert([
+                html.Strong("Dashboard Tab: "),
+                "View the Cascade Detection tab for real-time fleet health, correlation gauges, and cascade event history."
+            ], color="info", className="mt-3")
+        ], title="🔗 Cascading Failure Detection"),
+
+        # Section 6: Model Drift Monitoring
+        dbc.AccordionItem([
+            html.P([
+                html.Strong("Purpose: "),
+                "Automatically detect when the ML model's accuracy degrades and trigger retraining."
+            ], className="mb-3"),
+            dbc.Alert([
+                html.H6("Why Drift Monitoring Matters:", className="mb-2"),
+                html.P("ML models trained on historical data can become stale as infrastructure evolves. "
+                       "New servers, workload changes, or seasonal patterns can cause 'concept drift' - "
+                       "where the model's predictions no longer match reality. Drift monitoring catches this automatically.")
+            ], color="warning", className="mb-3"),
+            html.H6("Four Drift Metrics:", className="mb-3"),
+            dbc.Table.from_dataframe(
+                pd.DataFrame({
+                    'Metric': ['PER', 'DSS', 'FDS', 'Anomaly Rate'],
+                    'Full Name': ['Prediction Error Rate', 'Distribution Shift Score', 'Feature Drift Score', 'Anomaly Rate'],
+                    'What It Measures': [
+                        'Rolling average of prediction errors',
+                        'How much input distributions changed from training',
+                        'Drift in individual features',
+                        'Percentage of anomalous predictions'
+                    ],
+                    'Threshold': ['10%', '20%', '15%', '5%']
+                }),
+                striped=True,
+                bordered=True,
+                hover=True
+            ),
+            html.H6("Auto-Retraining:", className="mb-3 mt-3"),
+            html.Ul([
+                html.Li([html.Strong("Drift Detection: "), "When any metric exceeds threshold, drift is flagged"]),
+                html.Li([html.Strong("Auto-Retrain Trigger: "), "System automatically initiates incremental retraining"]),
+                html.Li([html.Strong("24-Hour Cooldown: "), "Prevents over-retraining from transient spikes"]),
+                html.Li([html.Strong("Hot Model Reload: "), "New model loaded without daemon restart"])
+            ]),
+            dbc.Alert([
+                html.Strong("Dashboard Tab: "),
+                "View the Model Drift tab for drift metric gauges, feature-level analysis, and retraining status."
+            ], color="info", className="mt-3")
+        ], title="📉 Model Drift Monitoring"),
+
+        # Section 7: Multi-Target Predictions
+        dbc.AccordionItem([
+            html.P([
+                html.Strong("Purpose: "),
+                "Predict multiple system metrics simultaneously for comprehensive forecasting."
+            ], className="mb-3"),
+            html.H6("Predicted Metrics:", className="mb-2"),
+            dbc.Table.from_dataframe(
+                pd.DataFrame({
+                    'Metric': ['CPU User %', 'CPU I/O Wait %', 'Memory Utilization', 'Swap Utilization', 'System Load Average'],
+                    'Description': [
+                        'User-space CPU usage percentage',
+                        'Time spent waiting for I/O operations',
+                        'RAM utilization percentage',
+                        'Swap space usage (indicates memory pressure)',
+                        'System load average (1-minute)'
+                    ],
+                    'Warning Threshold': ['85%', '10%', '90%', '20%', '0.8 * cores']
+                }),
+                striped=True,
+                bordered=True,
+                hover=True
+            ),
+            html.H6("Benefits of Multi-Target:", className="mb-3 mt-3"),
+            html.Ul([
+                html.Li([html.Strong("Correlated Predictions: "), "Model learns relationships between metrics"]),
+                html.Li([html.Strong("Compound Risk Detection: "), "High CPU + High Memory + High I/O = higher risk than any single metric"]),
+                html.Li([html.Strong("Resource Planning: "), "Predict all resources simultaneously for capacity planning"]),
+                html.Li([html.Strong("Reduced False Positives: "), "Context from multiple metrics improves accuracy"])
+            ])
+        ], title="📈 Multi-Target Predictions"),
+
+        # Section 8: Server Profiles
         dbc.AccordionItem([
             html.P("The system automatically detects server profiles and applies profile-specific intelligence.", className="mb-3"),
             dbc.Table.from_dataframe(
@@ -205,7 +335,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
             ], color="info", className="mt-3")
         ], title="🖥️ Server Profiles"),
 
-        # Section 6: How to Interpret Alerts
+        # Section 9: How to Interpret Alerts
         dbc.AccordionItem([
             html.H6("Priority Triage Strategy:", className="mb-3"),
             html.Ol([
@@ -229,7 +359,7 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
             ], color="light")
         ], title="🔔 How to Interpret Alerts"),
 
-        # Section 7: Best Practices
+        # Section 10: Best Practices
         dbc.AccordionItem([
             dbc.Row([
                 dbc.Col([
@@ -242,7 +372,9 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
                         html.Li("✅ Use predictions to plan maintenance windows"),
                         html.Li("✅ Correlate with deployments - did we just push code?"),
                         html.Li("✅ Review Watch servers periodically (Risk 30-49)"),
-                        html.Li("✅ Trust profile-specific thresholds (DB at 100% mem = OK)")
+                        html.Li("✅ Trust profile-specific thresholds (DB at 100% mem = OK)"),
+                        html.Li("✅ Check Cascade Detection tab when multiple servers alert simultaneously"),
+                        html.Li("✅ Monitor Model Drift tab weekly for model health")
                     ])
                 ], width=6),
                 dbc.Col([
@@ -254,17 +386,19 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
                         html.Li("❌ Don't dismiss predictions as 'just guesses'"),
                         html.Li("❌ Don't create manual alerts that duplicate dashboard intelligence"),
                         html.Li("❌ Don't compare this to traditional monitoring - it's predictive"),
-                        html.Li("❌ Don't ignore improving trends - verify remediation worked")
+                        html.Li("❌ Don't ignore improving trends - verify remediation worked"),
+                        html.Li("❌ Don't ignore cascade alerts - they indicate fleet-wide issues"),
+                        html.Li("❌ Don't disable auto-retrain without understanding drift implications")
                     ])
                 ], width=6)
             ])
         ], title="✅ Best Practices"),
 
-        # Section 8: Quick Reference
+        # Section 11: Quick Reference
         dbc.AccordionItem([
             html.Pre("""
 ╔════════════════════════════════════════════════════════════════╗
-║         NORDIQ AI MONITORING - QUICK REFERENCE                 ║
+║         TACHYON ARGUS v2.1 - QUICK REFERENCE                   ║
 ╠════════════════════════════════════════════════════════════════╣
 ║ RISK SCORE FORMULA:                                           ║
 ║   Final Risk = (Current State × 70%) + (Predictions × 30%)   ║
@@ -278,23 +412,34 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
 ║   👁️ Watch (30-49)           → Background monitoring         ║
 ║   ✅ Healthy (0-29)          → No alerts                      ║
 ║                                                                ║
-║ DELTA INTERPRETATION:                                         ║
-║   Positive (+) → Metrics increasing (degrading)               ║
-║   Negative (-) → Metrics decreasing (improving)               ║
+║ CASCADE DETECTION:                                            ║
+║   Fleet Health 80+ = Healthy    Cascade Risk LOW = Normal    ║
+║   Fleet Health 60-79 = Degraded Cascade Risk MEDIUM = Watch  ║
+║   Fleet Health <60 = Critical   Cascade Risk HIGH = Action   ║
+║                                                                ║
+║ DRIFT MONITORING:                                             ║
+║   PER > 10%         → Model accuracy degraded                ║
+║   DSS > 20%         → Input distribution shifted             ║
+║   FDS > 15%         → Feature drift detected                 ║
+║   Anomaly Rate > 5% → Too many anomalous predictions         ║
+║   → Auto-retrain triggers with 24h cooldown                  ║
+║                                                                ║
+║ MULTI-TARGET PREDICTIONS:                                     ║
+║   CPU User, I/O Wait, Memory, Swap, Load Average             ║
 ║                                                                ║
 ║ PROFILE-SPECIFIC THRESHOLDS:                                 ║
 ║   Database: 100% memory = NORMAL (page cache)                ║
 ║   ML Compute: 98% memory = CRITICAL (OOM risk)               ║
 ║   Web API: Latency > 200ms = SEVERE (user impact)           ║
 ║                                                                ║
-║ RESPONSE PRIORITY:                                            ║
-║   1. Imminent Failure → Drop everything                       ║
-║   2. Critical → Immediate action                              ║
-║   3. Danger → Urgent response                                 ║
-║   4. Warning → Monitor closely                                ║
-║   5. Degrading → Investigate soon                             ║
+║ DASHBOARD TABS:                                               ║
+║   Overview → Fleet health, KPIs, risk distribution           ║
+║   Cascade Detection → Fleet correlation, cascade events      ║
+║   Model Drift → Drift metrics, auto-retrain status           ║
+║   Top Risks → Highest risk servers with details              ║
+║   Heatmap → Visual grid of server health                     ║
 ╚════════════════════════════════════════════════════════════════╝
-            """, className="bg-light p-3 rounded", style={'fontSize': '12px'})
+            """, className="bg-light p-3 rounded", style={'fontSize': '11px'})
         ], title="🚀 Quick Reference Card"),
 
     ], start_collapsed=False, always_open=False)
@@ -303,8 +448,10 @@ def render(predictions: Dict, risk_scores: Dict[str, float]) -> html.Div:
     footer = dbc.Alert([
         html.Strong("📚 Documentation Complete!"),
         html.Br(), html.Br(),
-        "This guide covers the core concepts and operational procedures for the ArgusAI Monitoring Dashboard. ",
-        "For system diagnostics, see the Advanced tab. For future enhancements, see the Roadmap tab."
+        "This guide covers the core concepts and operational procedures for the Tachyon Argus Monitoring Dashboard v2.1. ",
+        "Key features include cascading failure detection, model drift monitoring, multi-target predictions, and continuous learning. ",
+        html.Br(), html.Br(),
+        "For future enhancements, see the Roadmap tab. For technical documentation, see the Docs/ folder."
     ], color="success", className="mt-4")
 
     return html.Div([

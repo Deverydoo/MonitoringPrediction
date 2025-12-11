@@ -20,7 +20,9 @@
       "Bash(move:*)",
       "Bash(powershell -Command:*)",
       "Bash(git reset:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(ls -la \"d:\\Vibe_Projects\\MonitoringPrediction\\Argus\"\" | grep -E \"^d \")",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

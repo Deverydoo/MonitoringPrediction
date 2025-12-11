@@ -1,8 +1,6 @@
-# ArgusAI - Predictive Infrastructure Monitoring
+# Tachyon Argus - Predictive Infrastructure Monitoring
 
 **Predictive System Monitoring**
-
-Built by Craig Giannelli and Claude Code
 
 **License**: [Business Source License 1.1](LICENSE) - Free for development/testing, commercial license required for production use. Converts to Apache 2.0 on 2029-01-01.
 
@@ -286,11 +284,7 @@ WantedBy=multi-user.target
 
 ## 📄 License
 
-Business Source License 1.1
-
-Built by Craig Giannelli and Claude Code
-
-See LICENSE file for details.
+Business Source License 1.1 - See LICENSE file for details.
 
 ---
 

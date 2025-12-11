@@ -1,7 +1,5 @@
 @echo off
-REM ArgusAI - Windows Startup Script
-REM Built by Craig Giannelli and Claude Code
-REM Predictive System Monitoring
+REM Tachyon Argus - Windows Startup Script
 
 REM ============================================
 REM CONFIGURATION - Adjust these as needed
@@ -11,7 +9,7 @@ set CONDA_ENV=py310
 REM ============================================
 
 echo ============================================
-echo ArgusAI - Starting...
+echo Tachyon Argus - Starting...
 echo ============================================
 
 cd /d "%~dp0"

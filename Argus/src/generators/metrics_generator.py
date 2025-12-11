@@ -3,8 +3,6 @@
 Enhanced Server Metrics Generator - Production Level (OPTIMIZED)
 Generates realistic time-based multi-server telemetry for TFT training
 
-Built by Craig Giannelli and Claude Code
-
 Features:
 - Fleet-wide 5-second polling simulation
 - Realistic server profiles and operational states

@@ -1,7 +1,5 @@
 #!/bin/bash
-# ArgusAI - Status Check Script
-# Built by Craig Giannelli and Claude Code
-# Predictive System Monitoring
+# Tachyon Argus - Status Check Script
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_DIR="$SCRIPT_DIR/logs/pids"
@@ -13,7 +11,7 @@ METRICS_PORT=8001
 DASHBOARD_PORT=8050
 
 echo "============================================"
-echo "ArgusAI - Service Status"
+echo "Tachyon Argus - Service Status"
 echo "============================================"
 echo
 

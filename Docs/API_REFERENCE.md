@@ -516,6 +516,120 @@ Cancel running training job.
 
 ---
 
+## Cascade & Drift Detection
+
+### GET /cascade/status
+
+Get current cascading failure detection status.
+
+**Response:**
+```json
+{
+  "current_status": {
+    "cascade_detected": false,
+    "timestamp": "2025-01-15T10:05:00",
+    "total_servers": 45,
+    "servers_with_anomalies": 3,
+    "anomaly_rate": 0.067,
+    "correlation_score": 0.42,
+    "cascades": []
+  },
+  "tracking": {
+    "servers": 45,
+    "metrics_tracked": ["cpu_user_pct", "mem_used_pct", "cpu_iowait_pct", "load_average", "swap_used_pct"],
+    "window_size": 100
+  },
+  "recent_events": [],
+  "event_count": 0,
+  "thresholds": {
+    "correlation": 0.7,
+    "cascade_servers": 3,
+    "anomaly_z_score": 2.0
+  }
+}
+```
+
+### GET /cascade/health
+
+Get fleet health score based on cross-server correlations.
+
+**Response:**
+```json
+{
+  "health_score": 85.2,
+  "status": "healthy",
+  "correlation_score": 0.25,
+  "anomaly_rate": 0.04,
+  "anomalous_servers": 2,
+  "total_servers": 45,
+  "cascade_risk": "low"
+}
+```
+
+**Health Status Levels:**
+| Status | Health Score | Description |
+|--------|--------------|-------------|
+| healthy | 80-100 | Normal operation |
+| degraded | 60-79 | Minor issues detected |
+| warning | 40-59 | Significant problems |
+| critical | 0-39 | Cascading failure likely |
+
+### GET /drift/status
+
+Get current model drift detection status.
+
+**Response:**
+```json
+{
+  "current_metrics": {
+    "per": 0.05,
+    "dss": 0.12,
+    "fds": 0.08,
+    "anomaly_rate": 0.02,
+    "combined_score": 0.07,
+    "needs_retraining": false,
+    "timestamp": "2025-01-15T10:05:00"
+  },
+  "trends": {
+    "per": "decreasing",
+    "dss": "stable",
+    "fds": "increasing",
+    "anomaly_rate": "stable"
+  },
+  "window_size": 1000,
+  "data_points_tracked": 5000,
+  "recommendation": "OK",
+  "thresholds": {
+    "per_threshold": 0.10,
+    "dss_threshold": 0.20,
+    "fds_threshold": 0.15,
+    "anomaly_threshold": 0.05
+  }
+}
+```
+
+**Drift Metrics:**
+| Metric | Description | Threshold |
+|--------|-------------|-----------|
+| PER | Prediction Error Rate | 10% |
+| DSS | Distribution Shift Score | 20% |
+| FDS | Feature Drift Score | 15% |
+| Anomaly Rate | Unusual prediction patterns | 5% |
+
+### GET /drift/report
+
+Get human-readable drift detection report.
+
+**Response:**
+```json
+{
+  "success": true,
+  "report": "============================================================\nDRIFT DETECTION REPORT\n..."
+}
+```
+
+---
+
 ## Error Responses
 
 ### 401 Unauthorized

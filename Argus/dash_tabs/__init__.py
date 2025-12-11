@@ -13,6 +13,8 @@ __all__ = [
     'cost_avoidance',
     'auto_remediation',
     'alerting',
+    'cascade_detection',
+    'drift_monitoring',
     'documentation',
     'roadmap',
 ]

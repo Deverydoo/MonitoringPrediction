@@ -8,9 +8,6 @@ High-performance dashboard built with Plotly Dash.
 Performance: ~78ms render time
 Architecture: Callback-based (only active tab renders)
 Scalability: Supports unlimited concurrent users
-
-Built by Craig Giannelli and Claude Code
-Predictive Infrastructure Monitoring
 """
 
 import dash
@@ -24,7 +21,6 @@ from dash_config import (
     APP_TITLE,
     APP_VERSION,
     APP_DESCRIPTION,
-    APP_COPYRIGHT,
     BRAND_COLOR_PRIMARY,
     CUSTOM_CSS,
     REFRESH_INTERVAL_DEFAULT,
@@ -34,7 +30,11 @@ from dash_config import (
 )
 
 # Import utilities
-from dash_utils.api_client import fetch_predictions, check_daemon_health
+from dash_utils.api_client import (
+    fetch_predictions, check_daemon_health,
+    fetch_cascade_status, fetch_cascade_health,
+    fetch_drift_status, fetch_drift_report
+)
 from dash_utils.data_processing import extract_risk_scores
 from dash_utils.performance import PerformanceTimer, format_performance_badge, log_performance
 
@@ -216,6 +216,8 @@ app.layout = dbc.Container([
             dbc.Tab(label='🔥 Heatmap', tab_id='heatmap'),
             dbc.Tab(label='🧠 Insights (XAI)', tab_id='insights'),
             dbc.Tab(label='⚠️ Top 5 Risks', tab_id='risks'),
+            dbc.Tab(label='🔗 Cascade Detection', tab_id='cascade'),
+            dbc.Tab(label='📉 Model Drift', tab_id='drift'),
             dbc.Tab(label='📈 Historical', tab_id='historical'),
             dbc.Tab(label='💰 Cost Avoidance', tab_id='cost'),
             dbc.Tab(label='🤖 Auto-Remediation', tab_id='remediation'),
@@ -231,8 +233,7 @@ app.layout = dbc.Container([
     # Footer
     html.Hr(),
     html.P([
-        f"🧭 {APP_TITLE} - {APP_DESCRIPTION} | ",
-        f"{APP_COPYRIGHT} | Built with Dash"
+        f"🧭 {APP_TITLE} - {APP_DESCRIPTION} | Built with Dash"
     ], className="text-center text-muted small")
 
 ], fluid=True, className="p-4")
@@ -553,13 +554,27 @@ def render_tab(active_tab, predictions, start_time, history):
     # Import tabs dynamically (lazy loading)
     if active_tab == "overview":
         from dash_tabs import overview
-        content = overview.render(predictions, risk_scores)
+        # Fetch cascade health for the overview banner
+        cascade_health = fetch_cascade_health()
+        content = overview.render(predictions, risk_scores, cascade_health)
     elif active_tab == "heatmap":
         from dash_tabs import heatmap
         content = heatmap.render(predictions, risk_scores)
     elif active_tab == "risks":
         from dash_tabs import top_risks
         content = top_risks.render(predictions, risk_scores, server_preds)
+    elif active_tab == "cascade":
+        from dash_tabs import cascade_detection
+        # Fetch cascade data from daemon
+        cascade_status = fetch_cascade_status()
+        cascade_health = fetch_cascade_health()
+        content = cascade_detection.render(cascade_status, cascade_health)
+    elif active_tab == "drift":
+        from dash_tabs import drift_monitoring
+        # Fetch drift data from daemon
+        drift_status = fetch_drift_status()
+        drift_report = fetch_drift_report()
+        content = drift_monitoring.render(drift_status, drift_report)
     elif active_tab == "historical":
         from dash_tabs import historical
         import requests

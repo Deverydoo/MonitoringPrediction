@@ -1,6 +1,5 @@
 @echo off
-REM ArgusAI - Daemon Management Script (Windows)
-REM Built by Craig Giannelli and Claude Code
+REM Tachyon Argus - Daemon Management Script (Windows)
 REM
 REM Usage:
 REM   daemon.bat start [inference|metrics|dashboard|all]

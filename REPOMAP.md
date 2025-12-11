@@ -1,6 +1,6 @@
 # Tachyon Argus Repository Map
 
-**Version 2.0.0** | Built by Craig Giannelli and Claude Code
+**Version 2.1.0**
 
 > Complete folder structure and navigation guide for the Tachyon Argus predictive monitoring system.
 
@@ -15,7 +15,7 @@ Last Updated: December 11, 2025 | Repository Size: ~1.5 MB (compressed)
 | **Python Files** | ~60 active files |
 | **Documentation Files** | ~30 active docs |
 | **Repository Size** | ~1.5 MB (zipped) |
-| **Project Version** | 2.0.0 (Tachyon Argus) |
+| **Project Version** | 2.1.0 (Tachyon Argus) |
 | **License** | Business Source License 1.1 |
 
 ---
@@ -444,15 +444,7 @@ Business Source License 1.1 (BSL 1.1)
 - Free for non-production use
 - Free for internal production use
 - Commercial license required for SaaS
-- Converts to Apache 2.0 after 2 years
-
----
-
-## Credits
-
-**Built by:**
-- **Craig Giannelli** - System architect, product vision
-- **Claude Code** - AI-assisted development
+- Converts to Apache 2.0 after 4 years
 
 ---
 

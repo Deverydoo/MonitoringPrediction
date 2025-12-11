@@ -1,8 +1,6 @@
 """
-Path setup for NordIQ application.
+Path setup for application.
 This ensures all modules can find each other regardless of where they're run from.
-
-Built by Craig Giannelli and Claude Code
 """
 
 import sys
