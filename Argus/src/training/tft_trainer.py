@@ -496,8 +496,9 @@ class TFTTrainer:
         print(f"[INFO] Min series length: {min_length}")
 
         # Adjust parameters based on data availability
-        max_encoder_length = min(self.config['context_length'], min_length // 3)
-        max_prediction_length = min(self.config['prediction_horizon'], min_length // 10)
+        # Explicitly cast to int to avoid float issues on different platforms
+        max_encoder_length = int(min(self.config['context_length'], min_length // 3))
+        max_prediction_length = int(min(self.config['prediction_horizon'], min_length // 10))
 
         if max_encoder_length < 6 or max_prediction_length < 1:
             raise ValueError(f"Insufficient data: encoder_length={max_encoder_length}, pred_length={max_prediction_length}")
@@ -590,7 +591,7 @@ class TFTTrainer:
             group_ids=['server_id'],
             max_encoder_length=max_encoder_length,
             max_prediction_length=max_prediction_length,
-            min_encoder_length=max_encoder_length // 2,
+            min_encoder_length=int(max_encoder_length // 2),
             min_prediction_length=1,
             static_categoricals=static_categoricals,  # PROFILE: Enables transfer learning
             time_varying_unknown_reals=time_varying_unknown_reals,
