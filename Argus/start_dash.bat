@@ -1,20 +1,30 @@
 @echo off
 REM Tachyon Argus - Dash Production Startup Script
 
+REM ============================================
+REM CONFIGURATION - Adjust these as needed
+REM ============================================
+set CONDA_ENV=py310
+set INFERENCE_PORT=8000
+set METRICS_PORT=8001
+set DASHBOARD_PORT=8050
+
+REM ============================================
+
 echo ============================================
 echo Tachyon Argus Dashboard - Starting...
 echo ============================================
 
 cd /d "%~dp0"
 
-call conda activate py310 2>nul
+call conda activate %CONDA_ENV% 2>nul
 if errorlevel 1 (
-    echo [ERROR] Conda environment 'py310' not found
+    echo [ERROR] Conda environment '%CONDA_ENV%' not found
     pause
     exit /b 1
 )
 
-echo [OK] Conda environment: py310
+echo [OK] Conda environment: %CONDA_ENV%
 echo.
 
 echo [INFO] Checking API key...
@@ -53,13 +63,13 @@ echo Starting Backend Services...
 echo ============================================
 echo.
 
-echo [INFO] Starting Inference Daemon...
-start "TFT Inference Daemon" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\tft_inference_daemon.py"
+echo [INFO] Starting Inference Daemon (port %INFERENCE_PORT%)...
+start "TFT Inference Daemon" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\tft_inference_daemon.py --port %INFERENCE_PORT%"
 
 timeout /t 5 /nobreak >nul
 
-echo [INFO] Starting Metrics Generator...
-start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\metrics_generator_daemon.py --stream --servers 20"
+echo [INFO] Starting Metrics Generator (port %METRICS_PORT%)...
+start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\metrics_generator_daemon.py --stream --servers 20 --port %METRICS_PORT%"
 
 timeout /t 3 /nobreak >nul
 
@@ -69,8 +79,8 @@ echo Starting Dash Production Dashboard...
 echo ============================================
 echo.
 
-echo [INFO] Starting Dash app (Port 8050)...
-start "Dash Dashboard - PRODUCTION" cmd /k "cd /d "%~dp0" && conda activate py310 && set TFT_API_KEY=%TFT_API_KEY% && python dash_app.py"
+echo [INFO] Starting Dashboard (port %DASHBOARD_PORT%)...
+start "Argus Dashboard - PRODUCTION" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python dash_app.py --port %DASHBOARD_PORT%"
 
 echo.
 echo ============================================
@@ -78,11 +88,11 @@ echo Dash Dashboard Started!
 echo ============================================
 echo.
 echo Backend Services:
-echo   Inference Daemon:   http://localhost:8000
-echo   Metrics Generator:  Streaming (20 servers)
+echo   Inference Daemon:   http://localhost:%INFERENCE_PORT%
+echo   Metrics Generator:  http://localhost:%METRICS_PORT%
 echo.
 echo Dashboard:
-echo   Dash Dashboard:     http://localhost:8050
+echo   Dashboard:          http://localhost:%DASHBOARD_PORT%
 echo.
 echo ============================================
 echo Performance Expectations:
@@ -91,7 +101,7 @@ echo.
 echo   Target:    ^<500ms page loads
 echo   Expected:  ~78ms render time
 echo.
-echo   All 10 tabs available
+echo   All 10 tabs available at http://localhost:%DASHBOARD_PORT%
 echo.
 echo Press any key to exit (dashboard will keep running)...
 pause

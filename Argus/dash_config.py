@@ -9,11 +9,19 @@ import os
 from typing import Optional
 
 # =============================================================================
+# PORT CONFIGURATION (Single source of truth)
+# =============================================================================
+
+INFERENCE_PORT = int(os.getenv("INFERENCE_PORT", "8000"))
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8001"))
+DASHBOARD_PORT = int(os.getenv("DASHBOARD_PORT", "8050"))
+
+# =============================================================================
 # DAEMON CONFIGURATION
 # =============================================================================
 
-DAEMON_URL = os.getenv("DAEMON_URL", "http://localhost:8000")
-METRICS_GENERATOR_URL = os.getenv("METRICS_GENERATOR_URL", "http://localhost:8001")
+DAEMON_URL = os.getenv("DAEMON_URL", f"http://localhost:{INFERENCE_PORT}")
+METRICS_GENERATOR_URL = os.getenv("METRICS_GENERATOR_URL", f"http://localhost:{METRICS_PORT}")
 
 # API Key for daemon authentication (X-API-Key header)
 DAEMON_API_KEY = os.getenv("TFT_API_KEY", "")
@@ -201,9 +209,13 @@ CUSTOM_CSS = f"""
 # =============================================================================
 
 __all__ = [
+    'INFERENCE_PORT',
+    'METRICS_PORT',
+    'DASHBOARD_PORT',
     'DAEMON_URL',
+    'METRICS_GENERATOR_URL',
     'DAEMON_API_KEY',
-    'REFRESH_INTERVAL',
+    'REFRESH_INTERVAL_DEFAULT',
     'BRAND_NAME',
     'BRAND_COLOR_PRIMARY',
     'APP_TITLE',

@@ -5,6 +5,9 @@ REM ============================================
 REM CONFIGURATION - Adjust these as needed
 REM ============================================
 set CONDA_ENV=py310
+set INFERENCE_PORT=8000
+set METRICS_PORT=8001
+set DASHBOARD_PORT=8050
 
 REM ============================================
 
@@ -57,28 +60,28 @@ if not exist "models\" (
     echo Run: python src\training\main.py train
 )
 
-echo [INFO] Starting Inference Daemon...
-start "TFT Inference Daemon" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\tft_inference_daemon.py"
+echo [INFO] Starting Inference Daemon (port %INFERENCE_PORT%)...
+start "TFT Inference Daemon" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\tft_inference_daemon.py --port %INFERENCE_PORT%"
 
 timeout /t 5 /nobreak >nul
 
-echo [INFO] Starting Metrics Generator...
-start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\metrics_generator_daemon.py --stream --servers 20"
+echo [INFO] Starting Metrics Generator (port %METRICS_PORT%)...
+start "Metrics Generator" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python src\daemons\metrics_generator_daemon.py --stream --servers 20 --port %METRICS_PORT%"
 
 timeout /t 3 /nobreak >nul
 
-echo [INFO] Starting Dash Dashboard (Production)...
-start "NordIQ Dashboard - DASH" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python dash_app.py"
+echo [INFO] Starting Dashboard (port %DASHBOARD_PORT%)...
+start "Argus Dashboard" cmd /k "cd /d "%~dp0" && conda activate %CONDA_ENV% && set TFT_API_KEY=%TFT_API_KEY% && python dash_app.py --port %DASHBOARD_PORT%"
 
 echo.
 echo ============================================
 echo System Started!
 echo ============================================
 echo.
-echo Inference Daemon:   http://localhost:8000
-echo Metrics Generator:  Streaming
-echo Dashboard (Dash):   http://localhost:8050
+echo Inference Daemon:   http://localhost:%INFERENCE_PORT%
+echo Metrics Generator:  http://localhost:%METRICS_PORT%
+echo Dashboard:          http://localhost:%DASHBOARD_PORT%
 echo.
-echo All 10 tabs available at http://localhost:8050
+echo All 10 tabs available at http://localhost:%DASHBOARD_PORT%
 echo.
 pause

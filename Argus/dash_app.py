@@ -1018,6 +1018,15 @@ def export_environment_csv(n_clicks, time_range):
 # =============================================================================
 
 if __name__ == '__main__':
+    import argparse
+    from dash_config import DASHBOARD_PORT, INFERENCE_PORT, METRICS_PORT
+
+    parser = argparse.ArgumentParser(description='Tachyon Argus Dashboard')
+    parser.add_argument('--port', type=int, default=DASHBOARD_PORT, help=f'Dashboard port (default: {DASHBOARD_PORT})')
+    parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to bind to (default: 0.0.0.0)')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    args = parser.parse_args()
+
     print("=" * 60)
     print(f"{APP_TITLE}")
     print(f"Version: {APP_VERSION}")
@@ -1025,12 +1034,13 @@ if __name__ == '__main__':
     print()
     print("Starting Dash dashboard...")
     print()
-    print("Dashboard:          http://localhost:8050")
-    print("Daemon API:         http://localhost:8000")
+    print(f"Dashboard:          http://localhost:{args.port}")
+    print(f"Inference Daemon:   http://localhost:{INFERENCE_PORT}")
+    print(f"Metrics Generator:  http://localhost:{METRICS_PORT}")
     print()
     print("Performance Target: <500ms page loads")
     print("Expected:           ~78ms")
     print()
     print("=" * 60)
 
-    app.run(debug=True, port=8050, host='0.0.0.0')
+    app.run(debug=args.debug, port=args.port, host=args.host)
