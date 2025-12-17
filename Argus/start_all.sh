@@ -90,19 +90,15 @@ wait_for_port() {
     return 1
 }
 
-check_python() {
-    if ! command -v python >/dev/null 2>&1; then
-        echo "[ERROR] Python not found in PATH"
-        echo "        Activate your Python environment first:"
-        echo "        conda activate $CONDA_ENV"
+check_dependencies() {
+    # Check if dash is installed (implies correct Python environment)
+    if ! python -c "import dash" 2>/dev/null; then
+        echo "[ERROR] Dash not installed or Python environment not activated"
+        echo "        Install: pip install dash dash-bootstrap-components"
+        echo "        Or activate your environment: conda activate $CONDA_ENV"
         exit 1
     fi
-
-    # Check for required packages
-    if ! python -c "import torch, pytorch_forecasting, dash" 2>/dev/null; then
-        echo "[WARNING] Some required packages may be missing"
-        echo "          Ensure you're in the correct Python environment ($CONDA_ENV)"
-    fi
+    echo "[OK] Dash installed"
 }
 
 # ============================================
@@ -116,9 +112,8 @@ echo
 
 cd "$SCRIPT_DIR"
 
-# Check Python environment
-check_python
-echo "[OK] Python: $(python --version 2>&1)"
+# Check dependencies
+check_dependencies
 echo
 
 # Generate/check API key
